@@ -4,3 +4,4 @@ ifcc
 ifcc-test-output/
 test
 compiler/config.mk
+test.*
