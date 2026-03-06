@@ -9,6 +9,13 @@
 
 using namespace std;
 
+// Platform detection macros
+#ifdef __APPLE__
+    #define PLATFORM_ARM64
+#else
+    #define PLATFORM_X86_64
+#endif
+
 // Declarations from the parser -- replace with your own
 #include "type.h"
 #include "symbole.h"
