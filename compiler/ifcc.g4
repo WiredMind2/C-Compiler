@@ -4,7 +4,7 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((declaration | assignment | declaration_assignement ) ';') | function_definition | function_declaration ;
+statement : ((declaration | assignment | declaration_assignement | function_call ) ';') | function_definition | function_declaration ;
 
 return_stmt: RETURN expr ';' ;
 
