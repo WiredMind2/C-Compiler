@@ -25,9 +25,15 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/ifccParser.o \
 	build/main.o \
 	build/CodeGenVisitor.o \
+	build/CodeGenArithmetic.o \
+	build/CodeGenBitwise.o \
+	build/CodeGenComparison.o \
+	build/CodeGenMemory.o \
 	build/DeclarationVisitor.o \
 	build/SymbolTable.o \
-	build/IR.o
+	build/IR.o \
+	build/AsmGeneratorX86_64.o \
+	build/AsmGeneratorARM64.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build
@@ -36,6 +42,18 @@ ifcc: $(OBJECTS)
 ##########################################
 # compile our hand-writen C++ code: main(), CodeGenVisitor, etc.
 build/%.o: %.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $< 
+
+build/%.o: visitors/%.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $< 
+
+build/%.o: asm/x86_64/%.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $< 
+
+build/%.o: asm/arm64/%.cpp generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $< 
 

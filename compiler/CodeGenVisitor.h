@@ -42,6 +42,7 @@ public:
         virtual antlrcpp::Any visitDeclaration_assignement(ifccParser::Declaration_assignementContext *ctx) override;
 
         CFG* getCFG() { return cfg; }
+        SymbolTable* getSymbolTable() { return symbolTable; }
 
 private:
         CFG* cfg;
