@@ -9,9 +9,10 @@ AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
 
 void AsmGeneratorARM64::gen_asm(ostream& o) {
     gen_prologue(o);
-    // Get all basic blocks from CFG
-    // Since CFG stores bbs as a protected member, we need a different approach
-    // For now, we'll rely on the CFG to call gen_asm_bb for each block
+    // Generate assembly for all basic blocks
+    for (auto bb : cfg->getBBs()) {
+        gen_asm_bb(o, bb);
+    }
 }
 
 void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb) {

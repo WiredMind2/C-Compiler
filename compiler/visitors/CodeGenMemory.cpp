@@ -17,10 +17,15 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
 
 antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext *ctx)
 {
-    string var = ctx->VAR()->getText();
-    // Variable already declared in DeclarationVisitor, just get its offset
-    int offset = visitor->getSymbolTable()->getOffset("main", var);
-    return var;
+    // With the new grammar, VAR returns a vector of TerminalNodes
+    for (auto varNode : ctx->VAR()) {
+        string var = varNode->getText();
+        // Variable already declared in DeclarationVisitor, get its offset
+        int offset = visitor->getSymbolTable()->getOffset("main", var);
+        // Add to CFG's symbol table for code generation
+        visitor->getCFG()->add_to_symbol_table(var, INT);
+    }
+    return 0;
 }
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)

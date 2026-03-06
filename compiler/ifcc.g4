@@ -9,7 +9,7 @@ statement : (return_stmt | declaration | assignment | declaration_assignement) '
 return_stmt: RETURN expr ;
 
 declaration_assignement : 'int' VAR '=' expr ; 
-declaration : 'int' VAR ;
+declaration : 'int' (VAR (',' VAR)*)? ;
 assignment : VAR '=' expr ;
 
 expr : bitwiseOR ;

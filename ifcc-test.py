@@ -271,17 +271,17 @@ for jobname in jobs:
     os.chdir(jobname)
 
     ## Reference compiler = GCC
-    gccstatus=run_command("gcc -S -o asm-gcc.asm input.c", "gcc-compile.txt")
+    gccstatus=run_command("gcc -S -o asm-gcc.s input.c", "gcc-compile.txt")
     if gccstatus == 0:
         # test-case is a valid program. we should run it
-        gccstatus=run_command("gcc -o exe-gcc asm-gcc.asm", "gcc-link.txt")
+        gccstatus=run_command("gcc -o exe-gcc asm-gcc.s", "gcc-link.txt")
     if gccstatus == 0: # then both compile and link stage went well
         exegccstatus=run_command("./exe-gcc", "gcc-execute.txt")
         if args.verbose >=2:
             dumpfile("gcc-execute.txt")
 
     ## IFCC compiler
-    ifccstatus=run_command(f'{pld_base_dir}/compiler/ifcc input.c > asm-ifcc.asm', 'ifcc-compile.txt')
+    ifccstatus=run_command(f'{pld_base_dir}/compiler/ifcc input.c > asm-ifcc.s', 'ifcc-compile.txt')
 
     if gccstatus != 0 and ifccstatus != 0:
         ## ifcc correctly rejects invalid program -> test-case ok
@@ -297,17 +297,17 @@ for jobname in jobs:
         print("TEST FAIL (your compiler rejects a valid program)")
         all_ok=False
         if args.verbose:
-            dumpfile("asm-ifcc.asm")       # stdout of ifcc
+            dumpfile("asm-ifcc.s")       # stdout of ifcc
             dumpfile("ifcc-compile.txt") # stderr of ifcc
         continue
     else:
         ## ifcc accepts to compile valid program -> let's link it
-        ldstatus=run_command("gcc -o exe-ifcc asm-ifcc.asm", "ifcc-link.txt")
+        ldstatus=run_command("gcc -o exe-ifcc asm-ifcc.s", "ifcc-link.txt")
         if ldstatus:
             print("TEST FAIL (your compiler produces incorrect assembly)")
             all_ok=False
             if args.verbose:
-                dumpfile("asm-ifcc.asm")
+                dumpfile("asm-ifcc.s")
                 dumpfile("ifcc-link.txt")
             continue
 

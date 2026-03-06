@@ -18,8 +18,11 @@ std::any DeclarationVisitor::visitStatement(ifccParser::StatementContext *ctx) {
 }
 
 std::any DeclarationVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx) {
-    std::string name = ctx->VAR()->getText();
-    symbolTable->declare(currentScope(), name);
+    // With the new grammar, VAR returns a vector of TerminalNodes
+    for (auto varNode : ctx->VAR()) {
+        std::string name = varNode->getText();
+        symbolTable->declare(currentScope(), name);
+    }
     return 0;
 }
 

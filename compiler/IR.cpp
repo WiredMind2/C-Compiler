@@ -5,6 +5,12 @@
 #include <iostream>
 #include <algorithm>
 
+#ifdef __APPLE__
+#include "asm/arm64/AsmGeneratorARM64.h"
+#else
+#include "asm/x86_64/AsmGeneratorX86_64.h"
+#endif
+
 using namespace std;
 
 // IRInstr implementation
@@ -12,119 +18,15 @@ IRInstr::IRInstr(BasicBlock* bb_, Operation op, Type t, vector<string> params)
     : bb(bb_), op(op), t(t), params(params) {}
 
 void IRInstr::gen_asm(ostream &o) {
-    #ifdef __APPLE__
-    // ARM64 code generation for Apple Silicon
-    if (op == ldconst) {
-        o << "    mov w0, #" << params[1] << "\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == copy) {
-        if (params[0] != params[1]) {
-            string src_asm = bb->cfg->IR_reg_to_asm(params[1]);
-            string dest_asm = bb->cfg->IR_reg_to_asm(params[0]);
-            o << "    ldr w0, " << src_asm << "\n";
-            o << "    str w0, " << dest_asm << "\n";
-        }
-    } else if (op == add) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    add w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == sub) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    sub w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == mul) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    mul w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == div) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    sdiv w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == bit_not) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    eor w0, w0, #0xFFFFFFFF\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == bit_and) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    and w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == bit_or) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    orr w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == bit_xor) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    eor w0, w0, w8\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == cmp_eq) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    cmp w0, w8\n";
-        o << "    cset w0, eq\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == cmp_lt) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    cmp w0, w8\n";
-        o << "    cset w0, lt\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == cmp_le) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    ldr w8, " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    cmp w0, w8\n";
-        o << "    cset w0, le\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == rmem) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == wmem) {
-        o << "    ldr w0, " << bb->cfg->IR_reg_to_asm(params[1]) << "\n";
-        o << "    str w0, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    }
-    #else
-    // x86_64 code generation (Linux)
-    if (op == ldconst) {
-        o << "    movl $" << params[1] << ", " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == copy) {
-        if (params[0] != params[1]) {
-            string src_asm = bb->cfg->IR_reg_to_asm(params[1]);
-            string dest_asm = bb->cfg->IR_reg_to_asm(params[0]);
-            if (dest_asm != src_asm) {
-                o << "    movl " << src_asm << ", %eax\n";
-                o << "    movl %eax, " << dest_asm << "\n";
-            }
-        }
-    } else if (op == add) {
-        o << "    movl " << bb->cfg->IR_reg_to_asm(params[1]) << ", %eax\n";
-        o << "    addl " << bb->cfg->IR_reg_to_asm(params[2]) << ", %eax\n";
-        o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == sub) {
-        o << "    movl " << bb->cfg->IR_reg_to_asm(params[1]) << ", %eax\n";
-        o << "    subl " << bb->cfg->IR_reg_to_asm(params[2]) << ", %eax\n";
-        o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == mul) {
-        o << "    movl " << bb->cfg->IR_reg_to_asm(params[1]) << ", %eax\n";
-        o << "    imull " << bb->cfg->IR_reg_to_asm(params[2]) << ", %eax\n";
-        o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == div) {
-        o << "    movl " << bb->cfg->IR_reg_to_asm(params[1]) << ", %eax\n";
-        o << "    cltd\n";
-        o << "    idivl " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
-        o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    } else if (op == bit_not) {
-        o << "    movl " << bb->cfg->IR_reg_to_asm(params[1]) << ", %eax\n";
-        o << "    not %eax\n";
-        o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
-    }
-    #endif
+    // Delegate to the CFG's AsmGenerator
+    bb->cfg->asmGenerator->gen_asm_instr(o, this);
 }
+
+void IRInstr::gen_asm_instr(ostream &o) {
+    // Delegate to the CFG's AsmGenerator
+    bb->cfg->asmGenerator->gen_asm_instr(o, this);
+}
+
 
 // BasicBlock implementation
 BasicBlock::BasicBlock(CFG* cfg, string entry_label) : cfg(cfg), label(entry_label) {
@@ -137,31 +39,7 @@ void BasicBlock::gen_asm(ostream &o) {
     for (auto instr : instrs) {
         instr->gen_asm(o);
     }
-    #ifdef __APPLE__
-    // ARM64 code generation for control flow
-    if (exit_true == nullptr) {
-        cfg->gen_asm_epilogue(o);
-    } else if (exit_false == nullptr) {
-        o << "    b " << exit_true->label << "\n";
-    } else {
-        o << "    ldr w0, " << cfg->IR_reg_to_asm(test_var_name) << "\n";
-        o << "    cmp w0, #0\n";
-        o << "    b.eq " << exit_false->label << "\n";
-        o << "    b " << exit_true->label << "\n";
-    }
-    #else
-    // x86_64 code generation for control flow
-    if (exit_true == nullptr) {
-        cfg->gen_asm_epilogue(o);
-    } else if (exit_false == nullptr) {
-        o << "    jmp " << exit_true->label << "\n";
-    } else {
-        o << "    movl " << cfg->IR_reg_to_asm(test_var_name) << ", %eax\n";
-        o << "    cmpl $0, %eax\n";
-        o << "    je " << exit_false->label << "\n";
-        o << "    jmp " << exit_true->label << "\n";
-    }
-    #endif
+    cfg->gen_control_flow(o, this);
 }
 
 void BasicBlock::add_IRInstr(IRInstr::Operation op, Type t, vector<string> params) {
@@ -174,6 +52,13 @@ CFG::CFG() {
     nextBBnumber = 0;
     current_bb = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
+    
+    // Initialize the appropriate AsmGenerator based on platform
+    #ifdef __APPLE__
+    asmGenerator = new AsmGeneratorARM64(this);
+    #else
+    asmGenerator = new AsmGeneratorX86_64(this);
+    #endif
 }
 
 void CFG::add_bb(BasicBlock* bb) {
@@ -181,58 +66,23 @@ void CFG::add_bb(BasicBlock* bb) {
 }
 
 void CFG::gen_asm(ostream& o) {
-    gen_asm_prologue(o);
-    for (auto bb : bbs) {
-        bb->gen_asm(o);
-    }
+    asmGenerator->gen_asm(o);
+}
+
+void CFG::gen_control_flow(ostream& o, BasicBlock* bb) {
+    asmGenerator->gen_control_flow(o, bb);
 }
 
 string CFG::IR_reg_to_asm(string reg) {
-    if (reg == "!eax") {
-        #ifdef __APPLE__
-        return "w0";  // Return value in w0
-        #else
-        return "%eax";
-        #endif
-    }
-    int index = get_var_index(reg);
-    #ifdef __APPLE__
-    return "[fp, #" + to_string(-index) + "]";  // ARM64 frame pointer offset
-    #else
-    return to_string(index) + "(%rbp)";
-    #endif
+    return asmGenerator->IR_reg_to_asm(reg);
 }
 
 void CFG::gen_asm_prologue(ostream& o) {
-    int stackSpace = calculateRequiredStackSpace();
-    #ifdef __APPLE__
-    // ARM64 prologue for Apple Silicon
-    o << ".globl _main\n";
-    o << "_main:\n";
-    o << "    stp fp, lr, [sp, #-16]!\n";  // Save frame pointer and link register
-    o << "    mov fp, sp\n";
-    o << "    sub sp, sp, #" << stackSpace << "\n";
-    #else
-    // x86_64 prologue for Linux
-    o << ".globl main\n";
-    o << "main:\n";
-    o << "    pushq %rbp\n";
-    o << "    movq %rsp, %rbp\n";
-    o << "    subq $" << stackSpace << ", %rsp\n"; 
-    #endif
+    asmGenerator->gen_prologue(o);
 }
 
 void CFG::gen_asm_epilogue(ostream& o) {
-    #ifdef __APPLE__
-    // ARM64 epilogue for Apple Silicon
-    o << "    mov sp, fp\n";
-    o << "    ldp fp, lr, [sp], #16\n";
-    o << "    ret\n";
-    #else
-    // x86_64 epilogue for Linux
-    o << "    leave\n";
-    o << "    ret\n";
-    #endif
+    asmGenerator->gen_epilogue(o);
 }
 
 void CFG::add_to_symbol_table(string name, Type t) {
@@ -316,22 +166,5 @@ void CFG::allocateVariable(string name, Type type) {
 }
 
 void CFG::genOptimizedPrologue(ostream& o) {
-    // Generate optimized prologue with exact stack space (16-byte aligned)
-    int stackSpace = calculateRequiredStackSpace();
-    
-    #ifdef __APPLE__
-    // ARM64 optimized prologue for Apple Silicon
-    o << ".globl _main\n";
-    o << "_main:\n";
-    o << "    stp fp, lr, [sp, #-16]!\n";
-    o << "    mov fp, sp\n";
-    o << "    sub sp, sp, #" << stackSpace << "\n";
-    #else
-    // x86_64 optimized prologue for Linux
-    o << ".globl main\n";
-    o << "main:\n";
-    o << "    pushq %rbp\n";
-    o << "    movq %rsp, %rbp\n";
-    o << "    subq $" << stackSpace << ", %rsp\n";
-    #endif
+    asmGenerator->gen_prologue(o);
 }

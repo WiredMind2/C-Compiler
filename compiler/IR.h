@@ -22,6 +22,7 @@ using namespace std;
 
 class BasicBlock;
 class CFG;
+class AsmGenerator;
 // class DefFonction; // Removing as it's not defined yet, will use void* or simpler structure if needed
 
 
@@ -55,12 +56,15 @@ class IRInstr {
 	
 	/** Actual code generation */
 	void gen_asm(ostream &o); /**< x86 assembly code generation for this IR instruction */
+	void gen_asm_instr(ostream &o); /**< Delegate to AsmGenerator for instruction generation */
 	
- private:
-	BasicBlock* bb; /**< The BB this instruction belongs to, which provides a pointer to the CFG this instruction belong to */
-	Operation op;
-	Type t;
+public:
+	Operation op; /**< The operation type */
 	vector<string> params; /**< For 3-op instrs: d, x, y; for ldconst: d, c;  For call: label, d, params;  for wmem and rmem: choose yourself */
+	
+private:
+	BasicBlock* bb; /**< The BB this instruction belongs to, which provides a pointer to the CFG this instruction belong to */
+	Type t;
 	// if you subclass IRInstr, each IRInstr subclass has its parameters and the previous (very important) comment becomes useless: it would be a better design. 
 };
 
@@ -140,6 +144,7 @@ class CFG {
 	string IR_reg_to_asm(string reg); /**< helper method: inputs a IR reg or input variable, returns e.g. "-24(%rbp)" for the proper value of 24 */
 	void gen_asm_prologue(ostream& o);
 	void gen_asm_epilogue(ostream& o);
+	void gen_control_flow(ostream& o, BasicBlock* bb);
 
 	// Helper functions for automatic memory allocation
 	int calculateRequiredStackSpace(); /**< Calculate exact stack space needed based on variables */
@@ -154,6 +159,7 @@ class CFG {
 
 	// basic block management
 	string new_BB_name();
+	vector<BasicBlock*>& getBBs() { return bbs; }
 	BasicBlock* current_bb;
 
  protected:
@@ -163,6 +169,8 @@ class CFG {
 	int nextBBnumber; /**< just for naming */
 	
 	vector <BasicBlock*> bbs; /**< all the basic blocks of this CFG*/
+public:
+	AsmGenerator* asmGenerator; /**< Assembly generator for the target architecture */
 };
 
 

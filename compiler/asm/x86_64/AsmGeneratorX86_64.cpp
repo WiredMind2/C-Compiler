@@ -9,9 +9,10 @@ AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 
 void AsmGeneratorX86_64::gen_asm(ostream& o) {
     gen_prologue(o);
-    // Get all basic blocks from CFG
-    // Since CFG stores bbs as a protected member, we need a different approach
-    // For now, we'll rely on the CFG to call gen_asm_bb for each block
+    // Generate assembly for all basic blocks
+    for (auto bb : cfg->getBBs()) {
+        gen_asm_bb(o, bb);
+    }
 }
 
 void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb) {
@@ -24,9 +25,56 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb) {
 
 void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
     // This method dispatches to the appropriate gen_* method based on operation
-    // Since IRInstr stores the operation, we need to handle it differently
-    // For now, we keep the original approach where IRInstr calls gen_asm
-    // This method can be used by BasicBlock to generate instructions
+    switch (instr->op) {
+        case IRInstr::ldconst:
+            gen_ldconst(o, instr->params);
+            break;
+        case IRInstr::copy:
+            gen_copy(o, instr->params);
+            break;
+        case IRInstr::add:
+            gen_add(o, instr->params);
+            break;
+        case IRInstr::sub:
+            gen_sub(o, instr->params);
+            break;
+        case IRInstr::mul:
+            gen_mul(o, instr->params);
+            break;
+        case IRInstr::div:
+            gen_div(o, instr->params);
+            break;
+        case IRInstr::bit_not:
+            gen_bit_not(o, instr->params);
+            break;
+        case IRInstr::bit_and:
+            gen_bit_and(o, instr->params);
+            break;
+        case IRInstr::bit_or:
+            gen_bit_or(o, instr->params);
+            break;
+        case IRInstr::bit_xor:
+            gen_bit_xor(o, instr->params);
+            break;
+        case IRInstr::cmp_eq:
+            gen_cmp_eq(o, instr->params);
+            break;
+        case IRInstr::cmp_lt:
+            gen_cmp_lt(o, instr->params);
+            break;
+        case IRInstr::cmp_le:
+            gen_cmp_le(o, instr->params);
+            break;
+        case IRInstr::rmem:
+            gen_rmem(o, instr->params);
+            break;
+        case IRInstr::wmem:
+            gen_wmem(o, instr->params);
+            break;
+        default:
+            cerr << "Error: Unknown operation in gen_asm_instr" << endl;
+            break;
+    }
 }
 
 void AsmGeneratorX86_64::gen_ldconst(ostream& o, const vector<string>& params) {
@@ -41,7 +89,15 @@ void AsmGeneratorX86_64::gen_copy(ostream& o, const vector<string>& params) {
     if (params[0] != params[1]) {
         string src_asm = IR_reg_to_asm(params[1]);
         string dest_asm = IR_reg_to_asm(params[0]);
-        if (dest_asm != src_asm) {
+        
+        // Special case: if destination is !eax (return value register),
+        // directly move from source to %eax without intermediate copy
+        if (params[0] == "!eax") {
+            o << "    movl " << src_asm << ", %eax\n";
+        } else if (params[1] == "!eax") {
+            // Source is !eax, just move from %eax to destination
+            o << "    movl %eax, " << dest_asm << "\n";
+        } else if (dest_asm != src_asm) {
             o << "    movl " << src_asm << ", %eax\n";
             o << "    movl %eax, " << dest_asm << "\n";
         }
