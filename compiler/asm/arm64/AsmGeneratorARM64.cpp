@@ -24,10 +24,58 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb) {
 }
 
 void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
-    // This method dispatches to the appropriate gen_* method based on operation
-    // Since IRInstr stores the operation, we need to handle it differently
-    // For now, we keep the original approach where IRInstr calls gen_asm
-    // This method can be used by BasicBlock to generate instructions
+    switch (instr->op) {
+        case IRInstr::ldconst:
+            gen_ldconst(o, instr->params);
+            break;
+        case IRInstr::copy:
+            gen_copy(o, instr->params);
+            break;
+        case IRInstr::add:
+            gen_add(o, instr->params);
+            break;
+        case IRInstr::sub:
+            gen_sub(o, instr->params);
+            break;
+        case IRInstr::mul:
+            gen_mul(o, instr->params);
+            break;
+        case IRInstr::div:
+            gen_div(o, instr->params);
+            break;
+        case IRInstr::bit_not:
+            gen_bit_not(o, instr->params);
+            break;
+        case IRInstr::bit_and:
+            gen_bit_and(o, instr->params);
+            break;
+        case IRInstr::bit_or:
+            gen_bit_or(o, instr->params);
+            break;
+        case IRInstr::bit_xor:
+            gen_bit_xor(o, instr->params);
+            break;
+        case IRInstr::cmp_eq:
+            gen_cmp_eq(o, instr->params);
+            break;
+        case IRInstr::cmp_lt:
+            gen_cmp_lt(o, instr->params);
+            break;
+        case IRInstr::cmp_le:
+            gen_cmp_le(o, instr->params);
+            break;
+        case IRInstr::rmem:
+            gen_rmem(o, instr->params);
+            break;
+        case IRInstr::wmem:
+            gen_wmem(o, instr->params);
+            break;
+        case IRInstr::call:
+            // Call not implemented yet in AsmGeneratorARM64
+            break;
+        default:
+            break;
+    }
 }
 
 void AsmGeneratorARM64::gen_ldconst(ostream& o, const vector<string>& params) {
