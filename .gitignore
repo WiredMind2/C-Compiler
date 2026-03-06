@@ -5,3 +5,13 @@ ifcc-test-output/
 test
 compiler/config.mk
 test.*
+compiler/.antlr
+
+# IDE
+.vscode/
+
+# Prerequisites
+*.d
+
+# Object files
+*.o
