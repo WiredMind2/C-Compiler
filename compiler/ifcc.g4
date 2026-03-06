@@ -12,7 +12,24 @@ declaration_assignement : 'int' VAR '=' expr ;
 declaration : 'int' VAR ;
 assignment : VAR '=' expr ;
 
-expr : additive ;
+expr : bitwiseOR ;
+
+bitwiseOR : bitwiseXOR         # bitwiseORRef
+    | bitwiseOR '^' bitwiseXOR # bitwiseORRule
+    ;
+
+bitwiseXOR : bitwiseAND         # bitwiseXORRef
+    | bitwiseXOR '^' bitwiseAND # bitwiseXORRule
+    ;
+
+bitwiseAND : equality         # bitwiseANDRef
+    | bitwiseAND '&' additive # bitwiseANDRule
+    ;
+
+equality : additive          # equalityExprRef
+    | equality '==' additive # equals
+    | equality '!=' additive # different
+    ;
 
 additive 
     : multiplicative             # multiplicativeExprRef
@@ -24,11 +41,13 @@ multiplicative
     : unary                      # unaryExprRef
     | multiplicative '*' unary    # multiplication
     | multiplicative '/' unary    # division
+    | multiplicative '%' unary    # modulo
     ;
 
 unary 
     : '-' primitive              # unaryMinus
     | '+' primitive              # unaryPlus
+    | '!' primitive              # unaryNot
     | primitive                  # primitiveExprRef
     ;
 

@@ -18,13 +18,21 @@ public:
         virtual antlrcpp::Any visitExpr(ifccParser::ExprContext *ctx) override;
         virtual antlrcpp::Any visitAddition(ifccParser::AdditionContext *ctx) override;
         virtual antlrcpp::Any visitSubstraction(ifccParser::SubstractionContext *ctx) override;
-        virtual antlrcpp::Any visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx) override;
+        
+        virtual antlrcpp::Any visitBitwiseORRule(ifccParser::BitwiseORRuleContext *ctx) override;
+        virtual antlrcpp::Any visitBitwiseXORRule(ifccParser::BitwiseXORRuleContext *ctx) override;
+        virtual antlrcpp::Any visitBitwiseANDRule(ifccParser::BitwiseANDRuleContext *ctx) override;
+
+        virtual antlrcpp::Any visitEquals(ifccParser::EqualsContext *ctx) override;
+        virtual antlrcpp::Any visitDifferent(ifccParser::DifferentContext *ctx) override;
+
         virtual antlrcpp::Any visitMultiplication(ifccParser::MultiplicationContext *ctx) override;
         virtual antlrcpp::Any visitDivision(ifccParser::DivisionContext *ctx) override;
-        virtual antlrcpp::Any visitUnaryExprRef(ifccParser::UnaryExprRefContext *ctx) override;
+        
         virtual antlrcpp::Any visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) override;
-        virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
-        virtual antlrcpp::Any visitParenthesis(ifccParser::ParenthesisContext *ctx) override;
+        virtual antlrcpp::Any visitUnaryMinus(ifccParser::UnaryMinusContext *ctx) override;
+        virtual antlrcpp::Any visitUnaryNot(ifccParser::UnaryNotContext *ctx) override;
+
         virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
         virtual antlrcpp::Any visitConstant(ifccParser::ConstantContext *ctx) override;
 

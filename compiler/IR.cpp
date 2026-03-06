@@ -40,6 +40,10 @@ void IRInstr::gen_asm(ostream &o) {
         o << "    cltd\n";
         o << "    idivl " << bb->cfg->IR_reg_to_asm(params[2]) << "\n";
         o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
+    } else if (op == bit_not) {
+        o << "    movl " << bb->cfg->IR_reg_to_asm(params[1]) << ", %eax\n";
+        o << "    not %eax\n";
+        o << "    movl %eax, " << bb->cfg->IR_reg_to_asm(params[0]) << "\n";
     }
 }
 
@@ -96,11 +100,12 @@ string CFG::IR_reg_to_asm(string reg) {
 }
 
 void CFG::gen_asm_prologue(ostream& o) {
+    int stackSpace = calculateRequiredStackSpace();
     o << ".globl main\n";
     o << "main:\n";
     o << "    pushq %rbp\n";
     o << "    movq %rsp, %rbp\n";
-    o << "    subq $1024, %rsp\n"; 
+    o << "    subq $" << stackSpace << ", %rsp\n"; 
 }
 
 void CFG::gen_asm_epilogue(ostream& o) {
@@ -134,4 +139,67 @@ Type CFG::get_var_type(string name) {
 
 string CFG::new_BB_name() {
     return "BB" + to_string(nextBBnumber++);
+}
+
+// Helper function: get size in bytes for a given type
+static int getTypeSize(Type t) {
+    switch (t) {
+        case INT:
+            return 4;  // 4 bytes for int
+        case CHAR:
+            return 1;  // 1 byte for char
+        case VOID:
+            return 0;  // void has no size
+        default:
+            return 4;  // default to 4 bytes
+    }
+}
+
+int CFG::calculateRequiredStackSpace() {
+    // Calculate the exact stack space needed based on all variables
+    // The nextFreeSymbolIndex is negative and represents the next free offset
+    // We need to calculate how much space has been used (from -4 to nextFreeSymbolIndex)
+    
+    // Since nextFreeSymbolIndex starts at -4 and decrements by type size,
+    // the total negative offset used is: abs(nextFreeSymbolIndex)
+    // But we need to add padding for alignment
+    
+    int usedSpace = -nextFreeSymbolIndex;  // Convert to positive (e.g., -12 -> 12)
+    
+    // Add extra space for alignment and safety margin
+    // Ensure 16-byte alignment
+    int alignedSpace = usedSpace;
+    if (alignedSpace % 16 != 0) {
+        alignedSpace = ((alignedSpace / 16) + 1) * 16;
+    }
+    
+    // Minimum 16 bytes for safety
+    if (alignedSpace < 16) {
+        alignedSpace = 16;
+    }
+    
+    return alignedSpace;
+}
+
+void CFG::allocateVariable(string name, Type type) {
+    // Get the size for this type
+    int size = getTypeSize(type);
+    
+    // Add to symbol table
+    SymbolType[name] = type;
+    SymbolIndex[name] = nextFreeSymbolIndex;
+    
+    // Update next free index based on type size
+    nextFreeSymbolIndex -= size;
+}
+
+void CFG::genOptimizedPrologue(ostream& o) {
+    // Generate optimized prologue with exact stack space (16-byte aligned)
+    int stackSpace = calculateRequiredStackSpace();
+    
+    o << ".globl main\n";
+    o << "main:\n";
+    o << "    pushq %rbp\n";
+    o << "    movq %rsp, %rbp\n";
+    o << "    subq $" << stackSpace << ", %rsp\n";
 }

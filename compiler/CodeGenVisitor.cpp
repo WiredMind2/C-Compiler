@@ -18,7 +18,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
 
 antlrcpp::Any CodeGenVisitor::visitExpr(ifccParser::ExprContext *ctx)
 {
-    return visit(ctx->additive());
+    return visit(ctx->bitwiseOR());
 }
 
 antlrcpp::Any CodeGenVisitor::visitAddition(ifccParser::AdditionContext *ctx)
@@ -62,24 +62,23 @@ antlrcpp::Any CodeGenVisitor::visitDivision(ifccParser::DivisionContext *ctx)
     return tmp;
 }
 
-antlrcpp::Any CodeGenVisitor::visitUnaryExprRef(ifccParser::UnaryExprRefContext *ctx)
-{
-    return visit(ctx->unary());
-}
 
 antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
 {
     return visit(ctx->primitive());
 }
 
-antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx)
-{
-    return visit(ctx->primitive());
+antlrcpp::Any CodeGenVisitor::visitUnaryMinus(ifccParser::UnaryMinusContext *ctx){
+    string value = std::any_cast<string>(this->visit(ctx->primitive()));
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->addIRInstr(IRInstr::sub, INT, {tmp, 0, value});
+    return tmp;
 }
 
-antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *ctx)
-{
-    return visit(ctx->expr());
+antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx){
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->addIRInstr(IRInstr::bit_not, INT, {tmp, value});
+    return tmp;
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)

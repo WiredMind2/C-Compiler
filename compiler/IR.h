@@ -30,6 +30,10 @@ class IRInstr {
 		sub,
 		mul,
 		div,
+		bit_not,
+		bit_and,
+		bit_or,
+		bit_xor,
 		rmem,
 		wmem,
 		call, 
@@ -129,6 +133,11 @@ class CFG {
 	string IR_reg_to_asm(string reg); /**< helper method: inputs a IR reg or input variable, returns e.g. "-24(%rbp)" for the proper value of 24 */
 	void gen_asm_prologue(ostream& o);
 	void gen_asm_epilogue(ostream& o);
+
+	// Helper functions for automatic memory allocation
+	int calculateRequiredStackSpace(); /**< Calculate exact stack space needed based on variables */
+	void allocateVariable(string name, Type type); /**< Unified variable allocation with type-based sizing */
+	void genOptimizedPrologue(ostream& o); /**< Generate optimized prologue with exact stack space (16-byte aligned) */
 
 	// symbol table methods
 	void add_to_symbol_table(string name, Type t);
