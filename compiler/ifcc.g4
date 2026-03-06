@@ -2,15 +2,20 @@ grammar ifcc;
 
 axiom : prog EOF ;
 
-prog : 'int' 'main' '(' ')' '{' statement* '}' ;
+prog : statement* ;
 
-statement : (return_stmt | declaration | assignment | declaration_assignement) ';' ;
+statement : ((declaration | assignment | declaration_assignement ) ';') | function_definition | function_declaration ;
 
-return_stmt: RETURN expr ;
+return_stmt: RETURN expr ';' ;
 
 declaration_assignement : 'int' VAR '=' expr ; 
 declaration : 'int' (VAR (',' VAR)*)? ;
 assignment : VAR '=' expr ;
+
+var_declarations_function : 'int' VAR ;
+
+function_declaration : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' ';' ;
+function_definition  : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' '{' statement* return_stmt? '}' ;
 
 expr : bitwiseOR ;
 
@@ -53,10 +58,13 @@ unary
 
 primitive 
     : '(' expr ')'               # parenthesis
+    | function_call              # functionCall
     | VAR                        # variable
     | CONST                      # constant
     ;
 
+
+function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
 CONST : '-'?[0-9]+ ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
