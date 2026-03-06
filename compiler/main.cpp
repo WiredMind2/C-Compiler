@@ -9,6 +9,7 @@
 #include "generated/ifccBaseVisitor.h"
 
 #include "CodeGenVisitor.h"
+#include "DeclarationVisitor.h"
 #include "IR.h"
 
 using namespace antlr4;
@@ -49,7 +50,11 @@ int main(int argn, const char **argv)
       exit(1);
   }
 
-  CodeGenVisitor v;
+  DeclarationVisitor declarationVisitor;
+  declarationVisitor.visit(tree);
+  SymbolTable* symbolTable = declarationVisitor.getSymbolTable();
+
+  CodeGenVisitor v(symbolTable);
   v.visit(tree);
   CFG* cfg = v.getCFG();
   cfg->gen_asm(cout);

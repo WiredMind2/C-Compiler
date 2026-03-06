@@ -19,6 +19,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/ifccParser.o \
 	build/main.o \
 	build/CodeGenVisitor.o \
+	build/DeclarationVisitor.o \
+	build/SymbolTable.o \
 	build/IR.o
 
 ifcc: $(OBJECTS)

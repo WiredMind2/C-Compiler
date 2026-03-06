@@ -3,13 +3,14 @@
 #include "antlr4-runtime.h"
 #include "generated/ifccBaseVisitor.h"
 #include "IR.h"
+#include "SymbolTable.h"
 #include <map>
 #include <string>
 
 class CodeGenVisitor : public ifccBaseVisitor
 {
 public:
-        CodeGenVisitor() {
+        CodeGenVisitor(SymbolTable* symbolTable) : symbolTable(symbolTable) {
                 cfg = new CFG();
         }
         virtual antlrcpp::Any visitProg(ifccParser::ProgContext *ctx) override;
@@ -44,4 +45,5 @@ public:
 
 private:
         CFG* cfg;
+        SymbolTable* symbolTable;
 };
