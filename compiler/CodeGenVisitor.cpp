@@ -79,3 +79,44 @@ antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx
     cfg->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});
     return var;
 }
+
+// Arithmetic expression handlers
+antlrcpp::Any CodeGenVisitor::visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx)
+{
+    return this->visit(ctx->multiplicative());
+}
+
+antlrcpp::Any CodeGenVisitor::visitAddition(ifccParser::AdditionContext *ctx)
+{
+    return ::visitAddition(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitSubstraction(ifccParser::SubstractionContext *ctx)
+{
+    return ::visitSubstraction(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitMultiplication(ifccParser::MultiplicationContext *ctx)
+{
+    return ::visitMultiplication(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitDivision(ifccParser::DivisionContext *ctx)
+{
+    return ::visitDivision(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitUnaryMinus(ifccParser::UnaryMinusContext *ctx)
+{
+    return ::visitUnaryMinus(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
+{
+    return ::visitUnaryPlus(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx)
+{
+    return this->visit(ctx->primitive());
+}
