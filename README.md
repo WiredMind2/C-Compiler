@@ -1,5 +1,14 @@
 # ifcc — Simplified C Compiler
 
+## Contributors
+
+- Elise BACHET
+- Clément DUPIC
+- Clément GRENNERAT
+- Clément JACQUIER
+- Léo MARNAS
+- William MICHAUD
+
 Compiler built with **ANTLR4** and **C++17**.  
 Supports x86-64 (Linux) and ARM64 (macOS).
 
