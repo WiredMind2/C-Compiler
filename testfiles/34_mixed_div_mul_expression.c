@@ -1,0 +1,1 @@
+int main() { int a = 20; int b = 5; int c = a / b + a * b; return c; }

@@ -1,0 +1,1 @@
+int main() { int n = 8; n = (n + 2) * 3; return n; }
