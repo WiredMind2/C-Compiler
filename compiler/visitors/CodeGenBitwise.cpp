@@ -7,7 +7,7 @@ antlrcpp::Any visitBitwiseORRule(CodeGenVisitor* visitor, ifccParser::BitwiseORR
     string left = std::any_cast<string>(visitor->visit(ctx->bitwiseOR()));
     string right = std::any_cast<string>(visitor->visit(ctx->bitwiseXOR()));
     string tmp = visitor->getCFG()->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::bit_xor, INT, {tmp, left, right});
+    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::bit_or, INT, {tmp, left, right});
     return tmp;
 }
 
