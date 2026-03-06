@@ -39,9 +39,50 @@ antlrcpp::Any CodeGenVisitor::visitSubstraction(ifccParser::SubstractionContext 
     return tmp;
 }
 
-antlrcpp::Any CodeGenVisitor::visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitBitwiseORRule(ifccParser::BitwiseORRuleContext *ctx)
 {
-    return visit(ctx->multiplicative());
+    string left = std::any_cast<string>(this->visit(ctx->bitwiseOR()));
+    string right = std::any_cast<string>(this->visit(ctx->bitwiseXOR()));
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->add_IRInstr(IRInstr::bit_xor, INT, {tmp, left, right});
+    return tmp;
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseXORRule(ifccParser::BitwiseXORRuleContext *ctx)
+{
+    string left = std::any_cast<string>(this->visit(ctx->bitwiseXOR()));
+    string right = std::any_cast<string>(this->visit(ctx->bitwiseAND()));
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->add_IRInstr(IRInstr::bit_xor, INT, {tmp, left, right});
+    return tmp;
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseANDRule(ifccParser::BitwiseANDRuleContext *ctx)
+{
+    string left = std::any_cast<string>(this->visit(ctx->bitwiseAND()));
+    string right = std::any_cast<string>(this->visit(ctx->additive()));
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->add_IRInstr(IRInstr::bit_and, INT, {tmp, left, right});
+    return tmp;
+}
+
+antlrcpp::Any CodeGenVisitor::visitEquals(ifccParser::EqualsContext *ctx)
+{
+    string left = std::any_cast<string>(this->visit(ctx->equality()));
+    string right = std::any_cast<string>(this->visit(ctx->additive()));
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->add_IRInstr(IRInstr::cmp_eq, INT, {tmp, left, right});
+    return tmp;
+}
+
+antlrcpp::Any CodeGenVisitor::visitDifferent(ifccParser::DifferentContext *ctx)
+{
+    string left = std::any_cast<string>(this->visit(ctx->equality()));
+    string right = std::any_cast<string>(this->visit(ctx->additive()));
+    string tmp = cfg->create_new_tempvar(INT);
+    cfg->current_bb->add_IRInstr(IRInstr::cmp_eq, INT, {tmp, left, right});
+    // TODO: Implement "not equal" - could do XOR with 1 or use cmp_ne if available
+    return tmp;
 }
 
 antlrcpp::Any CodeGenVisitor::visitMultiplication(ifccParser::MultiplicationContext *ctx)
@@ -71,13 +112,14 @@ antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitUnaryMinus(ifccParser::UnaryMinusContext *ctx){
     string value = std::any_cast<string>(this->visit(ctx->primitive()));
     string tmp = cfg->create_new_tempvar(INT);
-    cfg->current_bb->addIRInstr(IRInstr::sub, INT, {tmp, 0, value});
+    cfg->current_bb->add_IRInstr(IRInstr::sub, INT, {tmp, "0", value});
     return tmp;
 }
 
 antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx){
+    string value = std::any_cast<string>(this->visit(ctx->primitive()));
     string tmp = cfg->create_new_tempvar(INT);
-    cfg->current_bb->addIRInstr(IRInstr::bit_not, INT, {tmp, value});
+    cfg->current_bb->add_IRInstr(IRInstr::bit_not, INT, {tmp, value});
     return tmp;
 }
 

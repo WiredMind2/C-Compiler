@@ -43,35 +43,4 @@ public:
 		return 0;
 	}
 
-	std::any visitBitwiseOR(ifccParser::BitwiseORContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitBitwiseXOR(ifccParser::BitwiseXORContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitBitwiseAND(ifccParser::BitwiseANDContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitEquality(ifccParser::EqualityContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitAdditive(ifccParser::AdditiveContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitMultiplicative(ifccParser::MultiplicativeContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitUnary(ifccParser::UnaryContext *ctx) override {
-		return 0;
-	}
-
-	std::any visitPrimitive(ifccParser::PrimitiveContext *ctx) override {
-		return 0;
-	}
 };
