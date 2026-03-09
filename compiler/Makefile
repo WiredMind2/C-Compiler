@@ -33,7 +33,11 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/SymbolTable.o \
 	build/IR.o \
 	build/AsmGeneratorX86_64.o \
-	build/AsmGeneratorARM64.o
+	build/AsmGeneratorARM64.o \
+	build/OptimizationManager.o \
+	build/PassRegistry.o \
+	build/LoadConstantToRegister.o \
+	build/ConstantPropagation.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build
@@ -54,6 +58,24 @@ build/%.o: asm/x86_64/%.cpp generated/ifccParser.cpp
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
 build/%.o: asm/arm64/%.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
+##########################################
+# compile optimization passes
+build/LoadConstantToRegister.o: optim/LoadConstantToRegister.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
+build/ConstantPropagation.o: optim/ConstantPropagation.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
+build/OptimizationManager.o: optim/OptimizationManager.cpp generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
+build/PassRegistry.o: optim/PassRegistry.cpp generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
