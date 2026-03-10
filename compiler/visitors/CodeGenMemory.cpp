@@ -41,6 +41,8 @@ antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::
     string var = ctx->VAR()->getText();
     // Variable already declared in DeclarationVisitor, just get its offset
     int offset = visitor->getSymbolTable()->getOffset("main", var);
+    // Add to CFG's symbol table for code generation
+    visitor->getCFG()->add_var_to_symbol_table(var, INT);
     string val = std::any_cast<string>(visitor->visit(ctx->expr()));
     visitor->getCFG()->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});
     return var;

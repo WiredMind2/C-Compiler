@@ -32,52 +32,27 @@ antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *c
 
 antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
 {
-    // Get the constant value text (e.g., "42")
-    string constValue = ctx->getText();
-    
-    // Create a temporary variable to hold the constant
-    string tmp = cfg->create_new_tempvar(INT);
-    
-    // Add IR instruction to load the constant
-    cfg->current_bb->add_IRInstr(IRInstr::ldconst, INT, {tmp, constValue});
-    
-    return tmp;
+    return ::visitConstant(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
 {
-    // Return the variable name as-is
-    return ctx->getText();
+    return ::visitVariable(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
 {
-    // With the new grammar, VAR returns a vector of TerminalNodes
-    for (auto varNode : ctx->VAR()) {
-        std::string var = varNode->getText();
-        // Add variable to CFG's symbol table for code generation
-        cfg->add_var_to_symbol_table(var, INT);
-    }
-    return 0;
+    return ::visitDeclaration(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitDeclaration_assignement(ifccParser::Declaration_assignementContext *ctx)
 {
-    std::string var = ctx->VAR()->getText();
-    // Add variable to CFG's symbol table for code generation
-    cfg->add_var_to_symbol_table(var, INT);
-    // Visit the expression and generate copy instruction
-    std::string val = std::any_cast<std::string>(this->visit(ctx->expr()));
-    cfg->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});
-    return var;
+    return ::visitDeclaration_assignement(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
 {
-    std::string var = ctx->VAR()->getText();
-    std::string val = std::any_cast<std::string>(this->visit(ctx->expr()));
-    cfg->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});
-    return var;
+    return ::visitAssignment(this, ctx);
 }
 
 // Arithmetic expression handlers
