@@ -152,7 +152,8 @@ class CFG {
 	void genOptimizedPrologue(ostream& o); /**< Generate optimized prologue with exact stack space (16-byte aligned) */
 
 	// symbol table methods
-	void add_to_symbol_table(string name, Type t);
+	void add_var_to_symbol_table(string name, Type t);
+	void add_function_to_symbol_table(string name, Type returnType, vector<Type> paramTypes);
 	string create_new_tempvar(Type t);
 	int get_var_index(string name);
 	Type get_var_type(string name);

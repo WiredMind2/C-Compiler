@@ -85,7 +85,7 @@ void CFG::gen_asm_epilogue(ostream& o) {
     asmGenerator->gen_epilogue(o);
 }
 
-void CFG::add_to_symbol_table(string name, Type t) {
+void CFG::add_var_to_symbol_table(string name, Type t) {
     SymbolType[name] = t;
     SymbolIndex[name] = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= 4;
@@ -93,7 +93,7 @@ void CFG::add_to_symbol_table(string name, Type t) {
 
 string CFG::create_new_tempvar(Type t) {
     string name = "!tmp" + to_string(-nextFreeSymbolIndex);
-    add_to_symbol_table(name, t);
+    add_var_to_symbol_table(name, t);
     return name;
 }
 

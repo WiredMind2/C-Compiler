@@ -56,7 +56,7 @@ antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *c
     for (auto varNode : ctx->VAR()) {
         std::string var = varNode->getText();
         // Add variable to CFG's symbol table for code generation
-        cfg->add_to_symbol_table(var, INT);
+        cfg->add_var_to_symbol_table(var, INT);
     }
     return 0;
 }
@@ -65,7 +65,7 @@ antlrcpp::Any CodeGenVisitor::visitDeclaration_assignement(ifccParser::Declarati
 {
     std::string var = ctx->VAR()->getText();
     // Add variable to CFG's symbol table for code generation
-    cfg->add_to_symbol_table(var, INT);
+    cfg->add_var_to_symbol_table(var, INT);
     // Visit the expression and generate copy instruction
     std::string val = std::any_cast<std::string>(this->visit(ctx->expr()));
     cfg->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});

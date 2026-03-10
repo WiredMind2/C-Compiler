@@ -23,7 +23,7 @@ antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationC
         // Variable already declared in DeclarationVisitor, get its offset
         int offset = visitor->getSymbolTable()->getOffset("main", var);
         // Add to CFG's symbol table for code generation
-        visitor->getCFG()->add_to_symbol_table(var, INT);
+        visitor->getCFG()->add_var_to_symbol_table(var, INT);
     }
     return 0;
 }
