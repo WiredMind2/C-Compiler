@@ -38,6 +38,8 @@ public:
 
     int stackSize(const std::string &scopeName) const;
 
+    Function* getScopeFunction(const std::string &scopeName);
+
 private:
     Scope &getScope(const std::string &name);
 

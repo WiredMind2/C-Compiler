@@ -72,3 +72,7 @@ const SymbolTable::Scope &SymbolTable::getScope(const std::string &name) const {
     }
     return scopes.at(name);
 }
+
+SymbolTable::Function* SymbolTable::getScopeFunction(const std::string &scopeName) {
+    return getScope(scopeName).function;
+}
