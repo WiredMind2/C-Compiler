@@ -8,7 +8,7 @@ statement : ((declaration | assignment | declaration_assignement | function_call
 
 return_stmt: RETURN expr ;
 
-declaration_assignement : 'int' VAR '=' expr ; 
+declaration_assignement : 'int' VAR '=' expr ;
 declaration : 'int' (VAR (',' VAR)*)? ;
 assignment : VAR '=' expr ;
 
@@ -41,27 +41,27 @@ equality : additive          # equalityExprRef
     | equality '!=' additive # different
     ;
 
-additive 
+additive
     : multiplicative             # multiplicativeExprRef
     | additive '+' multiplicative # addition
     | additive '-' multiplicative # substraction
     ;
 
-multiplicative 
+multiplicative
     : unary                      # unaryExprRef
     | multiplicative '*' unary    # multiplication
     | multiplicative '/' unary    # division
     | multiplicative '%' unary    # modulo
     ;
 
-unary 
+unary
     : '-' primitive              # unaryMinus
     | '+' primitive              # unaryPlus
     | '!' primitive              # unaryNot
     | primitive                  # primitiveExprRef
     ;
 
-primitive 
+primitive
     : '(' expr ')'               # parenthesis
     | function_call              # functionCall
     | VAR                        # variable

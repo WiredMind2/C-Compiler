@@ -12,12 +12,12 @@
 
 // Other function are declared in the visitors/ folder
 
-class CodeGenVisitor : public ifccBaseVisitor
-{
+class CodeGenVisitor : public ifccBaseVisitor {
 public:
-        CodeGenVisitor() {
-                cfg = new CFG();
+        CodeGenVisitor(TargetArch arch) {
+                cfg = new CFG(arch);
         }
+
         virtual antlrcpp::Any visitProg(ifccParser::ProgContext *ctx) override;
         virtual antlrcpp::Any visitReturn_stmt(ifccParser::Return_stmtContext *ctx) override;
 
@@ -43,8 +43,8 @@ public:
         virtual antlrcpp::Any visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) override;
         virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
 
-        CFG* getCFG() { return cfg; }
+        CFG *getCFG() { return cfg; }
 
 private:
-        CFG* cfg;
+        CFG *cfg;
 };

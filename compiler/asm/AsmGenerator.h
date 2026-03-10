@@ -9,6 +9,11 @@ class CFG;
 class BasicBlock;
 class IRInstr;
 
+enum class TargetArch {
+    X86_64,
+    ARM64
+};
+
 //! Abstract base class for assembly generation
 /*!
  * This interface defines the contract for generating assembly code

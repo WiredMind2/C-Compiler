@@ -7,7 +7,7 @@
 
 /**
  * CodeGenMemory - Handles memory and variable operations for code generation
- * 
+ *
  * Methods:
  * - visitConstant: Handles integer constants
  * - visitVariable: Handles variable references

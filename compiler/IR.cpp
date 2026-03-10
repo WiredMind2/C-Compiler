@@ -3,13 +3,9 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include <algorithm>
 
-#ifdef __APPLE__
 #include "asm/arm64/AsmGeneratorARM64.h"
-#else
 #include "asm/x86_64/AsmGeneratorX86_64.h"
-#endif
 
 using namespace std;
 
@@ -47,18 +43,20 @@ void BasicBlock::add_IRInstr(IRInstr::Operation op, Type t, vector<string> param
 }
 
 // CFG implementation
-CFG::CFG() {
+CFG::CFG(TargetArch arch) {
     nextFreeSymbolIndex = -4;
     nextBBnumber = 0;
     current_bb = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
-    
-    // Initialize the appropriate AsmGenerator based on platform
-    #ifdef __APPLE__
-    asmGenerator = new AsmGeneratorARM64(this);
-    #else
-    asmGenerator = new AsmGeneratorX86_64(this);
-    #endif
+
+    switch (arch) {
+        case TargetArch::ARM64:
+            asmGenerator = new AsmGeneratorARM64(this);
+            break;
+        case TargetArch::X86_64:
+            asmGenerator = new AsmGeneratorX86_64(this);
+            break;
+    }
 }
 
 void CFG::add_bb(BasicBlock* bb) {
@@ -131,36 +129,36 @@ int CFG::calculateRequiredStackSpace() {
     // Calculate the exact stack space needed based on all variables
     // The nextFreeSymbolIndex is negative and represents the next free offset
     // We need to calculate how much space has been used (from -4 to nextFreeSymbolIndex)
-    
+
     // Since nextFreeSymbolIndex starts at -4 and decrements by type size,
     // the total negative offset used is: abs(nextFreeSymbolIndex)
     // But we need to add padding for alignment
-    
+
     int usedSpace = -nextFreeSymbolIndex;  // Convert to positive (e.g., -12 -> 12)
-    
+
     // Add extra space for alignment and safety margin
     // Ensure 16-byte alignment
     int alignedSpace = usedSpace;
     if (alignedSpace % 16 != 0) {
         alignedSpace = ((alignedSpace / 16) + 1) * 16;
     }
-    
+
     // Minimum 16 bytes for safety
     if (alignedSpace < 16) {
         alignedSpace = 16;
     }
-    
+
     return alignedSpace;
 }
 
 void CFG::allocateVariable(string name, Type type) {
     // Get the size for this type
     int size = getTypeSize(type);
-    
+
     // Add to symbol table
     SymbolType[name] = type;
     SymbolIndex[name] = nextFreeSymbolIndex;
-    
+
     // Update next free index based on type size
     nextFreeSymbolIndex -= size;
 }

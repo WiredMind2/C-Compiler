@@ -6,6 +6,7 @@ test
 compiler/config.mk
 test.*
 compiler/.antlr
+compiler/.clangd
 
 # IDE
 .vscode/

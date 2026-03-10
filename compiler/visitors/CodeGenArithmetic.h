@@ -7,7 +7,7 @@
 
 /**
  * CodeGenArithmetic - Handles arithmetic operations for code generation
- * 
+ *
  * Methods:
  * - visitAddition: Handles + operator
  * - visitSubstraction: Handles - operator

@@ -1,12 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <cstdlib>
 
 #include "antlr4-runtime.h"
 #include "generated/ifccLexer.h"
 #include "generated/ifccParser.h"
-#include "generated/ifccBaseVisitor.h"
 
 #include "CodeGenVisitor.h"
 #include "IR.h"
@@ -14,45 +12,61 @@
 using namespace antlr4;
 using namespace std;
 
-int main(int argn, const char **argv)
-{
-  stringstream in;
-  if (argn==2)
-  {
-     ifstream lecture(argv[1]);
-     if( !lecture.good() )
-     {
-         cerr<<"error: cannot read file: " << argv[1] << endl ;
-         exit(1);
-     }
-     in << lecture.rdbuf();
-  }
-  else
-  {
-      cerr << "usage: ifcc path/to/file.c" << endl ;
-      exit(1);
-  }
-  
-  ANTLRInputStream input(in.str());
+#ifdef __APPLE__
+TargetArch DEFAULT_ARCH = TargetArch::ARM64;
+#else
+TargetArch DEFAULT_ARCH = TargetArch::X86_64;
+#endif
 
-  ifccLexer lexer(&input);
-  CommonTokenStream tokens(&lexer);
+int main(int argn, const char **argv) {
+    stringstream in;
+    TargetArch arch = DEFAULT_ARCH;
+    const char *filename = nullptr;
 
-  tokens.fill();
+    for (int i = 1; i < argn; i++) {
+        string arg = argv[i];
+        if (arg == "--arch" && i + 1 < argn) {
+            string archStr = argv[++i];
+            if (archStr == "arm") {
+                arch = TargetArch::ARM64;
+            } else if (archStr == "x86") {
+                arch = TargetArch::X86_64;
+            }
+        } else if (filename == nullptr) {
+            filename = argv[i];
+        }
+    }
+    if (filename == nullptr) {
+        cerr << "usage: ifcc [--arch arm|x86] path/to/file.c" << endl;
+        exit(1);
+    }
 
-  ifccParser parser(&tokens);
-  tree::ParseTree* tree = parser.axiom();
+    ifstream lecture(filename);
+    if (!lecture.good()) {
+        cerr << "error: cannot read file: " << filename << endl;
+        exit(1);
+    }
+    in << lecture.rdbuf();
 
-  if(parser.getNumberOfSyntaxErrors() != 0)
-  {
-      cerr << "error: syntax error during parsing" << endl;
-      exit(1);
-  }
+    ANTLRInputStream input(in.str());
 
-  CodeGenVisitor v;
-  v.visit(tree);
-  CFG* cfg = v.getCFG();
-  cfg->gen_asm(cout);
+    ifccLexer lexer(&input);
+    CommonTokenStream tokens(&lexer);
 
-  return 0;
+    tokens.fill();
+
+    ifccParser parser(&tokens);
+    tree::ParseTree *tree = parser.axiom();
+
+    if (parser.getNumberOfSyntaxErrors() != 0) {
+        cerr << "error: syntax error during parsing" << endl;
+        exit(1);
+    }
+
+    CodeGenVisitor v(arch);
+    v.visit(tree);
+    CFG *cfg = v.getCFG();
+    cfg->gen_asm(cout);
+
+    return 0;
 }

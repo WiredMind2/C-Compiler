@@ -7,7 +7,7 @@
 
 /**
  * CodeGenBitwise - Handles bitwise operations for code generation
- * 
+ *
  * Methods:
  * - visitBitwiseORRule: Handles | operator
  * - visitBitwiseXORRule: Handles ^ operator

@@ -7,7 +7,7 @@
 
 /**
  * CodeGenComparison - Handles comparison operations for code generation
- * 
+ *
  * Methods:
  * - visitEquals: Handles == operator
  * - visitDifferent: Handles != operator
