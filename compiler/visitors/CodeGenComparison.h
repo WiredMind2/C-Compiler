@@ -3,12 +3,11 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include "../IR.h"
-#include "../SymbolTable.h"
 #include <string>
 
 /**
  * CodeGenComparison - Handles comparison operations for code generation
- * 
+ *
  * Methods:
  * - visitEquals: Handles == operator
  * - visitDifferent: Handles != operator

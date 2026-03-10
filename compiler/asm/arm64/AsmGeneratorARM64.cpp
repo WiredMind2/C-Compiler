@@ -81,16 +81,12 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
 void AsmGeneratorARM64::gen_ldconst(ostream& o, const vector<string>& params) {
     // ldconst: load constant into destination
     // params[0] = destination, params[1] = constant
-    int64_t val = stol(params[1]);
-    uint32_t uval = static_cast<uint32_t>(val);
+    int64_t val = stol(params[1]) & 0xFFFFFFFF;
 
-    uint32_t lo = uval & 0xFFFF;
-    uint32_t hi = (uval >> 16) & 0xFFFF;
-
-    if (hi == 0) {
-        o << "    mov w0, #" << lo << "\n";
+    if (val < 65536) {
+        o << "    mov w0, #" << val << "\n";
     } else {
-        o << "    ldr w0, =" << params[1] << "\n";
+        o << "    ldr w0, =" << val << "\n";
     }
     o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
 }

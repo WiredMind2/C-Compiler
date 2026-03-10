@@ -3,12 +3,11 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include "../IR.h"
-#include "../SymbolTable.h"
 #include <string>
 
 /**
  * CodeGenBitwise - Handles bitwise operations for code generation
- * 
+ *
  * Methods:
  * - visitBitwiseORRule: Handles | operator
  * - visitBitwiseXORRule: Handles ^ operator

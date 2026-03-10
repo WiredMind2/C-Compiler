@@ -5,13 +5,7 @@
 include config.mk
 
 CC=g++
-# Platform detection: Add -D__APPLE__ when building on macOS (Darwin)
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-    CCFLAGS=-g -c -std=c++17 -I$(ANTLRINC) -Wno-attributes
-else
-    CCFLAGS=-g -c -std=c++17 -I$(ANTLRINC) -Wno-attributes
-endif
+CCFLAGS=-g -c -std=c++17 -I$(ANTLRINC) -Wno-attributes
 LDFLAGS=-g
 
 default: all
@@ -29,8 +23,6 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenBitwise.o \
 	build/CodeGenComparison.o \
 	build/CodeGenMemory.o \
-	build/DeclarationVisitor.o \
-	build/SymbolTable.o \
 	build/IR.o \
 	build/AsmGeneratorX86_64.o \
 	build/AsmGeneratorARM64.o

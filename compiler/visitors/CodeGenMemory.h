@@ -3,12 +3,11 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include "../IR.h"
-#include "../SymbolTable.h"
 #include <string>
 
 /**
  * CodeGenMemory - Handles memory and variable operations for code generation
- * 
+ *
  * Methods:
  * - visitConstant: Handles integer constants
  * - visitVariable: Handles variable references

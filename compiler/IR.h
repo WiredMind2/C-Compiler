@@ -5,16 +5,10 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include <initializer_list>
+
+#include "asm/AsmGenerator.h"
 
 using namespace std;
-
-// Platform detection macros
-#ifdef __APPLE__
-    #define PLATFORM_ARM64
-#else
-    #define PLATFORM_X86_64
-#endif
 
 // Declarations from the parser -- replace with your own
 #include "type.h"
@@ -28,7 +22,7 @@ class AsmGenerator;
 
 //! The class for one 3-address instruction
 class IRInstr {
- 
+
    public:
 	/** The instructions themselves -- feel free to subclass instead */
 	typedef enum {
@@ -44,7 +38,7 @@ class IRInstr {
 		bit_xor,
 		rmem,
 		wmem,
-		call, 
+		call,
 		cmp_eq,
 		cmp_lt,
 		cmp_le
@@ -53,19 +47,19 @@ class IRInstr {
 
 	/**  constructor */
 	IRInstr(BasicBlock* bb_, Operation op, Type t, vector<string> params);
-	
+
 	/** Actual code generation */
 	void gen_asm(ostream &o); /**< x86 assembly code generation for this IR instruction */
 	void gen_asm_instr(ostream &o); /**< Delegate to AsmGenerator for instruction generation */
-	
+
 public:
 	Operation op; /**< The operation type */
 	vector<string> params; /**< For 3-op instrs: d, x, y; for ldconst: d, c;  For call: label, d, params;  for wmem and rmem: choose yourself */
-	
+
 private:
 	BasicBlock* bb; /**< The BB this instruction belongs to, which provides a pointer to the CFG this instruction belong to */
 	Type t;
-	// if you subclass IRInstr, each IRInstr subclass has its parameters and the previous (very important) comment becomes useless: it would be a better design. 
+	// if you subclass IRInstr, each IRInstr subclass has its parameters and the previous (very important) comment becomes useless: it would be a better design.
 };
 
 
@@ -81,21 +75,21 @@ private:
 	  returning a boolean value (as an int)
 
 	 Assembly jumps are generated as follows:
-	 BasicBlock::gen_asm() first calls IRInstr::gen_asm() on all its instructions, and then 
-		    if  exit_true  is a  nullptr, 
+	 BasicBlock::gen_asm() first calls IRInstr::gen_asm() on all its instructions, and then
+		    if  exit_true  is a  nullptr,
             the epilogue is generated
-        else if exit_false is a nullptr, 
+        else if exit_false is a nullptr,
           an unconditional jmp to the exit_true branch is generated
 				else (we have two successors, hence a branch)
           an instruction comparing the value of test_var_name to true is generated,
 					followed by a conditional branch to the exit_false branch,
 					followed by an unconditional branch to the exit_true branch
-	 The attribute test_var_name itself is defined when converting 
+	 The attribute test_var_name itself is defined when converting
   the if, while, etc of the AST  to IR.
 
 Possible optimization:
-     a cmp_* comparison instructions, if it is the last instruction of its block, 
-       generates an actual assembly comparison 
+     a cmp_* comparison instructions, if it is the last instruction of its block,
+       generates an actual assembly comparison
        followed by a conditional jump to the exit_false branch
 */
 
@@ -107,7 +101,7 @@ class BasicBlock {
 	void add_IRInstr(IRInstr::Operation op, Type t, vector<string> params);
 
 	// No encapsulation whatsoever here. Feel free to do better.
-	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */ 
+	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */
 	BasicBlock* exit_false; /**< pointer to the next basic block, false branch. If null_ptr, the basic block ends with an unconditional jump */
 	string label; /**< label of the BB, also will be the label in the generated code */
 	CFG* cfg; /** < the CFG where this block belongs */
@@ -116,7 +110,7 @@ class BasicBlock {
 													 store here the name of the variable that holds the value of expr */
  protected:
 
- 
+
 };
 
 
@@ -133,11 +127,11 @@ class BasicBlock {
  */
 class CFG {
  public:
-	CFG();
+	CFG(TargetArch arch);
 
 	// void* ast; /**< The AST this CFG comes from */
-	
-	void add_bb(BasicBlock* bb); 
+
+	void add_bb(BasicBlock* bb);
 
 	// x86 code generation: could be encapsulated in a processor class in a retargetable compiler
 	void gen_asm(ostream& o);
@@ -167,7 +161,7 @@ class CFG {
 	map <string, int> SymbolIndex; /**< part of the symbol table  */
 	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
 	int nextBBnumber; /**< just for naming */
-	
+
 	vector <BasicBlock*> bbs; /**< all the basic blocks of this CFG*/
 public:
 	AsmGenerator* asmGenerator; /**< Assembly generator for the target architecture */

@@ -87,6 +87,7 @@ argparser.add_argument('-d', '--debug', action="count", default=0,
 argparser.add_argument('-S', action="store_true", help='single-file mode: compile from C to assembly, but do not assemble')
 argparser.add_argument('-c', action="store_true", help='single-file mode: compile/assemble to machine code, but do not link')
 argparser.add_argument('-o', '--output', metavar='OUTPUTNAME', help='single-file mode: write output to that file')
+argparser.add_argument('-a', '--arch', help='Target architecture for ifcc')
 
 args = argparser.parse_args()
 
@@ -114,6 +115,8 @@ if makestatus:  # updates are needed
         if os.path.exists("ifcc"):  # and we remove any out-of-date compiler (to reduce chance of confusion)
             os.unlink("ifcc")
         exit(makestatus)
+
+arch_option = f'--arch {args.arch}' if args.arch else ''
 
 ##########################################
 ## single-file mode aka "let's act just like GCC (almost)"
@@ -145,7 +148,7 @@ if args.S or args.c or args.output:
         if args.output[-2:] != ".asm":
             print("error: output file name must end with '.asm'")
             exit(1)
-        ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {inputfilename} > {args.output}')
+        ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {arch_option} {inputfilename} > {args.output}')
         if ifccstatus:  # let's show error messages on screen
             exit(run_command(f'{pld_base_dir}/compiler/ifcc {inputfilename}', toscreen=True))
         else:
@@ -156,9 +159,9 @@ if args.S or args.c or args.output:
             print("error: output file name must end with '.o'")
             exit(1)
         asmname = args.output[:-2] + ".asm"
-        ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {inputfilename} > {asmname}')
+        ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {arch_option} {inputfilename} > {asmname}')
         if ifccstatus:  # let's show error messages on screen
-            exit(run_command(f'{pld_base_dir}/compiler/ifcc {inputfilename}', toscreen=True))
+            exit(run_command(f'{pld_base_dir}/compiler/ifcc {arch_option} {inputfilename}', toscreen=True))
         exit(run_command(f'gcc -c -o {args.output} {asmname}', toscreen=True))
 
     else:  # produce an executable
@@ -166,9 +169,9 @@ if args.S or args.c or args.output:
             print("error: incorrect name for an executable: " + args.output)
             exit(1)
         asmname = args.output + ".asm"
-        ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {inputfilename} > {asmname}')
+        ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {arch_option} {inputfilename} > {asmname}')
         if ifccstatus:
-            exit(run_command(f'{pld_base_dir}/compiler/ifcc {inputfilename}', toscreen=True))
+            exit(run_command(f'{pld_base_dir}/compiler/ifcc {arch_option} {inputfilename}', toscreen=True))
         exit(run_command(f'gcc -o {args.output} {asmname}'))
 
     # we should never end up here
@@ -376,7 +379,7 @@ for jobname in jobs:
             dumpfile("gcc-execute.txt")
 
     ## IFCC compiler
-    ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc input.c > asm-ifcc.s', 'ifcc-compile.txt')
+    ifccstatus = run_command(f'{pld_base_dir}/compiler/ifcc {arch_option} input.c > asm-ifcc.s', 'ifcc-compile.txt')
 
 
     def record(ok, msg):
