@@ -4,9 +4,9 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((declaration | assignment | declaration_assignement | function_call ) ';') | function_definition | function_declaration ;
+statement : ((declaration | assignment | declaration_assignement | function_call | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop;
 
-return_stmt: RETURN expr ';' ;
+return_stmt: RETURN expr ;
 
 declaration_assignement : 'int' VAR '=' expr ; 
 declaration : 'int' (VAR (',' VAR)*)? ;
@@ -15,7 +15,12 @@ assignment : VAR '=' expr ;
 var_declarations_function : 'int' VAR ;
 
 function_declaration : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' ';' ;
-function_definition  : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' '{' statement* return_stmt? '}' ;
+function_definition  : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' scope;
+condition : 'if' '(' expr ')' scope ('else' scope)? ;
+while_loop : 'while' '(' expr ')' scope ;
+for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+
+scope : '{' statement* '}' ;
 
 expr : bitwiseOR ;
 
