@@ -29,8 +29,6 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenBitwise.o \
 	build/CodeGenComparison.o \
 	build/CodeGenMemory.o \
-	build/DeclarationVisitor.o \
-	build/SymbolTable.o \
 	build/IR.o \
 	build/AsmGeneratorX86_64.o \
 	build/AsmGeneratorARM64.o

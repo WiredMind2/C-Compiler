@@ -3,7 +3,6 @@
 #include "antlr4-runtime.h"
 #include "generated/ifccBaseVisitor.h"
 #include "IR.h"
-#include "SymbolTable.h"
 #include "visitors/CodeGenArithmetic.h"
 #include "visitors/CodeGenBitwise.h"
 #include "visitors/CodeGenComparison.h"
@@ -16,7 +15,7 @@
 class CodeGenVisitor : public ifccBaseVisitor
 {
 public:
-        CodeGenVisitor(SymbolTable* symbolTable) : symbolTable(symbolTable) {
+        CodeGenVisitor() {
                 cfg = new CFG();
         }
         virtual antlrcpp::Any visitProg(ifccParser::ProgContext *ctx) override;
@@ -45,9 +44,7 @@ public:
         virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
 
         CFG* getCFG() { return cfg; }
-        SymbolTable* getSymbolTable() { return symbolTable; }
 
 private:
         CFG* cfg;
-        SymbolTable* symbolTable;
 };

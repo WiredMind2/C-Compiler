@@ -20,8 +20,6 @@ antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationC
     // With the new grammar, VAR returns a vector of TerminalNodes
     for (auto varNode : ctx->VAR()) {
         string var = varNode->getText();
-        // Variable already declared in DeclarationVisitor, get its offset
-        int offset = visitor->getSymbolTable()->getOffset("main", var);
         // Add to CFG's symbol table for code generation
         visitor->getCFG()->add_var_to_symbol_table(var, INT);
     }
@@ -39,8 +37,6 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::Declaration_assignementContext *ctx)
 {
     string var = ctx->VAR()->getText();
-    // Variable already declared in DeclarationVisitor, just get its offset
-    int offset = visitor->getSymbolTable()->getOffset("main", var);
     // Add to CFG's symbol table for code generation
     visitor->getCFG()->add_var_to_symbol_table(var, INT);
     string val = std::any_cast<string>(visitor->visit(ctx->expr()));
