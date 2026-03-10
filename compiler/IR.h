@@ -118,7 +118,7 @@ class BasicBlock {
 	string label; /**< label of the BB, also will be the label in the generated code */
 	CFG* cfg; /** < the CFG where this block belongs */
 	vector<IRInstr*> instrs; /** < the instructions themselves. */
-  string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc,
+	string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc,
 													 store here the name of the variable that holds the value of expr */
  protected:
  	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
@@ -160,14 +160,21 @@ class CFG {
 	int calculateRequiredStackSpace();
 
 	// basic block management
+	BasicBlock* findBBByVariable(string var);
 	string new_BB_name();
-	vector<BasicBlock*>& getBBs() { return bbs; }
+	vector<BasicBlock*>& getBBs() { return bbs; } // return all the BBs of this CFG
+	vector<BasicBlock*>& getStackBBs() { return bbStack; } // return the stack of BBs of this CFG, used when generating
+	// IR code from the AST:when we enter an if, while, etc, we push the current BB on the stack, and when we exit it, we pop it from the stack.
+
 	BasicBlock* current_bb;
 
  protected:
 	int nextBBnumber; /**< just for naming */
 
 	vector <BasicBlock*> bbs; /**< all the basic blocks of this CFG*/
+	vector <BasicBlock*> bbStack; /**< the stack of basic blocks, used when generating IR code
+	from the AST:when we enter an if, while, etc, we push the current BB on the stack, and when we exit it, we pop it from the stack. */
+
 public:
 	AsmGenerator* asmGenerator; /**< Assembly generator for the target architecture */
 };

@@ -9,6 +9,20 @@
 
 using namespace std;
 
+// Helper function: get size in bytes for a given type
+static int getTypeSize(Type t) {
+    switch (t) {
+        case INT:
+            return 4;  // 4 bytes for int
+        case CHAR:
+            return 1;  // 1 byte for char
+        case VOID:
+            return 0;  // void has no size
+        default:
+            return 4;  // default to 4 bytes
+    }
+}
+
 // IRInstr implementation
 IRInstr::IRInstr(BasicBlock* bb_, Operation op, Type t, vector<string> params)
     : bb(bb_), op(op), t(t), params(params) {}
@@ -88,9 +102,13 @@ string CFG::new_BB_name() {
 }
 
 void BasicBlock::add_var_to_symbol_table(string name, Type t) {
+    if (cfg->findBBByVariable(name) != nullptr) {
+        cerr << "Error: Variable " << name << " already defined in a former or current scope." << endl;
+        exit(1);
+    }
     SymbolType[name] = t;
     SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= 4;
+    nextFreeSymbolIndex -= getTypeSize(t); // Update the next free index based on the size of the type
 }
 
 string BasicBlock::create_new_tempvar(Type t) {
@@ -111,19 +129,6 @@ Type BasicBlock::get_var_type(string name) {
     return SymbolType[name];
 }
 
-// Helper function: get size in bytes for a given type
-static int getTypeSize(Type t) {
-    switch (t) {
-        case INT:
-            return 4;  // 4 bytes for int
-        case CHAR:
-            return 1;  // 1 byte for char
-        case VOID:
-            return 0;  // void has no size
-        default:
-            return 4;  // default to 4 bytes
-    }
-}
 
 int BasicBlock::calculateRequiredStackSpace() {
     // Calculate the exact stack space needed based on all variables
@@ -174,4 +179,18 @@ void BasicBlock::allocateVariable(string name, Type type) {
 
 void CFG::genOptimizedPrologue(ostream& o) {
     asmGenerator->gen_prologue(o);
+}
+
+
+BasicBlock* CFG::findBBByVariable(string var) {
+    for (auto bb : getStackBBs()) {
+        for (auto instr : bb->instrs) {
+            for (const auto& param : instr->params) {
+                if (param == var) {
+                    return bb;
+                }
+            }
+        }
+    }
+    return nullptr;
 }
