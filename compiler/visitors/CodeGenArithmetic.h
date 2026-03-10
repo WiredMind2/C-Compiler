@@ -3,12 +3,11 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include "../IR.h"
-#include "../SymbolTable.h"
 #include <string>
 
 /**
  * CodeGenArithmetic - Handles arithmetic operations for code generation
- * 
+ *
  * Methods:
  * - visitAddition: Handles + operator
  * - visitSubstraction: Handles - operator

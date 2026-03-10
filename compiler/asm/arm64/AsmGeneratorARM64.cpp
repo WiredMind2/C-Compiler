@@ -81,7 +81,13 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
 void AsmGeneratorARM64::gen_ldconst(ostream& o, const vector<string>& params) {
     // ldconst: load constant into destination
     // params[0] = destination, params[1] = constant
-    o << "    mov w0, #" << params[1] << "\n";
+    int64_t val = stol(params[1]) & 0xFFFFFFFF;
+
+    if (val < 65536) {
+        o << "    mov w0, #" << val << "\n";
+    } else {
+        o << "    ldr w0, =" << val << "\n";
+    }
     o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
@@ -91,8 +97,12 @@ void AsmGeneratorARM64::gen_copy(ostream& o, const vector<string>& params) {
     if (params[0] != params[1]) {
         string src_asm = IR_reg_to_asm(params[1]);
         string dest_asm = IR_reg_to_asm(params[0]);
-        o << "    ldr w0, " << src_asm << "\n";
-        o << "    str w0, " << dest_asm << "\n";
+        if (src_asm != "w0") {
+            o << "    ldr w0, " << src_asm << "\n";
+        }
+        if (dest_asm != "w0") {
+            o << "    str w0, " << dest_asm << "\n";
+        }
     }
 }
 
@@ -213,10 +223,10 @@ void AsmGeneratorARM64::gen_wmem(ostream& o, const vector<string>& params) {
 
 string AsmGeneratorARM64::IR_reg_to_asm(string reg) {
     if (reg == "!eax") {
-        return "w0";  // Return value in w0
+        return "w0";
     }
     int index = cfg->get_var_index(reg);
-    return "[fp, #" + to_string(-index) + "]";  // ARM64 frame pointer offset
+    return "[fp, #" + to_string(index) + "]";  // ARM64 frame pointer offset
 }
 
 string AsmGeneratorARM64::getOffset(const string& reg) {

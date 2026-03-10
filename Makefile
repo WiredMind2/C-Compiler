@@ -1,65 +1,16 @@
 test-all:
 	python ifcc-test.py testfiles
 
-test-all-v:
-	python ifcc-test.py -v testfiles
 
-test-all-vv:
-	python ifcc-test.py -v -v testfiles
+test-arm-%:
+	python ifcc-test.py --arch arm testfiles/$*_*
+test-x86-%:
+	python ifcc-test.py --arch x86 testfiles/$*_*
 
-test-00:
-	python ifcc-test.py testfiles/00_base
+# Usage: `make test-xx` where `xx` is the suite number (e.g. `01`, `02`, etc.)
+test-%:
+	python ifcc-test.py testfiles/$*_*
 
-test-00-v:
-	python ifcc-test.py -v testfiles/00_base
-
-test-00-vv:
-	python ifcc-test.py -v -v testfiles/00_base
-
-test-01:
-	python ifcc-test.py testfiles/01_variables
-
-test-01-v:
-	python ifcc-test.py -v testfiles/01_variables
-
-test-01-vv:
-	python ifcc-test.py -v -v testfiles/01_variables
-
-test-02:
-	python ifcc-test.py testfiles/02_excepted_fail
-
-test-02-v:
-	python ifcc-test.py -v testfiles/02_excepted_fail
-
-test-02-vv:
-	python ifcc-test.py -v -v testfiles/02_excepted_fail
-
-test-03:
-	python ifcc-test.py testfiles/03_arithmetic_expr
-
-test-03-v:
-	python ifcc-test.py -v testfiles/03_arithmetic_expr
-
-test-03-vv:
-	python ifcc-test.py -v -v testfiles/03_arithmetic_expr
-
-test-03-00:
-	python ifcc-test.py testfiles/03_arithmetic_expr/mult_div_add_sub
-
-test-03-00-v:
-	python ifcc-test.py -v testfiles/03_arithmetic_expr/mult_div_add_sub
-
-test-03-00-vv:
-	python ifcc-test.py -v -v testfiles/03_arithmetic_expr/mult_div_add_sub
-
-test-99:
-	python ifcc-test.py testfiles/99_unimplemented
-
-test-99-v:
-	python ifcc-test.py -v testfiles/99_unimplemented
-
-test-99-vv:
-	python ifcc-test.py -v -v testfiles/99_unimplemented
 
 # Renumber tests in all test directories
 renumber:

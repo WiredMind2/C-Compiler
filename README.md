@@ -43,11 +43,9 @@ int main() {
 **Key components:**
 
 - `ifcc.g4` — ANTLR4 grammar defining the language
-- `DeclarationVisitor` — first pass: builds the symbol table
-- `CodeGenVisitor` — second pass: generates IR from the AST
+- `CodeGenVisitor` — Generates IR from the AST
 - `IR` (`CFG`, `BasicBlock`, `IRInstr`) — intermediate representation with 3-address instructions
 - `AsmGenerator` — architecture-specific assembly backend (x86-64 / ARM64)
-- `SymbolTable` — maps variable names to stack offsets and types
 
 ## Dependencies
 
