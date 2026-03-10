@@ -112,6 +112,13 @@ class BasicBlock {
 	int get_var_index(string name);
 	Type get_var_type(string name);
 
+	// Public access methods for CFG
+	void add_param_to_symbol_table(string name, Type t, int offset) {
+		SymbolType[name] = t;
+		SymbolIndex[name] = offset;
+	}
+	void reset_symbol_index() { nextFreeSymbolIndex = -4; }
+
 	// No encapsulation whatsoever here. Feel free to do better.
 	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */
 	BasicBlock* exit_false; /**< pointer to the next basic block, false branch. If null_ptr, the basic block ends with an unconditional jump */
@@ -164,12 +171,29 @@ class CFG {
 	vector<BasicBlock*>& getBBs() { return bbs; }
 	BasicBlock* current_bb;
 
+	// Function support
+	struct FunctionSignature {
+		string name;
+		string label;
+		Type returnType;
+		vector<Type> paramTypes;
+		vector<string> paramNames;
+	};
+
+	void add_function(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+	FunctionSignature* get_function(string name);
+	vector<FunctionSignature>& get_functions() { return functions; }
+	BasicBlock* create_function_entry(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+
  protected:
 	int nextBBnumber; /**< just for naming */
 
 	vector <BasicBlock*> bbs; /**< all the basic blocks of this CFG*/
 public:
 	AsmGenerator* asmGenerator; /**< Assembly generator for the target architecture */
+private:
+	vector<FunctionSignature> functions; /**< List of function signatures */
+	map<string, int> functionIndex; /**< Map from function name to index in functions vector */
 };
 
 

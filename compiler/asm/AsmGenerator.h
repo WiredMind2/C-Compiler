@@ -28,7 +28,7 @@ public:
     virtual void gen_asm(std::ostream& o) = 0;
 
     //! Generate assembly for a single basic block
-    virtual void gen_asm_bb(std::ostream& o, BasicBlock* bb) = 0;
+    virtual void gen_asm_bb(std::ostream& o, BasicBlock* bb, bool isFirstBB = false) = 0;
 
     //! Generate assembly for a single IR instruction
     virtual void gen_asm_instr(std::ostream& o, IRInstr* instr) = 0;
@@ -79,6 +79,12 @@ public:
 
     //! Generate wmem: write to memory
     virtual void gen_wmem(std::ostream& o, const std::vector<std::string>& params) = 0;
+
+    //! Generate call: call a function
+    virtual void gen_call(std::ostream& o, const std::vector<std::string>& params) = 0;
+
+    //! Generate ret: return from function
+    virtual void gen_ret(std::ostream& o, const std::vector<std::string>& params) = 0;
 
     //---------------- Helper Methods ----------------
 

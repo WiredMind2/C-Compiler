@@ -91,3 +91,29 @@ antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRef
 {
     return this->visit(ctx->primitive());
 }
+
+// Function handlers
+antlrcpp::Any CodeGenVisitor::visitFunction_definition(ifccParser::Function_definitionContext *ctx)
+{
+    return ::visitFunction_definition(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitFunction_declaration(ifccParser::Function_declarationContext *ctx)
+{
+    return ::visitFunction_declaration(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitFunction_call(ifccParser::Function_callContext *ctx)
+{
+    return ::visitFunctionCall(this, ctx);
+}
+
+// Scope handler - handles any { ... } block
+antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
+{
+    // Visit all statements in the scope
+    for (auto stmt : ctx->statement()) {
+        this->visit(stmt);
+    }
+    return 0;
+}

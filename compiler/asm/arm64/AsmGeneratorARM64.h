@@ -16,7 +16,7 @@ public:
     void gen_asm(std::ostream& o) override;
 
     //! Generate assembly for a single basic block
-    void gen_asm_bb(std::ostream& o, BasicBlock* bb) override;
+    void gen_asm_bb(std::ostream& o, BasicBlock* bb, bool isFirstBB = false) override;
 
     //! Generate assembly for a single IR instruction
     void gen_asm_instr(std::ostream& o, IRInstr* instr) override;
@@ -67,6 +67,12 @@ public:
 
     //! Generate wmem: write to memory
     void gen_wmem(std::ostream& o, const std::vector<std::string>& params) override;
+
+    //! Generate call: call a function
+    void gen_call(std::ostream& o, const std::vector<std::string>& params) override;
+
+    //! Generate ret: return from function
+    void gen_ret(std::ostream& o, const std::vector<std::string>& params) override;
 
     //---------------- Helper Methods ----------------
 

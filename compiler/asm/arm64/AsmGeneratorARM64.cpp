@@ -10,13 +10,18 @@ AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
 void AsmGeneratorARM64::gen_asm(ostream& o) {
     gen_prologue(o);
     // Generate assembly for all basic blocks
+    bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
-        gen_asm_bb(o, bb);
+        gen_asm_bb(o, bb, isFirstBB);
+        isFirstBB = false;
     }
 }
 
-void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb) {
-    o << bb->label << ":\n";
+void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
+    // Skip label for the first BB since prologue already outputs it
+    if (!isFirstBB) {
+        o << bb->label << ":\n";
+    }
     for (auto instr : bb->instrs) {
         gen_asm_instr(o, instr);
     }
@@ -71,7 +76,10 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
             gen_wmem(o, instr->params);
             break;
         case IRInstr::call:
-            // Call not implemented yet in AsmGeneratorARM64
+            gen_call(o, instr->params);
+            break;
+        case IRInstr::ret:
+            gen_ret(o, instr->params);
             break;
         default:
             break;
@@ -235,8 +243,13 @@ string AsmGeneratorARM64::getOffset(const string& reg) {
 
 void AsmGeneratorARM64::gen_prologue(ostream& o) {
     int stackSpace = cfg->calculateRequiredStackSpace();
-    o << ".globl _main\n";
-    o << "_main:\n";
+    // Get the function name from the first basic block's label
+    string funcName = "_main";
+    if (!cfg->getBBs().empty()) {
+        funcName = "_" + cfg->getBBs()[0]->label;
+    }
+    o << ".globl " << funcName << "\n";
+    o << funcName << ":\n";
     o << "    stp fp, lr, [sp, #-16]!\n";  // Save frame pointer and link register
     o << "    mov fp, sp\n";
     o << "    sub sp, sp, #" << stackSpace << "\n";
@@ -259,4 +272,36 @@ void AsmGeneratorARM64::gen_control_flow(ostream& o, BasicBlock* bb) {
         o << "    b.eq " << bb->exit_false->label << "\n";
         o << "    b " << bb->exit_true->label << "\n";
     }
+}
+
+void AsmGeneratorARM64::gen_call(ostream& o, const vector<string>& params) {
+    // call instruction: params[0] = function label, params[1] = destination, params[2+] = arguments
+    string funcLabel = params[0];
+    string destReg = params[1];
+    
+    // Handle arguments - pass them in registers (x0, x1, x2, x3, x4, x5)
+    static const string argRegs[] = {"x0", "x1", "x2", "x3", "x4", "x5"};
+    int numArgs = params.size() - 2;
+    
+    for (int i = 0; i < numArgs && i < 6; i++) {
+        string arg = params[2 + i];
+        // Move argument to appropriate register
+        o << "    ldr w0, " << IR_reg_to_asm(arg) << "\n";
+        o << "    mov " << argRegs[i] << ", w0\n";
+    }
+    
+    // Generate call instruction
+    o << "    bl " << funcLabel << "\n";
+    
+    // Move return value to destination
+    if (destReg != "!eax") {
+        o << "    str w0, " << IR_reg_to_asm(destReg) << "\n";
+    }
+}
+
+void AsmGeneratorARM64::gen_ret(ostream& o, const vector<string>& params) {
+    // ret instruction: params[0] = return value register (or empty)
+    // ARM64 return value is already in w0, so we just need to return
+    // Generate return
+    o << "    ret\n";
 }

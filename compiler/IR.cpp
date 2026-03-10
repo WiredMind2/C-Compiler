@@ -175,3 +175,51 @@ void BasicBlock::allocateVariable(string name, Type type) {
 void CFG::genOptimizedPrologue(ostream& o) {
     asmGenerator->gen_prologue(o);
 }
+
+void CFG::add_function(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
+    FunctionSignature sig;
+    sig.name = name;
+    sig.label = name;  // Use function name as label
+    sig.returnType = returnType;
+    sig.paramTypes = paramTypes;
+    sig.paramNames = paramNames;
+    functions.push_back(sig);
+    functionIndex[name] = functions.size() - 1;
+}
+
+CFG::FunctionSignature* CFG::get_function(string name) {
+    if (functionIndex.find(name) != functionIndex.end()) {
+        return &functions[functionIndex[name]];
+    }
+    return nullptr;
+}
+
+BasicBlock* CFG::create_function_entry(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
+    // First add the function signature
+    add_function(name, returnType, paramTypes, paramNames);
+    
+    // Clear existing basic blocks (created by default CFG constructor)
+    // as we now have a proper function entry
+    bbs.clear();
+    
+    // Create a new entry basic block with the function name as label
+    BasicBlock* entryBB = new BasicBlock(this, name);
+    
+    // Reset symbol index for the new function (parameters will use positive offsets)
+    entryBB->reset_symbol_index();
+    
+    // Add parameters to the symbol table
+    // In x86_64, parameters are passed in registers (rdi, rsi, rdx, rcx, r8, r9)
+    // For simplicity, we'll store them in memory at positive offsets
+    int paramOffset = 16;  // Start at 16(%rbp) - after return addr and saved rbp
+    for (size_t i = 0; i < paramNames.size(); i++) {
+        entryBB->add_param_to_symbol_table(paramNames[i], paramTypes[i], paramOffset);
+        paramOffset += 8;  // Each parameter is 8 bytes (pointer size)
+    }
+    
+    // Set the current basic block to the entry block
+    current_bb = entryBB;
+    add_bb(entryBB);
+    
+    return entryBB;
+}

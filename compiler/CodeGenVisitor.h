@@ -7,6 +7,7 @@
 #include "visitors/CodeGenBitwise.h"
 #include "visitors/CodeGenComparison.h"
 #include "visitors/CodeGenMemory.h"
+#include "visitors/CodeGenFunction.h"
 #include <map>
 #include <string>
 
@@ -42,6 +43,14 @@ public:
         virtual antlrcpp::Any visitUnaryMinus(ifccParser::UnaryMinusContext *ctx) override;
         virtual antlrcpp::Any visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) override;
         virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
+
+        // Function handlers
+        virtual antlrcpp::Any visitFunction_definition(ifccParser::Function_definitionContext *ctx) override;
+        virtual antlrcpp::Any visitFunction_declaration(ifccParser::Function_declarationContext *ctx) override;
+        virtual antlrcpp::Any visitFunction_call(ifccParser::Function_callContext *ctx) override;
+
+        // Scope handler
+        virtual antlrcpp::Any visitScope(ifccParser::ScopeContext *ctx) override;
 
         CFG *getCFG() { return cfg; }
 
