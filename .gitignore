@@ -1,9 +1,10 @@
 compiler/build/
 compiler/generated/
+compiler/src/generated/
 ifcc
 ifcc-test-output/
 test
-compiler/config.mk
+compiler/config/config.mk
 test.*
 compiler/.antlr
 compiler/.clangd

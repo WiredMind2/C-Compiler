@@ -1,6 +1,5 @@
 #include "CodeGenComparison.h"
 #include "../CodeGenVisitor.h"
-#include <iostream>
 
 antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ctx)
 {

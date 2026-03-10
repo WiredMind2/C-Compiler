@@ -76,24 +76,16 @@ make
 ## Usage
 
 ```bash
-./compiler/ifcc myfile.c > out.s    # compile to assembly
-gcc -o out out.s                    # assemble + link
-./out; echo $?                      # run and print return code
+./compiler/ifcc ./testfiles/00_base/00_return_42.c > 00_return_42.s   # compile to assembly
+gcc -o 00_return_42 00_return_42.s                                    # assemble + link
+./00_return_42; echo $?                                               # run and print return code
 ```
 
 ## Tests
 
 ```bash
-python3 ifcc-test.py testfiles/     # run all tests (compares ifcc vs gcc)
+make test-all     # run all tests (compares ifcc vs gcc)
+make test-01      # run only the test suite 01
+make test-x86-01  # run only the test suite 01 with x86-64 target architecture
 ```
 
-The test runner compiles each `.c` file with both `ifcc` and `gcc`, then compares the return codes. A test passes if both return the same value.
-
-**Test categories:**
-
-| Folder | Description |
-|--------|-------------|
-| `testfiles/00_base/` | Basic return values |
-| `testfiles/01_variables/` | Variable declarations and assignments |
-| `testfiles/02_excepted_fail/` | Programs that should fail to compile |
-| `testfiles/03_arithmetic_expr/` | Arithmetic expressions and operator precedence |

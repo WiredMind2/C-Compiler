@@ -1,6 +1,5 @@
 #include "CodeGenMemory.h"
 #include "../CodeGenVisitor.h"
-#include <iostream>
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx)
 {
