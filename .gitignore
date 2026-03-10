@@ -4,7 +4,7 @@ compiler/src/generated/
 ifcc
 ifcc-test-output/
 test
-compiler/config/config.mk
+compiler/config.mk
 test.*
 compiler/.antlr
 compiler/.clangd
