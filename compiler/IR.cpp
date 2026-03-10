@@ -28,6 +28,7 @@ void IRInstr::gen_asm_instr(ostream &o) {
 BasicBlock::BasicBlock(CFG* cfg, string entry_label) : cfg(cfg), label(entry_label) {
     exit_true = nullptr;
     exit_false = nullptr;
+    nextFreeSymbolIndex = -4;
 }
 
 void BasicBlock::gen_asm(ostream &o) {
@@ -44,7 +45,6 @@ void BasicBlock::add_IRInstr(IRInstr::Operation op, Type t, vector<string> param
 
 // CFG implementation
 CFG::CFG(TargetArch arch) {
-    nextFreeSymbolIndex = -4;
     nextBBnumber = 0;
     current_bb = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
@@ -83,19 +83,23 @@ void CFG::gen_asm_epilogue(ostream& o) {
     asmGenerator->gen_epilogue(o);
 }
 
-void CFG::add_var_to_symbol_table(string name, Type t) {
+string CFG::new_BB_name() {
+    return "BB" + to_string(nextBBnumber++);
+}
+
+void BasicBlock::add_var_to_symbol_table(string name, Type t) {
     SymbolType[name] = t;
     SymbolIndex[name] = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= 4;
 }
 
-string CFG::create_new_tempvar(Type t) {
+string BasicBlock::create_new_tempvar(Type t) {
     string name = "!tmp" + to_string(-nextFreeSymbolIndex);
     add_var_to_symbol_table(name, t);
     return name;
 }
 
-int CFG::get_var_index(string name) {
+int BasicBlock::get_var_index(string name) {
     if (SymbolIndex.find(name) == SymbolIndex.end()) {
         cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
         exit(1);
@@ -103,12 +107,8 @@ int CFG::get_var_index(string name) {
     return SymbolIndex[name];
 }
 
-Type CFG::get_var_type(string name) {
+Type BasicBlock::get_var_type(string name) {
     return SymbolType[name];
-}
-
-string CFG::new_BB_name() {
-    return "BB" + to_string(nextBBnumber++);
 }
 
 // Helper function: get size in bytes for a given type
@@ -125,7 +125,7 @@ static int getTypeSize(Type t) {
     }
 }
 
-int CFG::calculateRequiredStackSpace() {
+int BasicBlock::calculateRequiredStackSpace() {
     // Calculate the exact stack space needed based on all variables
     // The nextFreeSymbolIndex is negative and represents the next free offset
     // We need to calculate how much space has been used (from -4 to nextFreeSymbolIndex)
@@ -151,7 +151,16 @@ int CFG::calculateRequiredStackSpace() {
     return alignedSpace;
 }
 
-void CFG::allocateVariable(string name, Type type) {
+
+int CFG::calculateRequiredStackSpace() {
+    int space = 0;
+    for(BasicBlock* bb: getBBs()){
+        space += bb->calculateRequiredStackSpace();
+    }
+    return space;
+}
+
+void BasicBlock::allocateVariable(string name, Type type) {
     // Get the size for this type
     int size = getTypeSize(type);
 

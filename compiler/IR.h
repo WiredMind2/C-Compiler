@@ -41,7 +41,8 @@ class IRInstr {
 		call,
 		cmp_eq,
 		cmp_lt,
-		cmp_le
+		cmp_le,
+		ret
 	} Operation;
 
 
@@ -100,6 +101,17 @@ class BasicBlock {
 
 	void add_IRInstr(IRInstr::Operation op, Type t, vector<string> params);
 
+	// Helper functions for automatic memory allocation
+	int calculateRequiredStackSpace(); /**< Calculate exact stack space needed based on variables */
+	void allocateVariable(string name, Type type); /**< Unified variable allocation with type-based sizing */
+
+	// symbol table methods
+	void add_var_to_symbol_table(string name, Type t);
+	void add_function_to_symbol_table(string name, Type returnType, vector<Type> paramTypes);
+	string create_new_tempvar(Type t);
+	int get_var_index(string name);
+	Type get_var_type(string name);
+
 	// No encapsulation whatsoever here. Feel free to do better.
 	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */
 	BasicBlock* exit_false; /**< pointer to the next basic block, false branch. If null_ptr, the basic block ends with an unconditional jump */
@@ -109,6 +121,9 @@ class BasicBlock {
   string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc,
 													 store here the name of the variable that holds the value of expr */
  protected:
+ 	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
+	map <string, Type> SymbolType; /**< part of the symbol table  */
+	map <string, int> SymbolIndex; /**< part of the symbol table  */
 
 
 };
@@ -139,18 +154,10 @@ class CFG {
 	void gen_asm_prologue(ostream& o);
 	void gen_asm_epilogue(ostream& o);
 	void gen_control_flow(ostream& o, BasicBlock* bb);
-
-	// Helper functions for automatic memory allocation
-	int calculateRequiredStackSpace(); /**< Calculate exact stack space needed based on variables */
-	void allocateVariable(string name, Type type); /**< Unified variable allocation with type-based sizing */
 	void genOptimizedPrologue(ostream& o); /**< Generate optimized prologue with exact stack space (16-byte aligned) */
 
-	// symbol table methods
-	void add_var_to_symbol_table(string name, Type t);
-	void add_function_to_symbol_table(string name, Type returnType, vector<Type> paramTypes);
-	string create_new_tempvar(Type t);
-	int get_var_index(string name);
-	Type get_var_type(string name);
+
+	int calculateRequiredStackSpace();
 
 	// basic block management
 	string new_BB_name();
@@ -158,9 +165,6 @@ class CFG {
 	BasicBlock* current_bb;
 
  protected:
-	map <string, Type> SymbolType; /**< part of the symbol table  */
-	map <string, int> SymbolIndex; /**< part of the symbol table  */
-	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
 	int nextBBnumber; /**< just for naming */
 
 	vector <BasicBlock*> bbs; /**< all the basic blocks of this CFG*/
