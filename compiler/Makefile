@@ -38,6 +38,10 @@ build/%.o: src/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
+build/%.o: src/ir/%.cpp src/generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
 build/%.o: src/visitors/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
@@ -54,8 +58,7 @@ build/%.o: src/asm/x86_64/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
-##########################################
-# compile optimization passes
+
 build/%.o: src/optim/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<

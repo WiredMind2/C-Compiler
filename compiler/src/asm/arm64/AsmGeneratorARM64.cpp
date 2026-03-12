@@ -1,5 +1,6 @@
 #include "AsmGeneratorARM64.h"
-#include "../../IR.h"
+#include "../../ir/IR.h"
+#include "../../ir/IRInstr.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -77,7 +78,7 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
 }
 
 void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
-    instr->accept(*this, o);
+    instr->bb->cfg->asmGenerator->gen_asm_instr(o, instr);
 }
 
 // ---------------------------------------------------------------------------

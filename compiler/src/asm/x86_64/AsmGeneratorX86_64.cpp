@@ -1,5 +1,5 @@
 #include "AsmGeneratorX86_64.h"
-#include "../../IR.h"
+#include "../../ir/IR.h"
 #include <iostream>
 #include <stdexcept>
 

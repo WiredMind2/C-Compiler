@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../IR.h"
+#include "../ir/IR.h"
 #include <string>
-#include <vector>
 #include <memory>
 
 namespace optim {
@@ -27,7 +26,7 @@ enum class PassTiming {
 
 /**
  * @brief Base class for all optimization passes
- * 
+ *
  * All optimizations should inherit from this class.
  * The framework will automatically invoke the optimize() method
  * on each pass.
@@ -35,56 +34,56 @@ enum class PassTiming {
 class OptimizationPass {
 public:
     virtual ~OptimizationPass() = default;
-    
+
     // ==================== Pass Identification ====================
-    
+
     /**
      * @brief Get the name of this pass
      * @return String identifier (e.g., "load-const-to-reg")
      */
     virtual std::string getName() const = 0;
-    
+
     /**
      * @brief Get a description of what this pass does
      * @return Human-readable description
      */
     virtual std::string getDescription() const = 0;
-    
+
     /**
      * @brief Get the kind of this pass
      * @return PassKind indicating IR, ASM, or ANALYSIS
      */
     virtual PassKind getKind() const = 0;
-    
+
     /**
      * @brief Get the timing category for this pass
      * @return PassTiming indicating when to run
      */
     virtual PassTiming getTiming() const = 0;
-    
+
     // ==================== Main Execution ====================
-    
+
     /**
      * @brief Run this optimization on the CFG
      * @param cfg The control flow graph to optimize
      * @return true if any optimization was applied, false otherwise
      */
     virtual bool optimize(CFG* cfg) = 0;
-    
+
     /**
      * @brief Run analysis (optional, for ANALYSIS passes)
      * @param cfg The control flow graph to analyze
      */
     virtual void analyze(CFG* cfg) {}
-    
+
     // ==================== Helpers ====================
-    
+
     /**
      * @brief Check if this pass is enabled
      * @return true if enabled
      */
     bool isEnabled() const { return enabled_; }
-    
+
     /**
      * @brief Enable or disable this pass
      * @param enabled New enabled state
@@ -96,7 +95,7 @@ protected:
      * @brief Constructor (protected for derived classes)
      */
     OptimizationPass() : enabled_(true) {}
-    
+
     bool enabled_;
 };
 

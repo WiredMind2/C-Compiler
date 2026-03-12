@@ -68,7 +68,7 @@ The main visitor class that traverses the AST and generates Intermediate Represe
 - `CodeGenMemory` — Variable access
 - `CodeGenFunction` — Function calls and definitions
 
-### 3. Intermediate Representation ([`compiler/src/IR.h`](../compiler/src/IR.h))
+### 3. Intermediate Representation ([`compiler/src/IR.h`](../compiler/src/ir/IR.h))
 
 The IR uses a **Control Flow Graph (CFG)** with **Basic Blocks** and **3-address instructions**.
 

@@ -10,7 +10,7 @@
 #include "optim/ConstantPropagation.h"
 
 #include "CodeGenVisitor.h"
-#include "IR.h"
+#include "ir/IR.h"
 
 using namespace antlr4;
 using namespace std;

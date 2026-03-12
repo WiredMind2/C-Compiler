@@ -4,8 +4,8 @@
 #include <string>
 #include <iostream>
 
-#include "asm/arm64/AsmGeneratorARM64.h"
-#include "asm/x86_64/AsmGeneratorX86_64.h"
+#include "../asm/arm64/AsmGeneratorARM64.h"
+#include "../asm/x86_64/AsmGeneratorX86_64.h"
 
 using namespace std;
 
@@ -17,32 +17,6 @@ static int getTypeSize(Type t) {
         default:   return 4;
     }
 }
-
-// ============================================================
-//  IRInstr — accept() bodies
-// ============================================================
-
-void IRInstr::gen_asm(ostream& o) {
-    bb->cfg->asmGenerator->gen_asm_instr(o, this);
-}
-
-void LdConstInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void StoreStackInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void AddInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void SubInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void MulInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void DivInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void BitNotInstr    ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void BitAndInstr    ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void BitOrInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void BitXorInstr    ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void CmpEqInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void CmpLtInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void CmpLeInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void CallInstr      ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void RetInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 
 // ============================================================
 //  BasicBlock
@@ -58,7 +32,7 @@ BasicBlock::BasicBlock(CFG* cfg, string entry_label)
 void BasicBlock::gen_asm(ostream& o) {
     o << label << ":\n";
     for (auto instr : instrs)
-        instr->gen_asm(o);
+        cfg->gen_asm_instr(o, instr);
     cfg->gen_control_flow(o, this);
 }
 
@@ -143,7 +117,7 @@ void CFG::gen_control_flow(ostream& o, BasicBlock* bb) {
 
 void CFG::gen_asm_instr(ostream& o, IRInstr* instr) {
     cout << ";   " << instr->to_string() << endl;
-    instr->accept(*asmGenerator, o);
+    asmGenerator->gen_asm_instr(o, instr);
 }
 
 void CFG::gen_asm_prologue(ostream& o) {

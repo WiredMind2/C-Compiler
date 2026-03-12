@@ -1,5 +1,5 @@
 #include "LoadConstantToRegister.h"
-#include "../IR.h"
+#include "../ir/IR.h"
 #include <iostream>
 
 namespace optim {

@@ -2,7 +2,7 @@
 
 #include "antlr4-runtime.h"
 #include "generated/ifccBaseVisitor.h"
-#include "IR.h"
+#include "ir/IR.h"
 #include "visitors/CodeGenArithmetic.h"
 #include "visitors/CodeGenBitwise.h"
 #include "visitors/CodeGenComparison.h"

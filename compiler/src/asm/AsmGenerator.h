@@ -2,31 +2,13 @@
 
 #include <iostream>
 #include <string>
-#include <vector>
-#include "../Reg.h"
+#include "../ir/Reg.h"
+#include "../ir/IRInstr.h"
 
 class CFG;
 class BasicBlock;
 class IRInstr;
 
-// Forward-declare all concrete instruction types
-struct LdConstInstr;
-struct CopyRegInstr;
-struct StoreStackInstr;
-struct LoadStackInstr;
-struct AddInstr;
-struct SubInstr;
-struct MulInstr;
-struct DivInstr;
-struct BitNotInstr;
-struct BitAndInstr;
-struct BitOrInstr;
-struct BitXorInstr;
-struct CmpEqInstr;
-struct CmpLtInstr;
-struct CmpLeInstr;
-struct CallInstr;
-struct RetInstr;
 
 enum class TargetArch {
     X86_64,
