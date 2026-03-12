@@ -10,14 +10,16 @@
 using namespace std;
 
 // Helper function: get size in bytes for a given type
-static int getTypeSize(Type t) {
-    switch (t) {
-        case INT:
-            return 4;  // 4 bytes for int
-        case CHAR:
-            return 1;  // 1 byte for char
+static int getTypeSize(Type type) {
+    switch (type) {
         case VOID:
-            return 0;  // void has no size
+            return 0;
+        case CHAR:
+            return 1;
+        case INT:
+            return 4;
+        case DOUBLE:
+            return 8;
         default:
             return 4;  // default to 4 bytes
     }

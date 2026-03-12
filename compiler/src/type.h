@@ -6,6 +6,7 @@
 typedef enum {
     INT,
     CHAR,
+    DOUBLE,
     VOID
 } Type;
 

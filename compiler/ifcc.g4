@@ -8,9 +8,11 @@ statement : ((expr | return_stmt ) ';') | scope | function_definition | function
 
 return_stmt: RETURN expr ;
 
-var_decl : 'int' VAR ';' ;
-declaration_list : 'int' VAR (',' VAR)* ';' ;
-var_decl_with_init : 'int' VAR '=' expr ';' ;
+type_specifier : 'int' | 'double' ;
+
+var_decl : type_specifier VAR ';' ;
+declaration_list : type_specifier VAR (',' VAR)* ';' ;
+var_decl_with_init : type_specifier VAR '=' expr ';' ;
 
 
 param : 'int' VAR ;
@@ -91,6 +93,7 @@ primitive
     | function_call              # functionCall
     | VAR                        # variable
     | CONST                      # constant
+    | DOUBLE_CONST               # double_constant
     ;
 
 
