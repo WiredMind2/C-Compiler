@@ -196,9 +196,9 @@ void AsmGeneratorX86_64::visit(ostream& o, MulInstr& instr) {
         if (dest != lhs)
             o << "    movl " << lhs << ", " << dest << "\n";
         o << "    imull " << rhs << ", " << dest << "\n";
-    }else if (instr.type == IRType::FLOAT64) {
+    } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << lhs << ", %xmm0\n";
-        o << "    divsd " << rhs << ", %xmm0\n";
+        o << "    mulsd " << rhs << ", %xmm0\n";
         o << "    movsd %xmm0, " << dest << "\n";
     }
 }
@@ -377,7 +377,7 @@ void AsmGeneratorX86_64::visit(ostream& o, LogicalOrInstr& instr) {
 
 void AsmGeneratorX86_64::visit(ostream& o, FToIInstr& instr) {
     // cvttsd2si: convert double (src XMM) to 32-bit int (dest GPR), truncating
-    o << "    cvttsd2si " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.src) << "\n";
+    o << "    cvttsd2sil " << reg_to_asm(instr.src) << ", " << reg_to_asm(instr.dest) << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, CallInstr& instr) {
