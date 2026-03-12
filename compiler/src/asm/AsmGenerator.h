@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "../type.h"
+
 class CFG;
 class BasicBlock;
 class IRInstr;
@@ -36,22 +38,22 @@ public:
     //---------------- IR Operations ----------------
 
     //! Generate ldconst: load constant into destination
-    virtual void gen_ldconst(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_ldconst(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate copy: copy value from source to destination
-    virtual void gen_copy(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_copy(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate add: destination = param1 + param2
-    virtual void gen_add(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_add(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate sub: destination = param1 - param2
-    virtual void gen_sub(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_sub(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate mul: destination = param1 * param2
-    virtual void gen_mul(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_mul(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate div: destination = param1 / param2
-    virtual void gen_div(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_div(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate bit_not: destination = ~param1
     virtual void gen_bit_not(std::ostream& o, const std::vector<std::string>& params) = 0;
@@ -99,7 +101,7 @@ public:
     virtual void gen_call(std::ostream& o, const std::vector<std::string>& params) = 0;
 
     //! Generate ret: return from function
-    virtual void gen_ret(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_ret(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //---------------- Helper Methods ----------------
 

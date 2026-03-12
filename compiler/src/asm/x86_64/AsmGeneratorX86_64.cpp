@@ -62,22 +62,22 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
     // This method dispatches to the appropriate gen_* method based on operation
     switch (instr->op) {
         case IRInstr::ldconst:
-            gen_ldconst(o, instr->params);
+            gen_ldconst(o, instr->params, instr->t);
             break;
         case IRInstr::copy:
-            gen_copy(o, instr->params);
+            gen_copy(o, instr->params, instr->t);
             break;
         case IRInstr::add:
-            gen_add(o, instr->params);
+            gen_add(o, instr->params, instr->t);
             break;
         case IRInstr::sub:
-            gen_sub(o, instr->params);
+            gen_sub(o, instr->params, instr->t);
             break;
         case IRInstr::mul:
-            gen_mul(o, instr->params);
+            gen_mul(o, instr->params, instr->t);
             break;
         case IRInstr::div:
-            gen_div(o, instr->params);
+            gen_div(o, instr->params, instr->t);
             break;
         case IRInstr::bit_not:
             gen_bit_not(o, instr->params);
@@ -125,7 +125,7 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
             gen_call(o, instr->params);
             break;
         case IRInstr::ret:
-            gen_ret(o, instr->params);
+            gen_ret(o, instr->params, instr->t);
             break;
         default:
             cerr << "Error: Unknown operation in gen_asm_instr" << endl;
@@ -133,13 +133,13 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
     }
 }
 
-void AsmGeneratorX86_64::gen_ldconst(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_ldconst(ostream& o, const vector<string>& params, Type type) {
     // ldconst: load constant into destination
     // params[0] = destination, params[1] = constant
     o << "    movl $" << params[1] << ", " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-void AsmGeneratorX86_64::gen_copy(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_copy(ostream& o, const vector<string>& params, Type type) {
     // copy: copy value from source to destination
     // params[0] = destination, params[1] = source
     if (params[0] != params[1]) {
@@ -160,7 +160,7 @@ void AsmGeneratorX86_64::gen_copy(ostream& o, const vector<string>& params) {
     }
 }
 
-void AsmGeneratorX86_64::gen_add(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_add(ostream& o, const vector<string>& params, Type type) {
     // add: destination = param1 + param2
     // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
@@ -168,7 +168,7 @@ void AsmGeneratorX86_64::gen_add(ostream& o, const vector<string>& params) {
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-void AsmGeneratorX86_64::gen_sub(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_sub(ostream& o, const vector<string>& params, Type type) {
     // sub: destination = param1 - param2
     // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
@@ -176,7 +176,7 @@ void AsmGeneratorX86_64::gen_sub(ostream& o, const vector<string>& params) {
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-void AsmGeneratorX86_64::gen_mul(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_mul(ostream& o, const vector<string>& params, Type type) {
     // mul: destination = param1 * param2
     // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
@@ -184,7 +184,7 @@ void AsmGeneratorX86_64::gen_mul(ostream& o, const vector<string>& params) {
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-void AsmGeneratorX86_64::gen_div(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_div(ostream& o, const vector<string>& params, Type type) {
     // div: destination = param1 / param2
     // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
@@ -409,7 +409,7 @@ void AsmGeneratorX86_64::gen_call(ostream& o, const vector<string>& params) {
     }
 }
 
-void AsmGeneratorX86_64::gen_ret(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_ret(ostream& o, const vector<string>& params, Type type) {
     // ret instruction: params[0] = return value register (or empty)
     if (!params.empty() && !params[0].empty()) {
         // Move return value to %eax
