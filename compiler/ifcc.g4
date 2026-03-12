@@ -4,25 +4,45 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((declaration | assignment | declaration_assignement | function_call | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | var_decl | declaration_list | var_decl_with_init ;
 
 return_stmt: RETURN expr ;
 
-declaration_assignement : 'int' VAR '=' expr ;
-declaration : 'int' (VAR (',' VAR)*)? ;
-assignment : VAR '=' expr ;
+type_specifier : 'int' | 'double' ;
 
-var_declarations_function : 'int' VAR ;
+var_decl : type_specifier VAR ';' ;
+declaration_list : type_specifier VAR (',' VAR)* ';' ;
+var_decl_with_init : type_specifier VAR '=' expr ';' ;
 
-function_declaration : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' ';' ;
-function_definition  : 'int' VAR '(' (var_declarations_function ',')* var_declarations_function? ')' scope;
+
+param : 'int' VAR ;
+param_list : param (',' param)* ;
+
+function_declaration : 'int' VAR '(' param_list? ')' ';' ;
+function_definition  : 'int' VAR '(' param_list? ')' scope;
 condition : 'if' '(' expr ')' scope ('else' scope)? ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
 
 scope : '{' statement* '}' ;
 
-expr : bitwiseOR ;
+expr : sequential ;
+
+sequential : compoundAssignment # sequentialExprRef
+    | compoundAssignment ',' sequential # sequentialRule
+    ;
+
+compoundAssignment : logicalOR # compoundAssignmentRef
+    | VAR '=' compoundAssignment # Assignment
+    ;
+
+logicalOR : logicalAND # logicalORRef
+    | logicalOR '||' logicalAND # logicalORRule
+    ;
+
+logicalAND : bitwiseOR # logicalANDRef
+    | logicalAND '&&' bitwiseOR # logicalANDRule
+    ;
 
 bitwiseOR : bitwiseXOR         # bitwiseORRef
     | bitwiseOR '^' bitwiseXOR # bitwiseORRule
@@ -36,9 +56,16 @@ bitwiseAND : equality         # bitwiseANDRef
     | bitwiseAND '&' additive # bitwiseANDRule
     ;
 
-equality : additive          # equalityExprRef
-    | equality '==' additive # equals
-    | equality '!=' additive # different
+equality : relational          # equalityExprRef
+    | equality '==' relational # equals
+    | equality '!=' relational # different
+    ;
+
+relational : additive # relationalExprRef
+    | relational '<' additive # smallerStrictThan
+    | relational '>' additive # greaterStrictThan
+    | relational '<=' additive # smallerThan
+    | relational '>=' additive # greaterThan
     ;
 
 additive
@@ -66,12 +93,14 @@ primitive
     | function_call              # functionCall
     | VAR                        # variable
     | CONST                      # constant
+    | DOUBLE_CONST               # double_constant
     ;
 
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
 CONST : '-'?[0-9]+ ;
+DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 DIRECTIVE : '#' .*? '\n' -> skip ;

@@ -9,15 +9,6 @@
 
 using namespace std;
 
-static int getTypeSize(Type t) {
-    switch (t) {
-        case INT:  return 4;
-        case CHAR: return 1;
-        case VOID: return 0;
-        default:   return 4;
-    }
-}
-
 // ============================================================
 //  BasicBlock
 // ============================================================
@@ -44,7 +35,7 @@ void BasicBlock::add_IRInstr(IRInstr* instr) {
 //  Symbol table
 // ============================================================
 
-void BasicBlock::add_var_to_symbol_table(string name, Type t) {
+void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
     if (cfg->findBBByVariable(name) != nullptr) {
         cerr << "Error: Variable " << name
              << " already defined in a former or current scope." << endl;
@@ -52,10 +43,10 @@ void BasicBlock::add_var_to_symbol_table(string name, Type t) {
     }
     SymbolType[name] = t;
     SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= getTypeSize(t);
+    nextFreeSymbolIndex -= irtype_size(t);
 }
 
-string BasicBlock::create_new_tempvar(Type t) {
+string BasicBlock::create_new_tempvar(IRType t) {
     string name = "!tmp" + to_string(-nextFreeSymbolIndex);
     add_var_to_symbol_table(name, t);
     return name;
@@ -69,7 +60,7 @@ int BasicBlock::get_var_index(string name) {
     return SymbolIndex[name];
 }
 
-Type BasicBlock::get_var_type(string name) {
+IRType BasicBlock::get_var_type(string name) {
     return SymbolType[name];
 }
 
@@ -82,10 +73,10 @@ int BasicBlock::calculateRequiredStackSpace() {
     return aligned;
 }
 
-void BasicBlock::allocateVariable(string name, Type type) {
+void BasicBlock::allocateVariable(string name, IRType type) {
     SymbolType[name]  = type;
     SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= getTypeSize(type);
+    nextFreeSymbolIndex -= irtype_size(type);
 }
 
 // ============================================================
@@ -149,8 +140,8 @@ BasicBlock* CFG::findBBByVariable(const string& var) {
     return nullptr;
 }
 
-void CFG::add_function(string name, Type returnType,
-                       vector<Type> paramTypes, vector<string> paramNames) {
+void CFG::add_function(string name, IRType returnType,
+                       vector<IRType> paramTypes, vector<string> paramNames) {
     FunctionSignature sig;
     sig.name       = name;
     sig.label      = name;
@@ -166,8 +157,8 @@ CFG::FunctionSignature* CFG::get_function(string name) {
     return (it != functionIndex.end()) ? &functions[it->second] : nullptr;
 }
 
-BasicBlock* CFG::create_function_entry(string name, Type returnType,
-                                       vector<Type> paramTypes, vector<string> paramNames) {
+BasicBlock* CFG::create_function_entry(string name, IRType returnType,
+                                       vector<IRType> paramTypes, vector<string> paramNames) {
     add_function(name, returnType, paramTypes, paramNames);
     bbs.clear();
 

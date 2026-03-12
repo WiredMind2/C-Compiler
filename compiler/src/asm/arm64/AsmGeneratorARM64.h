@@ -22,6 +22,7 @@ public:
     void visit(std::ostream& o, SubInstr&    instr) override;
     void visit(std::ostream& o, MulInstr&    instr) override;
     void visit(std::ostream& o, DivInstr&    instr) override;
+    void visit(std::ostream& o, ModInstr&    instr) override;
     void visit(std::ostream& o, BitNotInstr& instr) override;
     void visit(std::ostream& o, BitAndInstr& instr) override;
     void visit(std::ostream& o, BitOrInstr&  instr) override;
@@ -29,7 +30,12 @@ public:
     void visit(std::ostream& o, CmpEqInstr&  instr) override;
     void visit(std::ostream& o, CmpLtInstr&  instr) override;
     void visit(std::ostream& o, CmpLeInstr&  instr) override;
+    void visit(std::ostream& o, CmpGtInstr&  instr) override;
+    void visit(std::ostream& o, CmpGeInstr&  instr) override;
+    void visit(std::ostream& o, LogicalAndInstr&  instr) override;
+    void visit(std::ostream& o, LogicalOrInstr&  instr) override;
     void visit(std::ostream& o, CallInstr&   instr) override;
+    void visit(std::ostream& o, FToIInstr&   instr) override;
     void visit(std::ostream& o, RetInstr&    instr) override;
 
     //---------------- Helpers ----------------

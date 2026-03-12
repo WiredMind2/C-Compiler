@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <string>
-#include "../ir/Reg.h"
 #include "../ir/IRInstr.h"
 
 class CFG;
@@ -36,14 +35,15 @@ public:
 
     //---------------- Visitor methods (one per IRInstr subclass) ----------------
 
-    virtual void visit(std::ostream& o, LdConstInstr&   instr) = 0;
-    virtual void visit(std::ostream& o, CopyRegInstr&   instr) = 0;
+    virtual void visit(std::ostream& o, LdConstInstr&    instr) = 0;
+    virtual void visit(std::ostream& o, CopyRegInstr&    instr) = 0;
     virtual void visit(std::ostream& o, StoreStackInstr& instr) = 0;
     virtual void visit(std::ostream& o, LoadStackInstr&  instr) = 0;
-    virtual void visit(std::ostream& o, AddInstr&   instr) = 0;
+    virtual void visit(std::ostream& o, AddInstr&        instr) = 0;
     virtual void visit(std::ostream& o, SubInstr&        instr) = 0;
     virtual void visit(std::ostream& o, MulInstr&        instr) = 0;
     virtual void visit(std::ostream& o, DivInstr&        instr) = 0;
+    virtual void visit(std::ostream& o, ModInstr&        instr) = 0;
     virtual void visit(std::ostream& o, BitNotInstr&     instr) = 0;
     virtual void visit(std::ostream& o, BitAndInstr&     instr) = 0;
     virtual void visit(std::ostream& o, BitOrInstr&      instr) = 0;
@@ -51,7 +51,12 @@ public:
     virtual void visit(std::ostream& o, CmpEqInstr&      instr) = 0;
     virtual void visit(std::ostream& o, CmpLtInstr&      instr) = 0;
     virtual void visit(std::ostream& o, CmpLeInstr&      instr) = 0;
+    virtual void visit(std::ostream& o, CmpGtInstr&      instr) = 0;
+    virtual void visit(std::ostream& o, CmpGeInstr&      instr) = 0;
+    virtual void visit(std::ostream& o, LogicalAndInstr& instr) = 0;
+    virtual void visit(std::ostream& o, LogicalOrInstr&  instr) = 0;
     virtual void visit(std::ostream& o, CallInstr&       instr) = 0;
+    virtual void visit(std::ostream& o, FToIInstr&       instr) = 0;
     virtual void visit(std::ostream& o, RetInstr&        instr) = 0;
 
     //---------------- Helper Methods ----------------

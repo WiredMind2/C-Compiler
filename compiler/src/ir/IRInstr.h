@@ -37,6 +37,9 @@ struct LdConstInstr : IRInstr {
     LdConstInstr(BasicBlock *bb, const Reg d, const IRType t, int64_t v)
         : IRInstr(bb, t), dest(d, t), val(t, v) {}
 
+    LdConstInstr(BasicBlock *bb, const Reg d, const IRType t, double v)
+        : IRInstr(bb, t), dest(d, t), val(t, v) {}
+
     void accept(AsmGenerator& g, ostream &o) override;
 
     [[nodiscard]] string to_string() const override {
@@ -152,6 +155,21 @@ struct DivInstr : IRInstr {
     }
 };
 
+/** dest = lhs % rhs */
+struct ModInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+
+    ModInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "mod." + irtype_name(type) + " "
+               + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
 /** dest = ~src */
 struct BitNotInstr : IRInstr {
     RegParam dest, src;
@@ -217,7 +235,7 @@ struct CmpEqInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     CmpEqInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+        : IRInstr(bb, t), dest(d, IRType::INT32), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -232,7 +250,7 @@ struct CmpLtInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     CmpLtInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+        : IRInstr(bb, t), dest(d, IRType::INT32), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -247,7 +265,7 @@ struct CmpLeInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     CmpLeInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+        : IRInstr(bb, t), dest(d, IRType::INT32), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -256,6 +274,62 @@ struct CmpLeInstr : IRInstr {
                + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
     }
 };
+
+/** dest = (lhs > rhs) */
+struct CmpGtInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    CmpGtInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, IRType::INT32), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "cmp_gt." + irtype_name(type) + " "
+               + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = (lhs >= rhs) */
+struct CmpGeInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    CmpGeInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, IRType::INT32), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "cmp_ge." + irtype_name(type) + " "
+               + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/* dest = lhs && rhs */
+struct LogicalAndInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    LogicalAndInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "logical_and." + irtype_name(type) + " "
+               + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/* dest = lhs || rhs */
+struct LogicalOrInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    LogicalOrInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "logical_or." + irtype_name(type) + " " + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
 
 /** dest = funcLabel(args...)  — args and dest are registers */
 struct CallInstr : IRInstr {
@@ -279,6 +353,21 @@ struct CallInstr : IRInstr {
             s += args[i].to_string();
         }
         return s + ")";
+    }
+};
+
+/** dest(INT32) = (int32_t) src(FLOAT64) — truncation toward zero */
+struct FToIInstr : IRInstr {
+    RegParam dest; // INT32
+    RegParam src;  // FLOAT64
+
+    FToIInstr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::INT32), dest(d, IRType::INT32), src(s, IRType::FLOAT64) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "ftoi " + dest.to_string() + ", " + src.to_string();
     }
 };
 

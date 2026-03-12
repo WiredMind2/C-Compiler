@@ -1,15 +1,15 @@
 test-all:
-	python ifcc-test.py testfiles
+	python3 ifcc-test.py testfiles
 
 
 test-arm-%:
-	python ifcc-test.py --arch arm testfiles/$*_*
+	python3 ifcc-test.py --arch arm testfiles/$*_*
 test-x86-%:
-	python ifcc-test.py --arch x86 testfiles/$*_*
+	python3 ifcc-test.py --arch x86 testfiles/$*_*
 
 # Usage: `make test-xx` where `xx` is the suite number (e.g. `01`, `02`, etc.)
 test-%:
-	python ifcc-test.py testfiles/$*_*
+	python3 ifcc-test.py testfiles/$*_*
 
 
 # Renumber tests in all test directories

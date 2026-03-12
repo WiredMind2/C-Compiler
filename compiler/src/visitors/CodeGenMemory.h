@@ -9,14 +9,17 @@
  * Methods:
  * - visitConstant: Handles integer constants
  * - visitVariable: Handles variable references
- * - visitDeclaration: Handles variable declarations
+ * - visitVar_decl: Handles variable declarations
+ * - visitDeclaration_list: Handles multiple variable declarations
+ * - visitVar_decl_with_init: Handles declaration with initialization
  * - visitAssignment: Handles variable assignments
- * - visitDeclaration_assignement: Handles declaration with initialization
  */
 class CodeGenVisitor;
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx);
+antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext *ctx);
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx);
-antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext *ctx);
+antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx);
+antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext *ctx);
+antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext *ctx);
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx);
-antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::Declaration_assignementContext *ctx);

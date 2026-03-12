@@ -11,7 +11,6 @@
 #include "IRInstr.h"
 #include "IRType.h"
 
-using namespace std;
 
 class CFG;
 
@@ -30,41 +29,51 @@ public:
     /** Emit: load varName into R0, op with R1 loaded from rhs,
      *  store result into a new temp.  Returns the temp name.
      *  Template param is the instruction type (AddInstr, SubInstr, …). */
+    /** Like emit_binop but the result is always INT32 (comparisons). */
+    template<class CmpInstr>
+    StackParam emit_cmp_binop(const StackParam& lhs, const StackParam& rhs) {
+        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs.name, lhs.type));
+        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs.name, rhs.type));
+        add_IRInstr(new CmpInstr(this, Reg::W0, Reg::W0, Reg::W1, lhs.type));
+        string tmp = create_new_tempvar(IRType::INT32);
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, IRType::INT32));
+        return StackParam(tmp, IRType::INT32);
+    }
+
     template<class BinInstr>
-    string emit_binop(const string& lhs_var, const string& rhs_var,
-                      IRType t = IRType::INT32) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs_var, t));
-        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs_var, t));
-        add_IRInstr(new BinInstr(this, Reg::W0, Reg::W0, Reg::W1, t));
-        string tmp = create_new_tempvar(IRType_to_Type(t));
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, t));
-        return tmp;
+    StackParam emit_binop(const StackParam& lhs, const StackParam& rhs) {
+        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs.name, lhs.type));
+        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs.name, rhs.type));
+        add_IRInstr(new BinInstr(this, Reg::W0, Reg::W0, Reg::W1, lhs.type));
+        string tmp = create_new_tempvar(lhs.type);
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, lhs.type));
+        return StackParam(tmp, lhs.type);
     }
 
     template<class UnaryInstr>
-    string emit_unop(const string& src_var, IRType t = IRType::INT32) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0, src_var, t));
-        add_IRInstr(new UnaryInstr(this, Reg::W0, Reg::W0, t));
-        string tmp = create_new_tempvar(IRType_to_Type(t));
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, t));
-        return tmp;
+    StackParam emit_unop(const StackParam& src) {
+        add_IRInstr(new LoadStackInstr(this, Reg::W0, src.name, src.type));
+        add_IRInstr(new UnaryInstr(this, Reg::W0, Reg::W0, src.type));
+        string tmp = create_new_tempvar(src.type);
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, src.type));
+        return StackParam(tmp, src.type);
     }
 
     // Helper functions for automatic memory allocation
     int  calculateRequiredStackSpace();
-    void allocateVariable(string name, Type type);
+    void allocateVariable(string name, IRType type);
 
     // Symbol table methods
-    void   add_var_to_symbol_table(string name, Type t);
-    string create_new_tempvar(Type t);
+    void   add_var_to_symbol_table(string name, IRType t);
+    string create_new_tempvar(IRType t);
     int    get_var_index(string name);
     int    get_var_index_or_none(const string& name) const {
         auto it = SymbolIndex.find(name);
         return (it != SymbolIndex.end()) ? it->second : INT_MIN;
     }
-    Type   get_var_type(string name);
+    IRType get_var_type(string name);
 
-    void add_param_to_symbol_table(string name, Type t, int offset) {
+    void add_param_to_symbol_table(string name, IRType t, int offset) {
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
     }
@@ -79,18 +88,8 @@ public:
 
 protected:
     int nextFreeSymbolIndex = -4;
-    map<string, Type> SymbolType;
-    map<string, int>  SymbolIndex;
-
-private:
-    /** Convert IRType back to parser Type for symbol table */
-    static Type IRType_to_Type(IRType t) {
-        switch (t) {
-            case IRType::INT32:
-            case IRType::INT64:   return INT;
-            default:              return INT;
-        }
-    }
+    map<string, IRType> SymbolType;
+    map<string, int>    SymbolIndex;
 };
 
 // ============================================================
@@ -120,18 +119,18 @@ public:
     BasicBlock* current_bb;
 
     struct FunctionSignature {
-        string         name, label;
-        Type           returnType;
-        vector<Type>   paramTypes;
-        vector<string> paramNames;
+        string           name, label;
+        IRType           returnType;
+        vector<IRType>   paramTypes;
+        vector<string>   paramNames;
     };
 
-    void               add_function(string name, Type returnType,
-                                    vector<Type> paramTypes, vector<string> paramNames);
+    void               add_function(string name, IRType returnType,
+                                    vector<IRType> paramTypes, vector<string> paramNames);
     FunctionSignature* get_function(string name);
     vector<FunctionSignature>& get_functions() { return functions; }
-    BasicBlock*        create_function_entry(string name, Type returnType,
-                                             vector<Type> paramTypes, vector<string> paramNames);
+    BasicBlock*        create_function_entry(string name, IRType returnType,
+                                             vector<IRType> paramTypes, vector<string> paramNames);
 
     AsmGenerator* asmGenerator;
 

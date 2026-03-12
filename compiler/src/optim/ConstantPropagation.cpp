@@ -22,10 +22,11 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
     bool modified = false;
     auto& instrs = bb->instrs;
 
-    // Map: stack variable name → known compile-time constant value
+    // Map: stack variable name → known compile-time constant value (integers only)
     // A variable enters the map when we see:  ldconst W0, val  +  store_stack var, W0
     // It leaves the map when any other store writes to it.
-    std::map<std::string, int> constants;
+    // Float constants are intentionally excluded — they need a different representation.
+    std::map<std::string, int64_t> constants;
 
     for (size_t i = 0; i < instrs.size(); ++i) {
         auto* instr = instrs[i];
@@ -39,8 +40,9 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
             bool foundConst = false;
             if (i > 0) {
                 if (auto* ldc = dynamic_cast<LdConstInstr*>(instrs[i - 1])) {
-                    if (ldc->dest.reg == st->src.reg) {
-                        constants[st->dest.name] = ldc->val.as_i32();
+                    if (ldc->dest.reg == st->src.reg
+                        && (ldc->type == IRType::INT32 || ldc->type == IRType::INT64)) {
+                        constants[st->dest.name] = ldc->val.raw_int();
                         foundConst = true;
                     }
                 }
@@ -53,9 +55,11 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
         // load_stack reg, var
         //   → if var is a known constant, replace the load_stack with ldconst reg, val
         if (auto* ld = dynamic_cast<LoadStackInstr*>(instr)) {
+            // Only propagate for integer loads
+            if (ld->type != IRType::INT32 && ld->type != IRType::INT64) continue;
             auto it = constants.find(ld->src.name);
             if (it != constants.end()) {
-                auto* newInstr = new LdConstInstr(bb, ld->dest.reg, ld->type, static_cast<int64_t>(it->second));
+                auto* newInstr = new LdConstInstr(bb, ld->dest.reg, ld->type, it->second);
                 delete ld;
                 instrs[i] = newInstr;
                 modified = true;
