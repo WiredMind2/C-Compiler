@@ -1,6 +1,7 @@
 #pragma once
 #include <utility>
 #include <vector>
+#include <string>
 
 #include "IRType.h"
 #include "Reg.h"
@@ -21,23 +22,20 @@ public:
 
     void gen_asm(ostream &o);
 
-
     IRType type;
     BasicBlock *bb;
 
 protected:
-    explicit IRInstr(BasicBlock *bb_, const IRType t = IRType::INT32) : type(t), bb(bb_) {
-    }
+    explicit IRInstr(BasicBlock *bb_, const IRType t = IRType::INT32) : type(t), bb(bb_) {}
 };
 
 /** Load constant into register:  dest = value */
 struct LdConstInstr : IRInstr {
-    RegParam dest;
-    TypedConst val;
+    RegParam  dest;
+    ConstParam val;
 
-    LdConstInstr(BasicBlock *bb, const Reg d, const TypedConst &v)
-        : IRInstr(bb, v.type), dest(d), val(v) {
-    }
+    LdConstInstr(BasicBlock *bb, const Reg d, const IRType t, int64_t v)
+        : IRInstr(bb, t), dest(d, t), val(t, v) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -52,8 +50,7 @@ struct CopyRegInstr : IRInstr {
     RegParam dest, src;
 
     CopyRegInstr(BasicBlock *bb, const Reg d, const Reg s, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), src(s) {
-    }
+        : IRInstr(bb, t), dest(d, t), src(s, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -66,11 +63,10 @@ struct CopyRegInstr : IRInstr {
 /** Store register to stack slot:  stack[dest] = src */
 struct StoreStackInstr : IRInstr {
     StackParam dest;
-    RegParam src;
+    RegParam   src;
 
     StoreStackInstr(BasicBlock *bb, const string &d, const Reg s, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), src(s) {
-    }
+        : IRInstr(bb, t), dest(d, t), src(s, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -82,12 +78,11 @@ struct StoreStackInstr : IRInstr {
 
 /** Load stack slot into register:  dest = stack[src] */
 struct LoadStackInstr : IRInstr {
-    RegParam dest;
+    RegParam   dest;
     StackParam src;
 
     LoadStackInstr(BasicBlock *bb, const Reg d, const string &s, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), src(s) {
-    }
+        : IRInstr(bb, t), dest(d, t), src(s, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -102,8 +97,7 @@ struct AddInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     AddInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -118,8 +112,7 @@ struct SubInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     SubInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -134,8 +127,7 @@ struct MulInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     MulInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -150,8 +142,7 @@ struct DivInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     DivInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -166,8 +157,7 @@ struct BitNotInstr : IRInstr {
     RegParam dest, src;
 
     BitNotInstr(BasicBlock *bb, const Reg d, const Reg s, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), src(s) {
-    }
+        : IRInstr(bb, t), dest(d, t), src(s, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -182,8 +172,7 @@ struct BitAndInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     BitAndInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -198,8 +187,7 @@ struct BitOrInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     BitOrInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -214,8 +202,7 @@ struct BitXorInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     BitXorInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -230,8 +217,7 @@ struct CmpEqInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     CmpEqInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -246,8 +232,7 @@ struct CmpLtInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     CmpLtInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -262,8 +247,7 @@ struct CmpLeInstr : IRInstr {
     RegParam dest, lhs, rhs;
 
     CmpLeInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {
-    }
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 
@@ -281,8 +265,8 @@ struct CallInstr : IRInstr {
 
     CallInstr(BasicBlock *bb, string label, const Reg d,
               const vector<Reg> &argRegs, const IRType t = IRType::INT32)
-        : IRInstr(bb, t), funcLabel(std::move(label)), dest(d) {
-        for (Reg r: argRegs) args.emplace_back(r);
+        : IRInstr(bb, t), funcLabel(std::move(label)), dest(d, t) {
+        for (Reg r : argRegs) args.emplace_back(r, t);
     }
 
     void accept(AsmGenerator& g, ostream &o) override;
@@ -301,8 +285,7 @@ struct CallInstr : IRInstr {
 /** Return — the return value must already be in Reg::RET */
 struct RetInstr : IRInstr {
     explicit RetInstr(BasicBlock *bb, const IRType t = IRType::INT32)
-        : IRInstr(bb, t) {
-    }
+        : IRInstr(bb, t) {}
 
     void accept(AsmGenerator& g, ostream &o) override;
 

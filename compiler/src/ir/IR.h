@@ -33,21 +33,20 @@ public:
     template<class BinInstr>
     string emit_binop(const string& lhs_var, const string& rhs_var,
                       IRType t = IRType::INT32) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0_32, lhs_var, t));
-        add_IRInstr(new LoadStackInstr(this, Reg::W1_32, rhs_var, t));
-        add_IRInstr(new BinInstr(this, Reg::W0_32, Reg::W0_32, Reg::W1_32, t));
+        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs_var, t));
+        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs_var, t));
+        add_IRInstr(new BinInstr(this, Reg::W0, Reg::W0, Reg::W1, t));
         string tmp = create_new_tempvar(IRType_to_Type(t));
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0_32, t));
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, t));
         return tmp;
     }
 
-    /** Emit: load src_var → R0, apply unary op, store → new temp. */
     template<class UnaryInstr>
     string emit_unop(const string& src_var, IRType t = IRType::INT32) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0_32, src_var, t));
-        add_IRInstr(new UnaryInstr(this, Reg::W0_32, Reg::W0_32, t));
+        add_IRInstr(new LoadStackInstr(this, Reg::W0, src_var, t));
+        add_IRInstr(new UnaryInstr(this, Reg::W0, Reg::W0, t));
         string tmp = create_new_tempvar(IRType_to_Type(t));
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0_32, t));
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, t));
         return tmp;
     }
 

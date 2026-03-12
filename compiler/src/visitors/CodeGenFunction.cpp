@@ -45,8 +45,8 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
 
     // Argument registers in order
     static const Reg argRegs[] = {
-        Reg::ARG0_32, Reg::ARG1_32, Reg::ARG2_32,
-        Reg::ARG3_32, Reg::ARG4_32, Reg::ARG5_32
+        Reg::ARG0, Reg::ARG1, Reg::ARG2,
+        Reg::ARG3, Reg::ARG4, Reg::ARG5
     };
 
     // Evaluate each argument expression (returns a stack var name),
@@ -59,11 +59,11 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         usedArgRegs.push_back(argRegs[i]);
     }
 
-    // Result goes into RET_32 (W0_32 / %eax)
+    // Result goes into RET (W0 / %eax)
     std::string resultTmp = bb->create_new_tempvar(INT);
-    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET_32, usedArgRegs));
-    // Store return value from RET_32 → stack slot
-    bb->add_IRInstr(new StoreStackInstr(bb, resultTmp, Reg::RET_32));
+    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs));
+    // Store return value from RET → stack slot
+    bb->add_IRInstr(new StoreStackInstr(bb, resultTmp, Reg::RET));
 
     return resultTmp;
 }

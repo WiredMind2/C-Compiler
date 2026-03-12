@@ -55,7 +55,7 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
         if (auto* ld = dynamic_cast<LoadStackInstr*>(instr)) {
             auto it = constants.find(ld->src.name);
             if (it != constants.end()) {
-                auto* newInstr = new LdConstInstr(bb, ld->dest.reg, TypedConst(ld->type, static_cast<int64_t>(it->second)));
+                auto* newInstr = new LdConstInstr(bb, ld->dest.reg, ld->type, static_cast<int64_t>(it->second));
                 delete ld;
                 instrs[i] = newInstr;
                 modified = true;

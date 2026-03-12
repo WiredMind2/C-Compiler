@@ -15,8 +15,8 @@ antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentConte
     auto* bb = visitor->getCFG()->current_bb;
     // cmp_eq, then XOR result with 1 to negate
     string eq  = bb->emit_binop<CmpEqInstr>(left, right);
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0_32, TypedConst(IRType::INT32, static_cast<int64_t>(1))));
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, static_cast<int64_t>(1)));
     string one = bb->create_new_tempvar(INT);
-    bb->add_IRInstr(new StoreStackInstr(bb, one, Reg::W0_32, IRType::INT32));
+    bb->add_IRInstr(new StoreStackInstr(bb, one, Reg::W0, IRType::INT32));
     return bb->emit_binop<BitXorInstr>(eq, one);
 }

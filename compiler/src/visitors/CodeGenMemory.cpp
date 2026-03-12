@@ -6,9 +6,9 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
     int64_t val = stol(ctx->CONST()->getText());
     BasicBlock *bb = visitor->getCFG()->current_bb;
 
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0_32, TypedConst(IRType::INT32, val)));
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
     string tmp = bb->create_new_tempvar(INT);
-    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0_32, IRType::INT32));
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
     return tmp;
 }
 
@@ -31,8 +31,8 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     string src = std::any_cast<string>(visitor->visit(ctx->expr()));
     auto* bb = visitor->getCFG()->current_bb;
 
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0_32, src));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0_32));
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0));
     return var;
 }
 
@@ -43,7 +43,7 @@ antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::
     string src = std::any_cast<string>(visitor->visit(ctx->expr()));
     auto* bb = visitor->getCFG()->current_bb;
 
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0_32, src));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0_32));
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0));
     return var;
 }

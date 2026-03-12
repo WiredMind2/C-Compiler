@@ -56,8 +56,8 @@ public:
 
     //---------------- Helper Methods ----------------
 
-    /** Convert architecture-agnostic Reg to a machine register name string */
-    virtual std::string reg_to_asm(Reg r) = 0;
+    /** Convert a RegParam (reg + IRType) to a machine register name string */
+    virtual std::string reg_to_asm(const RegParam& p) = 0;
 
     /** Convert a stack variable name to its memory operand string */
     virtual std::string var_to_asm(const std::string& varName) = 0;

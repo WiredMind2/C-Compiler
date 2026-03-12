@@ -11,41 +11,37 @@ AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 // Helpers
 // ---------------------------------------------------------------------------
 
-string AsmGeneratorX86_64::reg_to_asm(Reg r) {
-    switch (r) {
-        // W0 → rax family
-        case Reg::W0_64:  return "%rax"; case Reg::W0_32: return "%eax";
-        case Reg::W0_16:  return "%ax";  case Reg::W0_8:  return "%al";
-        // W1 → rcx family
-        case Reg::W1_64:  return "%rcx"; case Reg::W1_32: return "%ecx";
-        case Reg::W1_16:  return "%cx";  case Reg::W1_8:  return "%cl";
-        // W2 → rdx family
-        case Reg::W2_64:  return "%rdx"; case Reg::W2_32: return "%edx";
-        case Reg::W2_16:  return "%dx";  case Reg::W2_8:  return "%dl";
-        // W3 → rbx family
-        case Reg::W3_64:  return "%rbx"; case Reg::W3_32: return "%ebx";
-        case Reg::W3_16:  return "%bx";  case Reg::W3_8:  return "%bl";
-        // ARG0 → rdi family
-        case Reg::ARG0_64: return "%rdi"; case Reg::ARG0_32: return "%edi";
-        case Reg::ARG0_16: return "%di";  case Reg::ARG0_8:  return "%dil";
-        // ARG1 → rsi family
-        case Reg::ARG1_64: return "%rsi"; case Reg::ARG1_32: return "%esi";
-        case Reg::ARG1_16: return "%si";  case Reg::ARG1_8:  return "%sil";
-        // ARG2 → rdx family  (same physical as W2 on x86-64)
-        case Reg::ARG2_64: return "%rdx"; case Reg::ARG2_32: return "%edx";
-        case Reg::ARG2_16: return "%dx";  case Reg::ARG2_8:  return "%dl";
-        // ARG3 → rcx family  (same physical as W1 on x86-64)
-        case Reg::ARG3_64: return "%rcx"; case Reg::ARG3_32: return "%ecx";
-        case Reg::ARG3_16: return "%cx";  case Reg::ARG3_8:  return "%cl";
-        // ARG4 → r8 family
-        case Reg::ARG4_64: return "%r8";  case Reg::ARG4_32: return "%r8d";
-        case Reg::ARG4_16: return "%r8w"; case Reg::ARG4_8:  return "%r8b";
-        // ARG5 → r9 family
-        case Reg::ARG5_64: return "%r9";  case Reg::ARG5_32: return "%r9d";
-        case Reg::ARG5_16: return "%r9w"; case Reg::ARG5_8:  return "%r9b";
-        // RET → rax family  (same physical as W0 on x86-64)
-        case Reg::RET_64:  return "%rax"; case Reg::RET_32: return "%eax";
-        case Reg::RET_16:  return "%ax";  case Reg::RET_8:  return "%al";
+string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
+    // Returns the register name for the given logical register and IRType.
+    // x86-64 physical mappings:
+    //   W0/RET  → rax/eax/ax/al
+    //   W1      → rcx/ecx/cx/cl
+    //   W2      → rdx/edx/dx/dl
+    //   W3      → rbx/ebx/bx/bl
+    //   ARG0    → rdi/edi/di/dil
+    //   ARG1    → rsi/esi/si/sil
+    //   ARG2    → rdx/edx/dx/dl
+    //   ARG3    → rcx/ecx/cx/cl
+    //   ARG4    → r8/r8d/r8w/r8b
+    //   ARG5    → r9/r9d/r9w/r9b
+    bool is64 = (p.type == IRType::INT64 || p.type == IRType::FLOAT64);
+    switch (p.reg) {
+        case Reg::W0:   case Reg::RET:
+            return is64 ? "%rax" : "%eax";
+        case Reg::W1:   case Reg::ARG3:
+            return is64 ? "%rcx" : "%ecx";
+        case Reg::W2:   case Reg::ARG2:
+            return is64 ? "%rdx" : "%edx";
+        case Reg::W3:
+            return is64 ? "%rbx" : "%ebx";
+        case Reg::ARG0:
+            return is64 ? "%rdi" : "%edi";
+        case Reg::ARG1:
+            return is64 ? "%rsi" : "%esi";
+        case Reg::ARG4:
+            return is64 ? "%r8"  : "%r8d";
+        case Reg::ARG5:
+            return is64 ? "%r9"  : "%r9d";
     }
     throw std::invalid_argument("reg_to_asm: unknown Reg");
 }
@@ -85,107 +81,104 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::visit(ostream& o, LdConstInstr& instr) {
-    o << "    movl $" << instr.val.as_i32()
-      << ", " << reg_to_asm(instr.dest.reg) << "\n";
+    o << "    movl $" << instr.val.raw_int() << ", " << reg_to_asm(instr.dest) << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, CopyRegInstr& instr) {
-    string src  = reg_to_asm(instr.src.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string src  = reg_to_asm(instr.src);
+    string dest = reg_to_asm(instr.dest);
     if (src != dest)
         o << "    movl " << src << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, StoreStackInstr& instr) {
-    o << "    movl " << reg_to_asm(instr.src.reg)
+    o << "    movl " << reg_to_asm(instr.src)
       << ", "       << var_to_asm(instr.dest.name) << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, LoadStackInstr& instr) {
     o << "    movl " << var_to_asm(instr.src.name)
-      << ", "       << reg_to_asm(instr.dest.reg) << "\n";
+      << ", "       << reg_to_asm(instr.dest) << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, AddInstr& instr) {
-    // dest = lhs + rhs   (dest may alias lhs — both map to a reg)
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
     o << "    addl " << rhs << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, SubInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
     o << "    subl " << rhs << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, MulInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
     o << "    imull " << rhs << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, DivInstr& instr) {
-    // idiv: dividend in %eax:%edx, divisor in a reg
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (lhs != "%eax")
         o << "    movl " << lhs << ", %eax\n";
-    o << "    cltd\n";                       // sign-extend %eax into %edx:%eax
-    o << "    idivl " << rhs << "\n";        // quotient → %eax
+    o << "    cltd\n";
+    o << "    idivl " << rhs << "\n";
     if (dest != "%eax")
         o << "    movl %eax, " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, BitNotInstr& instr) {
-    string src  = reg_to_asm(instr.src.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string src  = reg_to_asm(instr.src);
+    string dest = reg_to_asm(instr.dest);
     if (dest != src)
         o << "    movl " << src << ", " << dest << "\n";
     o << "    notl " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, BitAndInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
     o << "    andl " << rhs << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, BitOrInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
     o << "    orl " << rhs << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, BitXorInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
     o << "    xorl " << rhs << ", " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, CmpEqInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl " << rhs << ", %eax\n";
     o << "    sete %al\n";
@@ -194,9 +187,9 @@ void AsmGeneratorX86_64::visit(ostream& o, CmpEqInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, CmpLtInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl " << rhs << ", %eax\n";
     o << "    setl %al\n";
@@ -205,9 +198,9 @@ void AsmGeneratorX86_64::visit(ostream& o, CmpLtInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, CmpLeInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs.reg);
-    string rhs  = reg_to_asm(instr.rhs.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl " << rhs << ", %eax\n";
     o << "    setle %al\n";
@@ -216,16 +209,14 @@ void AsmGeneratorX86_64::visit(ostream& o, CmpLeInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, CallInstr& instr) {
-    // x86_64 System V ABI: args in rdi, rsi, rdx, rcx, r8, r9 (64-bit)
     static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
     int numArgs = (int)instr.args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
-        string r32 = reg_to_asm(instr.args[i].reg);
+        string r32 = reg_to_asm(instr.args[i]);
         o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
     }
     o << "    call " << instr.funcLabel << "\n";
-    // result in %eax; move to dest if different
-    string dest = reg_to_asm(instr.dest.reg);
+    string dest = reg_to_asm(instr.dest);
     if (dest != "%eax")
         o << "    movl %eax, " << dest << "\n";
 }

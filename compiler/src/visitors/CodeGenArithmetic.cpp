@@ -39,8 +39,8 @@ antlrcpp::Any visitUnaryMinus(CodeGenVisitor* visitor, ifccParser::UnaryMinusCon
     string value = std::any_cast<string>(visitor->visit(ctx->primitive()));
     // Negate: sub(0, value)
     auto* bb = visitor->getCFG()->current_bb;
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0_32, TypedConst(IRType::INT32, static_cast<int64_t>(0))));
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, static_cast<int64_t>(0)));
     string zero = bb->create_new_tempvar(INT);
-    bb->add_IRInstr(new StoreStackInstr(bb, zero, Reg::W0_32, IRType::INT32));
+    bb->add_IRInstr(new StoreStackInstr(bb, zero, Reg::W0, IRType::INT32));
     return bb->emit_binop<SubInstr>(zero, value);
 }

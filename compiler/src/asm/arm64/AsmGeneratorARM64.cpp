@@ -12,41 +12,29 @@ AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
 // Helpers
 // ---------------------------------------------------------------------------
 
-string AsmGeneratorARM64::reg_to_asm(Reg r) {
-    switch (r) {
-        // W0 → x0/w0 family  (ARM64: x0=64, w0=32, no named 16/8 variants — use w0 with mask)
-        case Reg::W0_64: return "x0";  case Reg::W0_32: return "w0";
-        case Reg::W0_16: return "w0";  case Reg::W0_8:  return "w0";
-        // W1 → x9/w9 family
-        case Reg::W1_64: return "x9";  case Reg::W1_32: return "w9";
-        case Reg::W1_16: return "w9";  case Reg::W1_8:  return "w9";
-        // W2 → x10/w10 family
-        case Reg::W2_64: return "x10"; case Reg::W2_32: return "w10";
-        case Reg::W2_16: return "w10"; case Reg::W2_8:  return "w10";
-        // W3 → x11/w11 family
-        case Reg::W3_64: return "x11"; case Reg::W3_32: return "w11";
-        case Reg::W3_16: return "w11"; case Reg::W3_8:  return "w11";
-        // ARG0 → x0/w0  (same physical as W0 on ARM64)
-        case Reg::ARG0_64: return "x0"; case Reg::ARG0_32: return "w0";
-        case Reg::ARG0_16: return "w0"; case Reg::ARG0_8:  return "w0";
-        // ARG1 → x1/w1
-        case Reg::ARG1_64: return "x1"; case Reg::ARG1_32: return "w1";
-        case Reg::ARG1_16: return "w1"; case Reg::ARG1_8:  return "w1";
-        // ARG2 → x2/w2
-        case Reg::ARG2_64: return "x2"; case Reg::ARG2_32: return "w2";
-        case Reg::ARG2_16: return "w2"; case Reg::ARG2_8:  return "w2";
-        // ARG3 → x3/w3
-        case Reg::ARG3_64: return "x3"; case Reg::ARG3_32: return "w3";
-        case Reg::ARG3_16: return "w3"; case Reg::ARG3_8:  return "w3";
-        // ARG4 → x4/w4
-        case Reg::ARG4_64: return "x4"; case Reg::ARG4_32: return "w4";
-        case Reg::ARG4_16: return "w4"; case Reg::ARG4_8:  return "w4";
-        // ARG5 → x5/w5
-        case Reg::ARG5_64: return "x5"; case Reg::ARG5_32: return "w5";
-        case Reg::ARG5_16: return "w5"; case Reg::ARG5_8:  return "w5";
-        // RET → x0/w0  (same physical as W0 and ARG0 on ARM64)
-        case Reg::RET_64: return "x0"; case Reg::RET_32: return "w0";
-        case Reg::RET_16: return "w0"; case Reg::RET_8:  return "w0";
+string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
+    // ARM64 physical mappings:
+    //   W0/RET/ARG0 → x0/w0
+    //   ARG1        → x1/w1
+    //   ARG2        → x2/w2
+    //   ARG3        → x3/w3
+    //   ARG4        → x4/w4
+    //   ARG5        → x5/w5
+    //   W1          → x9/w9
+    //   W2          → x10/w10
+    //   W3          → x11/w11
+    bool is64 = (p.type == IRType::INT64 || p.type == IRType::FLOAT64);
+    const char* prefix = is64 ? "x" : "w";
+    switch (p.reg) {
+        case Reg::W0:   case Reg::RET:  case Reg::ARG0: return string(prefix) + "0";
+        case Reg::ARG1:                                  return string(prefix) + "1";
+        case Reg::ARG2:                                  return string(prefix) + "2";
+        case Reg::ARG3:                                  return string(prefix) + "3";
+        case Reg::ARG4:                                  return string(prefix) + "4";
+        case Reg::ARG5:                                  return string(prefix) + "5";
+        case Reg::W1:                                    return string(prefix) + "9";
+        case Reg::W2:                                    return string(prefix) + "10";
+        case Reg::W3:                                    return string(prefix) + "11";
     }
     throw std::invalid_argument("reg_to_asm: unknown Reg");
 }
@@ -86,8 +74,8 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::visit(ostream& o, LdConstInstr& instr) {
-    string dest = reg_to_asm(instr.dest.reg);
-    int64_t val = (int64_t)instr.val.as_i32() & 0xFFFFFFFF;
+    string dest = reg_to_asm(instr.dest);
+    int64_t val = instr.val.raw_int() & 0xFFFFFFFF;
     if (val < 65536) {
         o << "    mov " << dest << ", #" << val << "\n";
     } else {
@@ -98,103 +86,101 @@ void AsmGeneratorARM64::visit(ostream& o, LdConstInstr& instr) {
 }
 
 void AsmGeneratorARM64::visit(ostream& o, CopyRegInstr& instr) {
-    string src  = reg_to_asm(instr.src.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string src  = reg_to_asm(instr.src);
+    string dest = reg_to_asm(instr.dest);
     if (src != dest)
         o << "    mov " << dest << ", " << src << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, StoreStackInstr& instr) {
-    o << "    str " << reg_to_asm(instr.src.reg)
+    o << "    str " << reg_to_asm(instr.src)
       << ", "      << var_to_asm(instr.dest.name) << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, LoadStackInstr& instr) {
-    o << "    ldr " << reg_to_asm(instr.dest.reg)
+    o << "    ldr " << reg_to_asm(instr.dest)
       << ", "      << var_to_asm(instr.src.name) << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, AddInstr& instr) {
-    o << "    add " << reg_to_asm(instr.dest.reg) << ", "
-                   << reg_to_asm(instr.lhs.reg)  << ", "
-                   << reg_to_asm(instr.rhs.reg)  << "\n";
+    o << "    add " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, SubInstr& instr) {
-    o << "    sub " << reg_to_asm(instr.dest.reg) << ", "
-                   << reg_to_asm(instr.lhs.reg)  << ", "
-                   << reg_to_asm(instr.rhs.reg)  << "\n";
+    o << "    sub " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, MulInstr& instr) {
-    o << "    mul " << reg_to_asm(instr.dest.reg) << ", "
-                   << reg_to_asm(instr.lhs.reg)  << ", "
-                   << reg_to_asm(instr.rhs.reg)  << "\n";
+    o << "    mul " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, DivInstr& instr) {
-    o << "    sdiv " << reg_to_asm(instr.dest.reg) << ", "
-                    << reg_to_asm(instr.lhs.reg)   << ", "
-                    << reg_to_asm(instr.rhs.reg)   << "\n";
+    o << "    sdiv " << reg_to_asm(instr.dest) << ", "
+                    << reg_to_asm(instr.lhs)   << ", "
+                    << reg_to_asm(instr.rhs)   << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, BitNotInstr& instr) {
-    string src  = reg_to_asm(instr.src.reg);
-    string dest = reg_to_asm(instr.dest.reg);
+    string src  = reg_to_asm(instr.src);
+    string dest = reg_to_asm(instr.dest);
     o << "    eor " << dest << ", " << src << ", #0xFFFFFFFF\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, BitAndInstr& instr) {
-    o << "    and " << reg_to_asm(instr.dest.reg) << ", "
-                   << reg_to_asm(instr.lhs.reg)  << ", "
-                   << reg_to_asm(instr.rhs.reg)  << "\n";
+    o << "    and " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, BitOrInstr& instr) {
-    o << "    orr " << reg_to_asm(instr.dest.reg) << ", "
-                   << reg_to_asm(instr.lhs.reg)  << ", "
-                   << reg_to_asm(instr.rhs.reg)  << "\n";
+    o << "    orr " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, BitXorInstr& instr) {
-    o << "    eor " << reg_to_asm(instr.dest.reg) << ", "
-                   << reg_to_asm(instr.lhs.reg)  << ", "
-                   << reg_to_asm(instr.rhs.reg)  << "\n";
+    o << "    eor " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, CmpEqInstr& instr) {
-    string dest = reg_to_asm(instr.dest.reg);
-    o << "    cmp " << reg_to_asm(instr.lhs.reg)
-      << ", "      << reg_to_asm(instr.rhs.reg) << "\n";
+    string dest = reg_to_asm(instr.dest);
+    o << "    cmp " << reg_to_asm(instr.lhs)
+      << ", "      << reg_to_asm(instr.rhs) << "\n";
     o << "    cset " << dest << ", eq\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, CmpLtInstr& instr) {
-    string dest = reg_to_asm(instr.dest.reg);
-    o << "    cmp " << reg_to_asm(instr.lhs.reg)
-      << ", "      << reg_to_asm(instr.rhs.reg) << "\n";
+    string dest = reg_to_asm(instr.dest);
+    o << "    cmp " << reg_to_asm(instr.lhs)
+      << ", "      << reg_to_asm(instr.rhs) << "\n";
     o << "    cset " << dest << ", lt\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, CmpLeInstr& instr) {
-    string dest = reg_to_asm(instr.dest.reg);
-    o << "    cmp " << reg_to_asm(instr.lhs.reg)
-      << ", "      << reg_to_asm(instr.rhs.reg) << "\n";
+    string dest = reg_to_asm(instr.dest);
+    o << "    cmp " << reg_to_asm(instr.lhs)
+      << ", "      << reg_to_asm(instr.rhs) << "\n";
     o << "    cset " << dest << ", le\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, CallInstr& instr) {
-    // ARM64 AAPCS: args in w0..w7, return in w0
     int numArgs = (int)instr.args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
-        string src = reg_to_asm(instr.args[i].reg);
-        string dst = "w" + to_string(i); // w0..w5
+        string src = reg_to_asm(instr.args[i]);
+        string dst = "w" + to_string(i);
         if (src != dst)
             o << "    mov " << dst << ", " << src << "\n";
     }
     o << "    bl " << instr.funcLabel << "\n";
-    // result in w0 (Reg::RET); move to dest if different
-    string dest = reg_to_asm(instr.dest.reg);
+    string dest = reg_to_asm(instr.dest);
     if (dest != "w0")
         o << "    mov " << dest << ", w0\n";
 }

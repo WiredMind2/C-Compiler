@@ -14,7 +14,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     string var = std::any_cast<string>(this->visit(ctx->expr()));
     auto* bb = cfg->current_bb;
     // Load the return value into the return register (RET_32 = W0_32 = %eax/w0)
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET_32, var));
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var));
     return nullptr;
 }
 

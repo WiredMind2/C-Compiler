@@ -34,7 +34,7 @@ public:
 
     //---------------- Helpers ----------------
     /** Map Reg enum → 32-bit register name (e.g. Reg::R0 → "%eax") */
-    std::string reg_to_asm(Reg r) override;
+    std::string reg_to_asm(const RegParam& p) override;
     /** Map stack variable name → memory operand (e.g. "x" → "-4(%rbp)") */
     std::string var_to_asm(const std::string& varName) override;
 
