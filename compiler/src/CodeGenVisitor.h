@@ -3,6 +3,7 @@
 #include "antlr4-runtime.h"
 #include "generated/ifccBaseVisitor.h"
 #include "IR.h"
+#include "type.h"
 #include "visitors/CodeGenArithmetic.h"
 #include "visitors/CodeGenBitwise.h"
 #include "visitors/CodeGenComparison.h"
@@ -29,6 +30,7 @@ public:
         virtual antlrcpp::Any visitParenthesis(ifccParser::ParenthesisContext *ctx) override;
 
         virtual antlrcpp::Any visitConstant(ifccParser::ConstantContext *ctx) override;
+        virtual antlrcpp::Any visitDouble_constant(ifccParser::Double_constantContext* context) override;
 
         virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 

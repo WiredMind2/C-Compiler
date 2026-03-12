@@ -11,9 +11,16 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
-    string var = std::any_cast<string>(this->visit(ctx->expr()));
-    cfg->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {"!eax", var});
-    return "!eax";
+    string returned_expression = std::any_cast<string>(this->visit(ctx->expr()));
+    Type exprType = cfg->current_bb->get_var_type(returned_expression);
+
+    string fonction_name = cfg->getBBs()[0]->label;
+    CFG::FunctionSignature* function_signature = cfg->get_function(fonction_name);  // Get the function signature (use to get return type)
+    Type returnType = (function_signature != nullptr) ? function_signature->returnType : INT; // Return type (default to INT if not found)
+
+    const string registerToUse = returnType == Type::DOUBLE ? "!xmm0" : "!eax";
+    cfg->current_bb->add_IRInstr(IRInstr::copy, exprType, {registerToUse, returned_expression});
+    return registerToUse;
 }
 
 antlrcpp::Any CodeGenVisitor::visitExpr(ifccParser::ExprContext *ctx)
@@ -29,6 +36,10 @@ antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *c
 antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
 {
     return ::visitConstant(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantContext* ctx) {
+    return ::visitDouble_constant(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)

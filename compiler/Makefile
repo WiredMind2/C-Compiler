@@ -1,7 +1,7 @@
 include config.mk
 
 CC=g++
-CCFLAGS=-g -c -std=c++17 -I$(ANTLRINC) -Wno-attributes
+CCFLAGS=-g -c -std=c++20 -I$(ANTLRINC) -Wno-attributes
 LDFLAGS=-g
 
 default: all
@@ -24,7 +24,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenLogical.o \
 	build/IR.o \
 	build/AsmGeneratorX86_64.o \
-	build/AsmGeneratorARM64.o
+	build/AsmGeneratorARM64.o \
+	build/type.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build

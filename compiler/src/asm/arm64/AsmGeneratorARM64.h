@@ -24,22 +24,22 @@ public:
     //---------------- IR Operations ----------------
 
     //! Generate ldconst: load constant into destination
-    void gen_ldconst(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_ldconst(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate copy: copy value from source to destination
-    void gen_copy(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_copy(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate add: destination = param1 + param2
-    void gen_add(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_add(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate sub: destination = param1 - param2
-    void gen_sub(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_sub(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate mul: destination = param1 * param2
-    void gen_mul(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_mul(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate div: destination = param1 / param2
-    void gen_div(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_div(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate bit_not: destination = ~param1
     void gen_bit_not(std::ostream& o, const std::vector<std::string>& params) override;
@@ -54,7 +54,7 @@ public:
     void gen_bit_xor(std::ostream& o, const std::vector<std::string>& params) override;
 
     //! Generate cmp_eq: destination = (param1 == param2)
-    void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate cmp_lt: destination = (param1 < param2)
     void gen_cmp_lt(std::ostream& o, const std::vector<std::string>& params) override;
@@ -87,7 +87,7 @@ public:
     void gen_call(std::ostream& o, const std::vector<std::string>& params) override;
 
     //! Generate ret: return from function
-    void gen_ret(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_ret(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //---------------- Helper Methods ----------------
 
