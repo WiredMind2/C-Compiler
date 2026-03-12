@@ -22,13 +22,20 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     }
     
     // Create function entry point
-    BasicBlock* entryBB = visitor->getCFG()->create_function_entry(func_name, INT, paramTypes, paramNames);
-    
+    BasicBlock* entryBB = visitor->getCFG()->getOrCreateFunctionEntryBB(func_name, INT, paramTypes, paramNames);
+    // Set current bb to the function entry block
+    BasicBlock* formerBB = visitor->getCFG()->current_bb; // Save the former current BB to restore later
+    visitor->getCFG()->current_bb = entryBB;
+    // Add the entryBB on the stack of BBs to manage variable scopes
+    visitor->getCFG()->getStackBBs().push_back(entryBB);
     // Visit the function body (scope)
     if (ctx->scope()) {
         visitor->visit(ctx->scope());
     }
-    
+    // Restore the former current BB after visiting the function body
+    visitor->getCFG()->current_bb = formerBB;
+    // Pop the function entry BB from the stack of BBs
+    visitor->getCFG()->getStackBBs().pop_back();
     return 0;
 }
 
@@ -56,6 +63,12 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {
     std::string func_name = ctx->VAR()->getText();
     
+    // Check if function has been declared or defined before this call
+    if (visitor->getCFG()->get_function(func_name) == nullptr) {
+        std::cerr << "Error: implicit declaration of function '" << func_name << "'" << std::endl;
+        exit(1);
+    }
+    
     // Evaluate and pass arguments
     std::vector<std::string> argValues;
     auto args = ctx->expr();
@@ -67,7 +80,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     }
     
     // Create temporary for return value
-    std::string resultTmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
+    std::string resultTmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
     
     // Generate call instruction
     // params format: {function_label, destination_register, arg1, arg2, ...}
@@ -80,7 +93,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         params.push_back(arg);
     }
     
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::call, INT, params);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::call, INT, params);
     
     return resultTmp;
 }

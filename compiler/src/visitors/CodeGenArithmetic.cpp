@@ -6,8 +6,8 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
 {
     string left = std::any_cast<string>(visitor->visit(ctx->additive()));
     string right = std::any_cast<string>(visitor->visit(ctx->multiplicative()));
-    string tmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::add, INT, {tmp, left, right});
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::add, INT, {tmp, left, right});
     return tmp;
 }
 
@@ -15,8 +15,8 @@ antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::Substractio
 {
     string left = std::any_cast<string>(visitor->visit(ctx->additive()));
     string right = std::any_cast<string>(visitor->visit(ctx->multiplicative()));
-    string tmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::sub, INT, {tmp, left, right});
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::sub, INT, {tmp, left, right});
     return tmp;
 }
 
@@ -24,8 +24,8 @@ antlrcpp::Any visitMultiplication(CodeGenVisitor* visitor, ifccParser::Multiplic
 {
     string left = std::any_cast<string>(visitor->visit(ctx->multiplicative()));
     string right = std::any_cast<string>(visitor->visit(ctx->unary()));
-    string tmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::mul, INT, {tmp, left, right});
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::mul, INT, {tmp, left, right});
     return tmp;
 }
 
@@ -33,8 +33,8 @@ antlrcpp::Any visitDivision(CodeGenVisitor* visitor, ifccParser::DivisionContext
 {
     string left = std::any_cast<string>(visitor->visit(ctx->multiplicative()));
     string right = std::any_cast<string>(visitor->visit(ctx->unary()));
-    string tmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::div, INT, {tmp, left, right});
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::div, INT, {tmp, left, right});
     return tmp;
 }
 
@@ -46,7 +46,7 @@ antlrcpp::Any visitUnaryPlus(CodeGenVisitor* visitor, ifccParser::UnaryPlusConte
 antlrcpp::Any visitUnaryMinus(CodeGenVisitor* visitor, ifccParser::UnaryMinusContext *ctx)
 {
     string value = std::any_cast<string>(visitor->visit(ctx->primitive()));
-    string tmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::sub, INT, {tmp, "0", value});
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::sub, INT, {tmp, "0", value});
     return tmp;
 }

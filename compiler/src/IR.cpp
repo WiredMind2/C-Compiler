@@ -60,8 +60,7 @@ void BasicBlock::add_IRInstr(IRInstr::Operation op, Type t, vector<string> param
 // CFG implementation
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
-    current_bb = new BasicBlock(this, new_BB_name());
-    add_bb(current_bb);
+    current_bb = nullptr;
 
     switch (arch) {
         case TargetArch::ARM64:
@@ -184,16 +183,13 @@ void CFG::genOptimizedPrologue(ostream& o) {
 
 BasicBlock* CFG::findBBByVariable(string var) {
     for (auto bb : getStackBBs()) {
-        for (auto instr : bb->instrs) {
-            for (const auto& param : instr->params) {
-                if (param == var) {
-                    return bb;
-                }
-            }
+        if (bb->has_var(var)) {
+            return bb;
         }
     }
     return nullptr;
 }
+
 
 void CFG::add_function(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
     FunctionSignature sig;
@@ -213,13 +209,14 @@ CFG::FunctionSignature* CFG::get_function(string name) {
     return nullptr;
 }
 
-BasicBlock* CFG::create_function_entry(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
+BasicBlock* CFG::create_function_declaration(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
+    // Firstly check if the function is already declared
+    if (get_function(name) != nullptr) {
+        cerr << "Error: Function " << name << " already declared." << endl;
+        exit(1);
+    }
     // First add the function signature
     add_function(name, returnType, paramTypes, paramNames);
-    
-    // Clear existing basic blocks (created by default CFG constructor)
-    // as we now have a proper function entry
-    bbs.clear();
     
     // Create a new entry basic block with the function name as label
     BasicBlock* entryBB = new BasicBlock(this, name);
@@ -240,5 +237,37 @@ BasicBlock* CFG::create_function_entry(string name, Type returnType, vector<Type
     current_bb = entryBB;
     add_bb(entryBB);
     
+    return entryBB;
+}
+
+BasicBlock *CFG::getBBByName(string name) {
+    for (auto bb : getBBs()) {
+        if (bb->label == name) {
+            return bb;
+        }
+    }
+    return nullptr;
+}
+
+void CFG::enter_function_definition(string name)
+// This method is called when we start generating IR for a function definition.
+// It sets the current basic block to the entry block of the function.
+{
+    BasicBlock* entryBB = getBBByName(name);
+    if (entryBB == nullptr) {
+        cerr << "Error: Function " << name << " not declared." << endl;
+        exit(1);
+    }
+    current_bb = entryBB;
+    bbStack.push_back(entryBB);
+}
+
+
+BasicBlock* CFG::getOrCreateFunctionEntryBB(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
+    BasicBlock* entryBB = getBBByName(name);
+    if (entryBB == nullptr) {
+        // If the function entry block doesn't exist, create it
+        entryBB = create_function_declaration(name, returnType, paramTypes, paramNames);
+    }
     return entryBB;
 }

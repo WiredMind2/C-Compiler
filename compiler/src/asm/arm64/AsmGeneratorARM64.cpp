@@ -7,6 +7,11 @@ using namespace std;
 AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
 
 void AsmGeneratorARM64::gen_asm(ostream& o) {
+    // Generate .globl for all functions
+    for (auto bb : cfg->getBBs()) {
+        o << ".globl _" << bb->label << "\n";
+    }
+    
     gen_prologue(o);
     // Generate assembly for all basic blocks
     bool isFirstBB = true;
@@ -17,6 +22,9 @@ void AsmGeneratorARM64::gen_asm(ostream& o) {
 }
 
 void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
+    // Set current_bb for this BB so IR_reg_to_asm can find variable indices
+    cfg->current_bb = bb;
+    
     // Skip label for the first BB since prologue already outputs it
     if (!isFirstBB) {
         o << bb->label << ":\n";
@@ -232,7 +240,7 @@ string AsmGeneratorARM64::IR_reg_to_asm(string reg) {
     if (reg == "!eax") {
         return "w0";
     }
-    int index = cfg->current_bb->get_var_index(reg);
+    int index = cfg->getCurrentBB()->get_var_index(reg);
     return "[fp, #" + to_string(index) + "]";  // ARM64 frame pointer offset
 }
 
@@ -247,7 +255,7 @@ void AsmGeneratorARM64::gen_prologue(ostream& o) {
     if (!cfg->getBBs().empty()) {
         funcName = "_" + cfg->getBBs()[0]->label;
     }
-    o << ".globl " << funcName << "\n";
+    // Skip .globl here since it's generated in gen_asm for all functions
     o << funcName << ":\n";
     o << "    stp fp, lr, [sp, #-16]!\n";  // Save frame pointer and link register
     o << "    mov fp, sp\n";

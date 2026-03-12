@@ -118,14 +118,26 @@ class BasicBlock {
 	}
 	void reset_symbol_index() { nextFreeSymbolIndex = -4; }
 
+	// Get parameters (symbols with positive offset >= minOffset)
+	// Returns pairs of (name, offset) for parameters
+	vector<pair<string, int>> get_params(int minOffset = 16) const {
+		vector<pair<string, int>> params;
+		for (const auto& pair : SymbolIndex) {
+			if (pair.second >= minOffset) {
+				params.push_back(pair);
+			}
+		}
+		return params;
+	}
+
 	// No encapsulation whatsoever here. Feel free to do better.
 	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */
 	BasicBlock* exit_false; /**< pointer to the next basic block, false branch. If null_ptr, the basic block ends with an unconditional jump */
 	string label; /**< label of the BB, also will be the label in the generated code */
 	CFG* cfg; /** < the CFG where this block belongs */
 	vector<IRInstr*> instrs; /** < the instructions themselves. */
-	string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc,
-													 store here the name of the variable that holds the value of expr */
+	string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc, */
+	bool has_var(string name) const { return SymbolIndex.find(name) != SymbolIndex.end();}
  protected:
  	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
 	map <string, Type> SymbolType; /**< part of the symbol table  */
@@ -172,6 +184,25 @@ class CFG {
 	vector<BasicBlock*>& getStackBBs() { return bbStack; } // return the stack of BBs of this CFG, used when generating
 	// IR code from the AST:when we enter an if, while, etc, we push the current BB on the stack, and when we exit it, we pop it from the stack.
 
+	BasicBlock* getCurrentBB() {
+		if (!bbStack.empty()) {
+			return bbStack.back();
+		}
+		// Fall back to current_bb if bbStack is empty (e.g., during assembly generation)
+		return current_bb;
+	}
+
+	void push_bb(BasicBlock* bb) {
+		bbStack.push_back(bb);
+	}
+
+	BasicBlock* pop_bb() {
+		if (bbStack.empty()) return nullptr;
+		BasicBlock* bb = bbStack.back();
+		bbStack.pop_back();
+		return bb;
+	}
+
 	BasicBlock* current_bb;
 
 	// Function support
@@ -186,7 +217,12 @@ class CFG {
 	void add_function(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
 	FunctionSignature* get_function(string name);
 	vector<FunctionSignature>& get_functions() { return functions; }
-	BasicBlock* create_function_entry(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+	BasicBlock* create_function_declaration(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+	BasicBlock* getBBByName(string name);
+	void enter_function_definition(string name);
+	BasicBlock* getOrCreateFunctionEntryBB(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+
+
 
  protected:
 	int nextBBnumber; /**< just for naming */
