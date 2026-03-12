@@ -172,6 +172,24 @@ class CFG {
 	vector<BasicBlock*>& getStackBBs() { return bbStack; } // return the stack of BBs of this CFG, used when generating
 	// IR code from the AST:when we enter an if, while, etc, we push the current BB on the stack, and when we exit it, we pop it from the stack.
 
+	BasicBlock* getCurrentBB() {
+		if (!bbStack.empty()) {
+			return bbStack.back();
+		}
+		return nullptr;
+	}
+
+	void push_bb(BasicBlock* bb) {
+		bbStack.push_back(bb);
+	}
+
+	BasicBlock* pop_bb() {
+		if (bbStack.empty()) return nullptr;
+		BasicBlock* bb = bbStack.back();
+		bbStack.pop_back();
+		return bb;
+	}
+
 	BasicBlock* current_bb;
 
 	// Function support

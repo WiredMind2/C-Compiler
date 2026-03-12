@@ -12,7 +12,7 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
     string var = std::any_cast<string>(this->visit(ctx->expr()));
-    cfg->current_bb->add_IRInstr(IRInstr::copy, INT, {"!eax", var});
+    cfg->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {"!eax", var});
     return "!eax";
 }
 

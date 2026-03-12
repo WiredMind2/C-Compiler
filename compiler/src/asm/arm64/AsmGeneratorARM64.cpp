@@ -232,7 +232,7 @@ string AsmGeneratorARM64::IR_reg_to_asm(string reg) {
     if (reg == "!eax") {
         return "w0";
     }
-    int index = cfg->current_bb->get_var_index(reg);
+    int index = cfg->getCurrentBB()->get_var_index(reg);
     return "[fp, #" + to_string(index) + "]";  // ARM64 frame pointer offset
 }
 

@@ -228,7 +228,7 @@ string AsmGeneratorX86_64::IR_reg_to_asm(string reg) {
     if (reg == "!eax") {
         return "%eax";
     }
-    int index = cfg->current_bb->get_var_index(reg);
+    int index = cfg->getCurrentBB()->get_var_index(reg);
     return to_string(index) + "(%rbp)";
 }
 

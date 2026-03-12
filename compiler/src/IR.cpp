@@ -237,7 +237,7 @@ BasicBlock* CFG::create_function_entry(string name, Type returnType, vector<Type
     }
     
     // Set the current basic block to the entry block
-    current_bb = entryBB;
+    push_bb(entryBB);
     add_bb(entryBB);
     
     return entryBB;

@@ -67,7 +67,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     }
     
     // Create temporary for return value
-    std::string resultTmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
+    std::string resultTmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
     
     // Generate call instruction
     // params format: {function_label, destination_register, arg1, arg2, ...}
@@ -80,7 +80,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         params.push_back(arg);
     }
     
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::call, INT, params);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::call, INT, params);
     
     return resultTmp;
 }
