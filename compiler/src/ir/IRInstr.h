@@ -1,5 +1,6 @@
 #pragma once
 #include <utility>
+#include <vector>
 
 #include "IRType.h"
 #include "Reg.h"
@@ -14,7 +15,7 @@ class IRInstr {
 public:
     virtual ~IRInstr() = default;
 
-    virtual void accept(AsmGenerator &g, ostream &o);
+    virtual void accept(AsmGenerator &g, ostream &o) = 0;
 
     [[nodiscard]] virtual string to_string() const = 0;
 

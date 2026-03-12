@@ -78,7 +78,7 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
 }
 
 void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
-    instr->bb->cfg->asmGenerator->gen_asm_instr(o, instr);
+    instr->accept(*this, o);
 }
 
 // ---------------------------------------------------------------------------
