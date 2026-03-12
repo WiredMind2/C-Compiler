@@ -51,7 +51,7 @@ The grammar uses ANTLR4's visitor pattern to generate:
 - `ifccParser.cpp/h` — Builds parse tree
 - `ifccVisitor.cpp/h` — Base visitor interface
 
-### 2. CodeGenVisitor ([`compiler/src/CodeGenVisitor.h`](../compiler/src/CodeGenVisitor.h))
+### 2. CodeGenVisitor ([`compiler/src/CodeGenVisitor.h`](../compiler/src/visitors/CodeGenVisitor.h))
 
 The main visitor class that traverses the AST and generates Intermediate Representation (IR).
 
@@ -68,7 +68,7 @@ The main visitor class that traverses the AST and generates Intermediate Represe
 - `CodeGenMemory` — Variable access
 - `CodeGenFunction` — Function calls and definitions
 
-### 3. Intermediate Representation ([`compiler/src/IR.h`](../compiler/src/IR.h))
+### 3. Intermediate Representation ([`compiler/src/IR.h`](../compiler/src/ir/IR.h))
 
 The IR uses a **Control Flow Graph (CFG)** with **Basic Blocks** and **3-address instructions**.
 

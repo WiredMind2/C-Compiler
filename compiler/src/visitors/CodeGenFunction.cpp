@@ -3,97 +3,89 @@
 //
 
 #include "CodeGenFunction.h"
-#include "../CodeGenVisitor.h"
+#include "CodeGenVisitor.h"
 #include <iostream>
 
-antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext *ctx) {
+antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext *ctx)
+{
     std::string func_name = ctx->VAR()->getText();
-    
-    // Get parameter types and names from param_list
-    std::vector<Type> paramTypes;
+
+    std::vector<IRType> paramTypes;
     std::vector<std::string> paramNames;
-    
+
     if (ctx->param_list()) {
-        auto params = ctx->param_list()->param();
-        for (auto param : params) {
-            paramTypes.push_back(INT);  // All parameters are int in our grammar
+        for (auto param : ctx->param_list()->param()) {
+            paramTypes.push_back(IRType::INT32);
             paramNames.push_back(param->VAR()->getText());
         }
     }
-    
-    // Create function entry point
-    BasicBlock* entryBB = visitor->getCFG()->getOrCreateFunctionEntryBB(func_name, INT, paramTypes, paramNames);
-    // Set current bb to the function entry block
-    BasicBlock* formerBB = visitor->getCFG()->current_bb; // Save the former current BB to restore later
-    visitor->getCFG()->current_bb = entryBB;
-    // Add the entryBB on the stack of BBs to manage variable scopes
+
+    // Save and restore the former BB around the function body
+    BasicBlock* formerBB = visitor->getCFG()->current_bb;
+
+    BasicBlock* entryBB = visitor->getCFG()->create_function_entry(
+        func_name, IRType::INT32, paramTypes, paramNames);
+
+    // Push the entry BB onto the scope stack
     visitor->getCFG()->getStackBBs().push_back(entryBB);
-    // Visit the function body (scope)
-    if (ctx->scope()) {
+
+    if (ctx->scope())
         visitor->visit(ctx->scope());
-    }
-    // Restore the former current BB after visiting the function body
-    visitor->getCFG()->current_bb = formerBB;
-    // Pop the function entry BB from the stack of BBs
+
     visitor->getCFG()->getStackBBs().pop_back();
+    visitor->getCFG()->current_bb = formerBB;
+
     return 0;
 }
 
-antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext *ctx) {
+antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext *ctx)
+{
     std::string func_name = ctx->VAR()->getText();
-    
-    // Get parameter types from param_list
-    std::vector<Type> paramTypes;
+
+    std::vector<IRType> paramTypes;
     std::vector<std::string> paramNames;
-    
+
     if (ctx->param_list()) {
-        auto params = ctx->param_list()->param();
-        for (auto param : params) {
-            paramTypes.push_back(INT);  // All parameters are int in our grammar
+        for (auto param : ctx->param_list()->param()) {
+            paramTypes.push_back(IRType::INT32);
             paramNames.push_back(param->VAR()->getText());
         }
     }
-    
-    // Register function signature (without creating entry block)
-    visitor->getCFG()->add_function(func_name, INT, paramTypes, paramNames);
-    
+
+    visitor->getCFG()->add_function(func_name, IRType::INT32, paramTypes, paramNames);
     return 0;
 }
 
-antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {
+antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx)
+{
     std::string func_name = ctx->VAR()->getText();
-    
-    // Check if function has been declared or defined before this call
+
+    // Check that the function has been declared or defined
     if (visitor->getCFG()->get_function(func_name) == nullptr) {
         std::cerr << "Error: implicit declaration of function '" << func_name << "'" << std::endl;
         exit(1);
     }
-    
-    // Evaluate and pass arguments
-    std::vector<std::string> argValues;
+
+    auto* bb = visitor->getCFG()->current_bb;
+
+    static const Reg argRegs[] = {
+        Reg::ARG0, Reg::ARG1, Reg::ARG2,
+        Reg::ARG3, Reg::ARG4, Reg::ARG5
+    };
+
+    // Evaluate each argument, load into ARGn register
     auto args = ctx->expr();
-    if (!args.empty()) {
-        for (auto expr : args) {
-            std::string arg = std::any_cast<std::string>(visitor->visit(expr));
-            argValues.push_back(arg);
-        }
+    std::vector<Reg> usedArgRegs;
+    for (int i = 0; i < (int)args.size() && i < 6; i++) {
+        StackParam argVar = std::any_cast<StackParam>(visitor->visit(args[i]));
+        bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
+        usedArgRegs.push_back(argRegs[i]);
     }
-    
-    // Create temporary for return value
-    std::string resultTmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
-    
-    // Generate call instruction
-    // params format: {function_label, destination_register, arg1, arg2, ...}
-    std::vector<std::string> params;
-    params.push_back(func_name);  // Function label
-    params.push_back(resultTmp);   // Destination register (where return value goes)
-    
-    // Add arguments
-    for (const auto& arg : argValues) {
-        params.push_back(arg);
-    }
-    
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::call, INT, params);
-    
-    return resultTmp;
+
+    // Result stored in RET (W0), then saved to a temp stack slot
+    std::string resultTmp = bb->create_new_tempvar(IRType::INT32);
+    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs));
+    bb->add_IRInstr(new StoreStackInstr(bb, resultTmp, Reg::RET));
+
+    return StackParam(resultTmp, IRType::INT32);
 }

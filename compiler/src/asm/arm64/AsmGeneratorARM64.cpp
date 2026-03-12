@@ -1,19 +1,63 @@
 #include "AsmGeneratorARM64.h"
-#include "../../IR.h"
-#include <sstream>
+#include "../../ir/IR.h"
+#include "../../ir/IRInstr.h"
+#include <iostream>
+#include <stdexcept>
 
 using namespace std;
 
 AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
+    // For FLOAT64, map to ARM64 FP/SIMD double registers
+    if (p.type == IRType::FLOAT64) {
+        switch (p.reg) {
+            case Reg::W0: case Reg::RET: case Reg::ARG0: return "d0";
+            case Reg::ARG1:                               return "d1";
+            case Reg::ARG2:                               return "d2";
+            case Reg::ARG3:                               return "d3";
+            case Reg::ARG4:                               return "d4";
+            case Reg::ARG5:                               return "d5";
+            case Reg::W1:                                 return "d8";
+            case Reg::W2:                                 return "d9";
+            case Reg::W3:                                 return "d10";
+        }
+    }
+    bool is64 = (p.type == IRType::INT64);
+    const char* prefix = is64 ? "x" : "w";
+    switch (p.reg) {
+        case Reg::W0:   case Reg::RET:  case Reg::ARG0: return string(prefix) + "0";
+        case Reg::ARG1:                                  return string(prefix) + "1";
+        case Reg::ARG2:                                  return string(prefix) + "2";
+        case Reg::ARG3:                                  return string(prefix) + "3";
+        case Reg::ARG4:                                  return string(prefix) + "4";
+        case Reg::ARG5:                                  return string(prefix) + "5";
+        case Reg::W1:                                    return string(prefix) + "9";
+        case Reg::W2:                                    return string(prefix) + "10";
+        case Reg::W3:                                    return string(prefix) + "11";
+    }
+    throw std::invalid_argument("reg_to_asm: unknown Reg");
+}
+
+string AsmGeneratorARM64::var_to_asm(const string& varName) {
+    int index = cfg->current_bb->get_var_index(varName);
+    return "[fp, #" + to_string(index) + "]";
+}
+
+// ---------------------------------------------------------------------------
+// gen_asm / gen_asm_bb / gen_asm_instr
+// ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::gen_asm(ostream& o) {
     // Generate .globl for all functions
     for (auto bb : cfg->getBBs()) {
         o << ".globl _" << bb->label << "\n";
     }
-    
-    gen_prologue(o);
-    // Generate assembly for all basic blocks
+    cfg->gen_asm_prologue(o);
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
         gen_asm_bb(o, bb, isFirstBB);
@@ -22,314 +66,224 @@ void AsmGeneratorARM64::gen_asm(ostream& o) {
 }
 
 void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
-    // Set current_bb for this BB so IR_reg_to_asm can find variable indices
     cfg->current_bb = bb;
-    
-    // Skip label for the first BB since prologue already outputs it
-    if (!isFirstBB) {
+    if (!isFirstBB)
         o << bb->label << ":\n";
-    }
-    for (auto instr : bb->instrs) {
-        gen_asm_instr(o, instr);
-    }
+    for (auto instr : bb->instrs)
+        cfg->gen_asm_instr(o, instr);
     gen_control_flow(o, bb);
 }
 
 void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
-    switch (instr->op) {
-        case IRInstr::ldconst:
-            gen_ldconst(o, instr->params, instr->t);
-            break;
-        case IRInstr::copy:
-            gen_copy(o, instr->params, instr->t);
-            break;
-        case IRInstr::add:
-            gen_add(o, instr->params, instr->t);
-            break;
-        case IRInstr::sub:
-            gen_sub(o, instr->params, instr->t);
-            break;
-        case IRInstr::mul:
-            gen_mul(o, instr->params, instr->t);
-            break;
-        case IRInstr::div:
-            gen_div(o, instr->params, instr->t);
-            break;
-        case IRInstr::bit_not:
-            gen_bit_not(o, instr->params);
-            break;
-        case IRInstr::bit_and:
-            gen_bit_and(o, instr->params);
-            break;
-        case IRInstr::bit_or:
-            gen_bit_or(o, instr->params);
-            break;
-        case IRInstr::bit_xor:
-            gen_bit_xor(o, instr->params);
-            break;
-        case IRInstr::cmp_eq:
-            gen_cmp_eq(o, instr->params, instr->t);
-            break;
-        case IRInstr::cmp_lt:
-            gen_cmp_lt(o, instr->params);
-            break;
-        case IRInstr::cmp_le:
-            gen_cmp_le(o, instr->params);
-            break;
-        case IRInstr::cmp_gt:
-            gen_cmp_gt(o, instr->params);
-            break;
-        case IRInstr::cmp_ge:
-            gen_cmp_ge(o, instr->params);
-            break;
-        case IRInstr::cmp_mod:
-            gen_cmp_mod(o, instr->params);
-            break;
-        case IRInstr::logical_and:
-            gen_logical_and(o, instr->params);
-            break;
-        case IRInstr::logical_or:
-            gen_logical_or(o, instr->params);
-            break;
-        case IRInstr::rmem:
-            gen_rmem(o, instr->params);
-            break;
-        case IRInstr::wmem:
-            gen_wmem(o, instr->params);
-            break;
-        case IRInstr::call:
-            gen_call(o, instr->params);
-            break;
-        case IRInstr::ret:
-            gen_ret(o, instr->params, instr->t);
-            break;
-        default:
-            break;
-    }
+    instr->accept(*this, o);
 }
 
-void AsmGeneratorARM64::gen_ldconst(ostream& o, const vector<string>& params, Type type) {
-    // ldconst: load constant into destination
-    // params[0] = destination, params[1] = constant
-    int64_t val = stol(params[1]) & 0xFFFFFFFF;
+// ---------------------------------------------------------------------------
+// Visitor implementations  (INT32 only)
+// ---------------------------------------------------------------------------
 
-    if (val < 65536) {
-        o << "    mov w0, #" << val << "\n";
+void AsmGeneratorARM64::visit(ostream& o, LdConstInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::FLOAT64) {
+        // Load 64-bit IEEE754 bit pattern via an integer scratch register
+        uint64_t bits = std::bit_cast<uint64_t>(instr.val.as_f64());
+        o << "    mov x9, #" << (bits & 0xFFFF) << "\n";
+        if ((bits >> 16) & 0xFFFF)
+            o << "    movk x9, #" << ((bits >> 16) & 0xFFFF) << ", lsl #16\n";
+        if ((bits >> 32) & 0xFFFF)
+            o << "    movk x9, #" << ((bits >> 32) & 0xFFFF) << ", lsl #32\n";
+        if ((bits >> 48) & 0xFFFF)
+            o << "    movk x9, #" << ((bits >> 48) & 0xFFFF) << ", lsl #48\n";
+        o << "    fmov " << dest << ", x9\n";
+        return;
+    }
+    int64_t val = instr.val.raw_int();
+    if (instr.type == IRType::INT64) {
+        o << "    mov x9, #" << (val & 0xFFFF) << "\n";
+        if ((val >> 16) & 0xFFFF)
+            o << "    movk x9, #" << ((val >> 16) & 0xFFFF) << ", lsl #16\n";
+        if ((val >> 32) & 0xFFFF)
+            o << "    movk x9, #" << ((val >> 32) & 0xFFFF) << ", lsl #32\n";
+        if ((val >> 48) & 0xFFFF)
+            o << "    movk x9, #" << ((val >> 48) & 0xFFFF) << ", lsl #48\n";
+        if (dest != "x9")
+            o << "    mov " << dest << ", x9\n";
+        return;
+    }
+    // INT32
+    uint32_t uval = static_cast<uint32_t>(val & 0xFFFFFFFF);
+    if (uval < 65536) {
+        o << "    mov " << dest << ", #" << uval << "\n";
     } else {
-        o << "    ldr w0, =" << val << "\n";
-    }
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorARM64::gen_copy(ostream& o, const vector<string>& params, Type type) {
-    // copy: copy value from source to destination
-    // params[0] = destination, params[1] = source
-    if (params[0] != params[1]) {
-        string src_asm = IR_reg_to_asm(params[1]);
-        string dest_asm = IR_reg_to_asm(params[0]);
-        if (src_asm != "w0") {
-            o << "    ldr w0, " << src_asm << "\n";
-        }
-        if (dest_asm != "w0") {
-            o << "    str w0, " << dest_asm << "\n";
-        }
+        o << "    movz " << dest << ", #" << (uval & 0xFFFF) << "\n";
+        if (uval >> 16)
+            o << "    movk " << dest << ", #" << (uval >> 16) << ", lsl #16\n";
     }
 }
 
-void AsmGeneratorARM64::gen_add(ostream& o, const vector<string>& params, Type type) {
-    // add: destination = param1 + param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    add w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, CopyRegInstr& instr) {
+    string src  = reg_to_asm(instr.src);
+    string dest = reg_to_asm(instr.dest);
+    if (src != dest)
+        o << "    mov " << dest << ", " << src << "\n";
 }
 
-void AsmGeneratorARM64::gen_sub(ostream& o, const vector<string>& params, Type type) {
-    // sub: destination = param1 - param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    sub w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, StoreStackInstr& instr) {
+    o << "    str " << reg_to_asm(instr.src)
+      << ", "      << var_to_asm(instr.dest.name) << "\n";
 }
 
-void AsmGeneratorARM64::gen_mul(ostream& o, const vector<string>& params, Type type) {
-    // mul: destination = param1 * param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    mul w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, LoadStackInstr& instr) {
+    o << "    ldr " << reg_to_asm(instr.dest)
+      << ", "      << var_to_asm(instr.src.name) << "\n";
 }
 
-void AsmGeneratorARM64::gen_div(ostream& o, const vector<string>& params, Type type) {
-    // div: destination = param1 / param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    sdiv w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, AddInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        o << "    fadd " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    else
+        o << "    add "  << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
 }
 
-void AsmGeneratorARM64::gen_bit_not(ostream& o, const vector<string>& params) {
-    // bit_not: destination = ~param1
-    // params[0] = destination, params[1] = operand
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    eor w0, w0, #0xFFFFFFFF\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, SubInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        o << "    fsub " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    else
+        o << "    sub "  << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
 }
 
-void AsmGeneratorARM64::gen_bit_and(ostream& o, const vector<string>& params) {
-    // bit_and: destination = param1 & param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    and w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, MulInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        o << "    fmul " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    else
+        o << "    mul "  << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
 }
 
-void AsmGeneratorARM64::gen_bit_or(ostream& o, const vector<string>& params) {
-    // bit_or: destination = param1 | param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    orr w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, DivInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        o << "    fdiv " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    else
+        o << "    sdiv " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
 }
 
-void AsmGeneratorARM64::gen_bit_xor(ostream& o, const vector<string>& params) {
-    // bit_xor: destination = param1 ^ param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    eor w0, w0, w8\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, ModInstr& instr) {
+    // ARM64: no modulo instruction; use sdiv + msub: dest = lhs - (lhs/rhs)*rhs
+    string dest = reg_to_asm(instr.dest);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    // Use W2/W3 as scratch — but dest may be same as lhs, so use a scratch via W3
+    string tmp  = reg_to_asm(RegParam(Reg::W3, instr.type));
+    o << "    sdiv " << tmp  << ", " << lhs << ", " << rhs << "\n";
+    o << "    msub " << dest << ", " << tmp << ", " << rhs << ", " << lhs << "\n";
 }
 
-void AsmGeneratorARM64::gen_cmp_eq(ostream& o, const vector<string>& params, Type type) {
-    // cmp_eq: destination = (param1 == param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, w8\n";
-    o << "    cset w0, eq\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, BitNotInstr& instr) {
+    string src  = reg_to_asm(instr.src);
+    string dest = reg_to_asm(instr.dest);
+    o << "    eor " << dest << ", " << src << ", #0xFFFFFFFF\n";
 }
 
-void AsmGeneratorARM64::gen_cmp_lt(ostream& o, const vector<string>& params) {
-    // cmp_lt: destination = (param1 < param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, w8\n";
-    o << "    cset w0, lt\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, BitAndInstr& instr) {
+    o << "    and " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
-void AsmGeneratorARM64::gen_cmp_le(ostream& o, const vector<string>& params) {
-    // cmp_le: destination = (param1 <= param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, w8\n";
-    o << "    cset w0, le\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, BitOrInstr& instr) {
+    o << "    orr " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
-void AsmGeneratorARM64::gen_cmp_gt(ostream& o, const vector<string>& params) {
-    // cmp_gt: destination = (param1 > param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, w8\n";
-    o << "    cset w0, gt\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+void AsmGeneratorARM64::visit(ostream& o, BitXorInstr& instr) {
+    o << "    eor " << reg_to_asm(instr.dest) << ", "
+                   << reg_to_asm(instr.lhs)  << ", "
+                   << reg_to_asm(instr.rhs)  << "\n";
 }
 
-void AsmGeneratorARM64::gen_cmp_ge(ostream& o, const vector<string>& params) {
-    // cmp_ge: destination = (param1 >= param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, w8\n";
-    o << "    cset w0, ge\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorARM64::gen_cmp_mod(ostream& o, const vector<string>& params) {
-    // cmp_mod: destination = param1 % param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    // In ARM64, we need to use sdiv to get quotient and then multiply/subtract
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    sdiv w1, w0, w8\n";  // quotient
-    o << "    mul w1, w1, w8\n";    // quotient * divisor
-    o << "    sub w0, w0, w1\n";    // remainder
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorARM64::gen_logical_and(ostream& o, const vector<string>& params) {
-    // logical_and: destination = (param1 && param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    // For logical AND, we need to evaluate both operands and convert to 0/1
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    cmp w0, #0\n";
-    o << "    b.eq .Lend_and\n";
-    o << "    ldr w0, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, #0\n";
-    o << "    b.eq .Lend_and\n";
-    o << "    mov w0, #1\n";
-    o << "    b .Ldone_and\n";
-    o << ".Lend_and:\n";
-    o << "    mov w0, #0\n";
-    o << ".Ldone_and:\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorARM64::gen_logical_or(ostream& o, const vector<string>& params) {
-    // logical_or: destination = (param1 || param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    // For logical OR, we need to evaluate both operands and convert to 0/1
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    cmp w0, #0\n";
-    o << "    b.ne .Lend_or\n";
-    o << "    ldr w0, " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    cmp w0, #0\n";
-    o << "    b.ne .Lend_or\n";
-    o << "    mov w0, #0\n";
-    o << "    b .Ldone_or\n";
-    o << ".Lend_or:\n";
-    o << "    mov w0, #1\n";
-    o << ".Ldone_or:\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorARM64::gen_rmem(ostream& o, const vector<string>& params) {
-    // rmem: read from memory
-    // params[0] = destination, params[1] = address
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorARM64::gen_wmem(ostream& o, const vector<string>& params) {
-    // wmem: write to memory
-    // params[0] = address, params[1] = source
-    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
-    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-string AsmGeneratorARM64::IR_reg_to_asm(string reg) {
-    if (reg == "!eax") {
-        return "w0";
+void AsmGeneratorARM64::visit(ostream& o, CmpEqInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::FLOAT64) {
+        o << "    fcmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    } else {
+        o << "    cmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
     }
-    int index = cfg->getCurrentBB()->get_var_index(reg);
-    return "[fp, #" + to_string(index) + "]";  // ARM64 frame pointer offset
+    o << "    cset " << dest << ", eq\n";
 }
 
-string AsmGeneratorARM64::getOffset(const string& reg) {
-    return IR_reg_to_asm(reg);
+void AsmGeneratorARM64::visit(ostream& o, CmpLtInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::FLOAT64) {
+        o << "    fcmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    } else {
+        o << "    cmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    }
+    o << "    cset " << dest << ", lt\n";
 }
+
+void AsmGeneratorARM64::visit(ostream& o, CmpLeInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::FLOAT64) {
+        o << "    fcmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    } else {
+        o << "    cmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    }
+    o << "    cset " << dest << ", le\n";
+}
+
+void AsmGeneratorARM64::visit(ostream &o, CmpGtInstr &instr) {
+    if (instr.type == IRType::FLOAT64) {
+        o << "    fcmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    } else {
+        o << "    cmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    }
+    o << "    cset " << reg_to_asm(instr.dest) << ", gt\n";
+}
+
+void AsmGeneratorARM64::visit(ostream &o, CmpGeInstr &instr) {
+    if (instr.type == IRType::FLOAT64) {
+        o << "    fcmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    } else {
+        o << "    cmp " << reg_to_asm(instr.lhs) << ", " << reg_to_asm(instr.rhs) << "\n";
+    }
+    o << "    cset " << reg_to_asm(instr.dest) << ", ge\n";
+}
+
+
+void AsmGeneratorARM64::visit(ostream &o, LogicalAndInstr &instr) {
+
+}
+void AsmGeneratorARM64::visit(ostream &o, LogicalOrInstr &instr) {
+
+}
+
+void AsmGeneratorARM64::visit(ostream& o, FToIInstr& instr) {
+    // fcvtzs: convert double (src) to 32-bit integer (dest), truncating toward zero
+    o << "    fcvtzs " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.src) << "\n";
+}
+
+void AsmGeneratorARM64::visit(ostream& o, CallInstr& instr) {
+    int numArgs = (int) instr.args.size();
+    for (int i = 0; i < numArgs && i < 6; i++) {
+        string src = reg_to_asm(instr.args[i]);
+        string dst = "w" + to_string(i);
+        if (src != dst)
+            o << "    mov " << dst << ", " << src << "\n";
+    }
+    o << "    bl " << instr.funcLabel << "\n";
+    string dest = reg_to_asm(instr.dest);
+    if (dest != "w0")
+        o << "    mov " << dest << ", w0\n";
+}
+
+void AsmGeneratorARM64::visit(ostream& o, RetInstr& instr) {
+    // Return value must already be in Reg::RET (w0)
+    o << "    ret\n";
+}
+
+// ---------------------------------------------------------------------------
+// Prologue / Epilogue / Control flow
+// ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::gen_prologue(ostream& o) {
     int stackSpace = cfg->calculateRequiredStackSpace();
@@ -357,41 +311,9 @@ void AsmGeneratorARM64::gen_control_flow(ostream& o, BasicBlock* bb) {
     } else if (bb->exit_false == nullptr) {
         o << "    b " << bb->exit_true->label << "\n";
     } else {
-        o << "    ldr w0, " << IR_reg_to_asm(bb->test_var_name) << "\n";
+        o << "    ldr w0, " << var_to_asm(bb->test_var_name) << "\n";
         o << "    cmp w0, #0\n";
         o << "    b.eq " << bb->exit_false->label << "\n";
-        o << "    b " << bb->exit_true->label << "\n";
+        o << "    b "    << bb->exit_true->label  << "\n";
     }
-}
-
-void AsmGeneratorARM64::gen_call(ostream& o, const vector<string>& params) {
-    // call instruction: params[0] = function label, params[1] = destination, params[2+] = arguments
-    string funcLabel = params[0];
-    string destReg = params[1];
-    
-    // Handle arguments - pass them in registers (x0, x1, x2, x3, x4, x5)
-    static const string argRegs[] = {"x0", "x1", "x2", "x3", "x4", "x5"};
-    int numArgs = params.size() - 2;
-    
-    for (int i = 0; i < numArgs && i < 6; i++) {
-        string arg = params[2 + i];
-        // Move argument to appropriate register
-        o << "    ldr w0, " << IR_reg_to_asm(arg) << "\n";
-        o << "    mov " << argRegs[i] << ", w0\n";
-    }
-    
-    // Generate call instruction
-    o << "    bl " << funcLabel << "\n";
-    
-    // Move return value to destination
-    if (destReg != "!eax") {
-        o << "    str w0, " << IR_reg_to_asm(destReg) << "\n";
-    }
-}
-
-void AsmGeneratorARM64::gen_ret(ostream& o, const vector<string>& params, Type type) {
-    // ret instruction: params[0] = return value register (or empty)
-    // ARM64 return value is already in w0, so we just need to return
-    // Generate return
-    o << "    ret\n";
 }

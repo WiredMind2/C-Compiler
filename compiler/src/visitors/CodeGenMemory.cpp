@@ -1,35 +1,41 @@
 #include "CodeGenMemory.h"
-#include "../CodeGenVisitor.h"
+#include "CodeGenVisitor.h"
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx)
 {
-    string val = ctx->CONST()->getText();
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::ldconst, INT, {tmp, val});
-    return tmp;
-}
+    int64_t val = stol(ctx->CONST()->getText());
+    BasicBlock *bb = visitor->getCFG()->current_bb;
 
-antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
-{
-    return (string)ctx->VAR()->getText();
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
+    string tmp = bb->create_new_tempvar(IRType::INT32);
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
+    return StackParam(tmp, IRType::INT32);
 }
 
 antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext *ctx)
 {
-    string val = ctx->DOUBLE_CONST()->getText();
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(DOUBLE);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::ldconst, DOUBLE, {tmp, val});
-    return tmp;
+    double val = stod(ctx->DOUBLE_CONST()->getText());
+    BasicBlock *bb = visitor->getCFG()->current_bb;
+
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::FLOAT64, val));
+    string tmp = bb->create_new_tempvar(IRType::FLOAT64);
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::FLOAT64));
+    return StackParam(tmp, IRType::FLOAT64);
+}
+
+antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
+{
+    string name = ctx->VAR()->getText();
+    IRType t = visitor->getCFG()->current_bb->get_var_type(name);
+    return StackParam(name, t);
 }
 
 antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx)
 {
     // Handle multiple variable declarations: int x, y, z;
-    Type type = type_from_string(ctx->type_specifier()->getText());
-    for (auto varCtx : ctx->VAR()) {
-        string var = varCtx->getText();
-        visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, type);
-    }
+    IRType type = irtype_from_string(ctx->type_specifier()->getText());
+    for (auto varNode : ctx->VAR())
+        visitor->getCFG()->current_bb->add_var_to_symbol_table(varNode->getText(), type);
     return 0;
 }
 
@@ -37,8 +43,8 @@ antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext
 {
     // Handle single variable declaration: int x;
     string var = ctx->VAR()->getText();
-    Type type = type_from_string(ctx->type_specifier()->getText());
-    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, type);
+    IRType type = irtype_from_string(ctx->type_specifier()->getText());
+    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
     return 0;
 }
 
@@ -46,18 +52,23 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 {
     // Handle declaration with initialization: int x = expr;
     string var = ctx->VAR()->getText();
-    Type type = type_from_string(ctx->type_specifier()->getText());
-    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, type);
-    string val = std::any_cast<string>(visitor->visit(ctx->expr()));
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, type, {var, val});
-    return var;
+    IRType type = irtype_from_string(ctx->type_specifier()->getText());
+    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
+
+    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->expr()));
+    auto* bb = visitor->getCFG()->current_bb;
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
+    return StackParam(var, type);
 }
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
 {
     string var = ctx->VAR()->getText();
-    string val = std::any_cast<string>(visitor->visit(ctx->compoundAssignment()));
-    Type type  =  visitor->getCFG()->getCurrentBB()->get_var_type(var);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, type, {var, val});
-    return var;
+    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
+    auto* bb = visitor->getCFG()->current_bb;
+    IRType type = bb->get_var_type(var);
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
+    return StackParam(var, type);
 }

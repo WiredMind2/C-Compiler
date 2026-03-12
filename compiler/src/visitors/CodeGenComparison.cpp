@@ -1,34 +1,31 @@
 #include "CodeGenComparison.h"
-#include "../CodeGenVisitor.h"
-#include "../type.h"
+#include "CodeGenVisitor.h"
+#include <iostream>
 
 antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->equality()));
-    string right = std::any_cast<string>(visitor->visit(ctx->relational()));
-    Type leftType = visitor->getCFG()->getCurrentBB()->get_var_type(left);
-    Type rightType = visitor->getCFG()->getCurrentBB()->get_var_type(right);
-    if (leftType != rightType) {
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->equality()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->relational()));
+    if (left.type != right.type) {
         std::cerr << "type not identical. Not supported right now" << std::endl;
         exit(1);
     }
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_eq, leftType, {tmp, left, right});
-    return tmp;
+    return visitor->getCFG()->current_bb->emit_cmp_binop<CmpEqInstr>(left, right);
 }
 
 antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->equality()));
-    string right = std::any_cast<string>(visitor->visit(ctx->relational()));
-    Type leftType = visitor->getCFG()->getCurrentBB()->get_var_type(left);
-    Type rightType = visitor->getCFG()->getCurrentBB()->get_var_type(right);
-    if (leftType != rightType) {
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->equality()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->relational()));
+    if (left.type != right.type) {
         std::cerr << "type not identical. Not supported right now" << std::endl;
         exit(1);
     }
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_eq, leftType, {tmp, left, right});
-    // TODO: Implement "not equal" - could do XOR with 1 or use cmp_ne if available
-    return tmp;
+    auto* bb = visitor->getCFG()->current_bb;
+    StackParam eq = bb->emit_cmp_binop<CmpEqInstr>(left, right);
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, static_cast<int64_t>(1)));
+    string oname = bb->create_new_tempvar(IRType::INT32);
+    bb->add_IRInstr(new StoreStackInstr(bb, oname, Reg::W0, IRType::INT32));
+    StackParam one(oname, IRType::INT32);
+    return bb->emit_binop<BitXorInstr>(eq, one);
 }

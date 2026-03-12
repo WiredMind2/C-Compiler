@@ -14,7 +14,7 @@ The return statement is handled in [`CodeGenVisitor.cpp:12-17`](compiler/src/Cod
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
     string var = std::any_cast<string>(this->visit(ctx->expr()));
-    cfg->current_bb->add_IRInstr(IRInstr::copy, INT, {"!eax", var});
+    cfg->current_bb->add_IRInstr(IRInstr::copy, Type::INT, {"!eax", var});
     return "!eax";
 }
 ```
@@ -132,7 +132,7 @@ Generate a `copy` instruction to move the return value to `!eax`, then rely on a
 ```cpp
 // In CodeGenVisitor.cpp - visitReturn_stmt
 string var = std::any_cast<string>(this->visit(ctx->expr()));
-cfg->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {"!eax", var});
+cfg->getCurrentBB()->add_IRInstr(IRInstr::copy, Type::INT, {"!eax", var});
 cfg->getCurrentBB()->exit_true = nullptr;  // Signal end of function
 return "!eax";
 ```
@@ -144,7 +144,7 @@ Use the `IRInstr::ret` operation directly:
 ```cpp
 // In CodeGenVisitor.cpp - visitReturn_stmt
 string var = std::any_cast<string>(this->visit(ctx->expr()));
-cfg->getCurrentBB()->add_IRInstr(IRInstr::ret, INT, {var});
+cfg->getCurrentBB()->add_IRInstr(IRInstr::ret, Type::INT, {var});
 return "!eax";
 ```
 

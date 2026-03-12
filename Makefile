@@ -33,3 +33,6 @@ renumber:
 	done
 	@echo "Done renumbering all tests."
 
+clean:
+	rm -rf compiler/build generated
+	rm -f compiler/ifcc

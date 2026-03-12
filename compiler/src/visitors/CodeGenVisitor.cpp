@@ -1,5 +1,5 @@
 #include "CodeGenVisitor.h"
-#include "visitors/CodeGenArithmetic.h"
+#include "CodeGenArithmetic.h"
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {
@@ -11,16 +11,15 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
-    string returned_expression = std::any_cast<string>(this->visit(ctx->expr()));
-    Type exprType = cfg->current_bb->get_var_type(returned_expression);
-
-    string fonction_name = cfg->getBBs()[0]->label;
-    CFG::FunctionSignature* function_signature = cfg->get_function(fonction_name);  // Get the function signature (use to get return type)
-    Type returnType = (function_signature != nullptr) ? function_signature->returnType : INT; // Return type (default to INT if not found)
-
-    const string registerToUse = returnType == Type::DOUBLE ? "!xmm0" : "!eax";
-    cfg->current_bb->add_IRInstr(IRInstr::copy, exprType, {registerToUse, returned_expression});
-    return registerToUse;
+    StackParam var = std::any_cast<StackParam>(this->visit(ctx->expr()));
+    auto* bb = cfg->current_bb;
+    if (var.type == IRType::FLOAT64) {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, IRType::FLOAT64));
+        bb->add_IRInstr(new FToIInstr(bb, Reg::RET, Reg::W0));
+    } else {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+    }
+    return nullptr;
 }
 
 antlrcpp::Any CodeGenVisitor::visitExpr(ifccParser::ExprContext *ctx)
@@ -108,9 +107,67 @@ antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
     return ::visitUnaryPlus(this, ctx);
 }
 
+antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx)
+{
+    return ::visitUnaryNot(this, ctx);
+}
+
 antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx)
 {
     return this->visit(ctx->primitive());
+}
+
+antlrcpp::Any CodeGenVisitor::visitFunctionCall(ifccParser::FunctionCallContext *ctx)
+{
+    return this->visit(ctx->function_call());
+}
+
+// Sequential / compound-assignment pass-throughs
+antlrcpp::Any CodeGenVisitor::visitSequentialExprRef(ifccParser::SequentialExprRefContext *ctx)
+{
+    return this->visit(ctx->compoundAssignment());
+}
+
+antlrcpp::Any CodeGenVisitor::visitSequentialRule(ifccParser::SequentialRuleContext *ctx)
+{
+    this->visit(ctx->compoundAssignment());
+    return this->visit(ctx->sequential());
+}
+
+antlrcpp::Any CodeGenVisitor::visitCompoundAssignmentRef(ifccParser::CompoundAssignmentRefContext *ctx)
+{
+    return this->visit(ctx->logicalOR());
+}
+
+// Bitwise handlers
+antlrcpp::Any CodeGenVisitor::visitBitwiseORRef(ifccParser::BitwiseORRefContext *ctx)
+{
+    return this->visit(ctx->bitwiseXOR());
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseORRule(ifccParser::BitwiseORRuleContext *ctx)
+{
+    return ::visitBitwiseORRule(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseXORRef(ifccParser::BitwiseXORRefContext *ctx)
+{
+    return this->visit(ctx->bitwiseAND());
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseXORRule(ifccParser::BitwiseXORRuleContext *ctx)
+{
+    return ::visitBitwiseXORRule(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseANDRef(ifccParser::BitwiseANDRefContext *ctx)
+{
+    return this->visit(ctx->equality());
+}
+
+antlrcpp::Any CodeGenVisitor::visitBitwiseANDRule(ifccParser::BitwiseANDRuleContext *ctx)
+{
+    return ::visitBitwiseANDRule(this, ctx);
 }
 
 // Equality expression handlers
