@@ -114,8 +114,12 @@ public:
     //! Generate function epilogue
     virtual void gen_epilogue(std::ostream& o) = 0;
 
-    //! Generate control flow for basic block
-    virtual void gen_control_flow(std::ostream& o, BasicBlock* bb) = 0;
+    //---------------- CFG Helpers ----------------
+
+    //! Find basic block containing variable
+    virtual BasicBlock* findBBByVariable(std::string var) = 0;
+
+
 
 protected:
     CFG* cfg;  // Pointer to the CFG for accessing symbol table and helpers

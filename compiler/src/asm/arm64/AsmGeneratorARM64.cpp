@@ -25,14 +25,8 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
     // Set current_bb for this BB so IR_reg_to_asm can find variable indices
     cfg->current_bb = bb;
     
-    // Skip label for the first BB since prologue already outputs it
-    if (!isFirstBB) {
-        o << bb->label << ":\n";
-    }
-    for (auto instr : bb->instrs) {
-        gen_asm_instr(o, instr);
-    }
-    gen_control_flow(o, bb);
+    // Let the BasicBlock handle its own generation (instructions + terminator)
+    bb->gen_asm(o);
 }
 
 void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
@@ -319,14 +313,6 @@ void AsmGeneratorARM64::gen_wmem(ostream& o, const vector<string>& params) {
     o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-string AsmGeneratorARM64::IR_reg_to_asm(string reg) {
-    if (reg == "!eax") {
-        return "w0";
-    }
-    int index = cfg->getCurrentBB()->get_var_index(reg);
-    return "[fp, #" + to_string(index) + "]";  // ARM64 frame pointer offset
-}
-
 string AsmGeneratorARM64::getOffset(const string& reg) {
     return IR_reg_to_asm(reg);
 }
@@ -351,18 +337,24 @@ void AsmGeneratorARM64::gen_epilogue(ostream& o) {
     o << "    ret\n";
 }
 
-void AsmGeneratorARM64::gen_control_flow(ostream& o, BasicBlock* bb) {
-    if (bb->exit_true == nullptr) {
-        gen_epilogue(o);
-    } else if (bb->exit_false == nullptr) {
-        o << "    b " << bb->exit_true->label << "\n";
-    } else {
-        o << "    ldr w0, " << IR_reg_to_asm(bb->test_var_name) << "\n";
-        o << "    cmp w0, #0\n";
-        o << "    b.eq " << bb->exit_false->label << "\n";
-        o << "    b " << bb->exit_true->label << "\n";
-    }
+BasicBlock* AsmGeneratorARM64::findBBByVariable(string var) {
+    return cfg->findBBByVariable(var);
 }
+
+string AsmGeneratorARM64::IR_reg_to_asm(string reg) {
+    if (reg == "!eax") {
+        return "w0";
+    }
+    BasicBlock* bb = cfg->findBBByVariable(reg);
+    if (!bb) {
+        cerr << "Error: Variable " << reg << " not found in any basic block." << endl;
+        exit(1);
+    }
+    int index = bb->get_var_index(reg);
+    return "[fp, #" + to_string(index) + "]";  // ARM64 frame pointer offset
+}
+
+
 
 void AsmGeneratorARM64::gen_call(ostream& o, const vector<string>& params) {
     // call instruction: params[0] = function label, params[1] = destination, params[2+] = arguments
@@ -370,14 +362,14 @@ void AsmGeneratorARM64::gen_call(ostream& o, const vector<string>& params) {
     string destReg = params[1];
     
     // Handle arguments - pass them in registers (x0, x1, x2, x3, x4, x5)
-    static const string argRegs[] = {"x0", "x1", "x2", "x3", "x4", "x5"};
+    static const string argRegs[] = {"w0", "w1", "w2", "w3", "w4", "w5"};
     int numArgs = params.size() - 2;
     
     for (int i = 0; i < numArgs && i < 6; i++) {
         string arg = params[2 + i];
         // Move argument to appropriate register
-        o << "    ldr w0, " << IR_reg_to_asm(arg) << "\n";
-        o << "    mov " << argRegs[i] << ", w0\n";
+        o << "    ldr w10, " << IR_reg_to_asm(arg) << "\n";
+        o << "    mov " << argRegs[i] << ", w10\n";
     }
     
     // Generate call instruction
@@ -391,7 +383,12 @@ void AsmGeneratorARM64::gen_call(ostream& o, const vector<string>& params) {
 
 void AsmGeneratorARM64::gen_ret(ostream& o, const vector<string>& params) {
     // ret instruction: params[0] = return value register (or empty)
-    // ARM64 return value is already in w0, so we just need to return
-    // Generate return
+    if (!params.empty() && !params[0].empty() && params[0] != "!eax") {
+        // Move return value to w0
+        o << "    ldr w0, " << IR_reg_to_asm(params[0]) << "\n";
+    }
+    // ARM64 return: restore stack and fp
+    o << "    mov sp, fp\n";
+    o << "    ldp fp, lr, [sp], #16\n";
     o << "    ret\n";
 }

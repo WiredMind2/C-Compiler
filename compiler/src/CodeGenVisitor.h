@@ -73,6 +73,9 @@ public:
 
         // Scope handler
         virtual antlrcpp::Any visitScope(ifccParser::ScopeContext *ctx) override;
+        
+        // Condition handler
+        virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
 
         CFG *getCFG() { return cfg; }
 

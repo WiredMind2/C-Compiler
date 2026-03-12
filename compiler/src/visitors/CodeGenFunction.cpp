@@ -32,6 +32,14 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     if (ctx->scope()) {
         visitor->visit(ctx->scope());
     }
+    
+    // Add implicit return / terminator if missing
+    if (!visitor->getCFG()->getCurrentBB()->hasTerminator()) {
+        // If it's a void function it might not have a return, but here everything is int
+        // Let's add an explicit ret with 0 if no return was encountered
+        visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::ret, INT, {});
+    }
+    
     // Restore the former current BB after visiting the function body
     visitor->getCFG()->current_bb = formerBB;
     // Pop the function entry BB from the stack of BBs
@@ -58,6 +66,10 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
     visitor->getCFG()->add_function(func_name, INT, paramTypes, paramNames);
     
     return 0;
+}
+
+antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::FunctionCallContext *ctx) {
+    return visitor->visit(ctx->function_call()); // Delegate to function_call rule
 }
 
 antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {

@@ -66,6 +66,13 @@ int main(int argn, const char **argv) {
     CodeGenVisitor v(arch);
     v.visit(tree);
     CFG *cfg = v.getCFG();
+    
+    // Validate CFG
+    if (!cfg->validate()) {
+        cerr << "Error: CFG validation failed!" << endl;
+        exit(1);
+    }
+    
     cfg->gen_asm(cout);
 
     return 0;

@@ -102,8 +102,12 @@ public:
     //! Generate function epilogue
     void gen_epilogue(std::ostream& o) override;
 
-    //! Generate control flow for basic block
-    void gen_control_flow(std::ostream& o, BasicBlock* bb) override;
+    //---------------- CFG Helpers ----------------
+
+    //! Find basic block containing variable
+    BasicBlock* findBBByVariable(std::string var) override;
+
+
 
 private:
     //! Helper to get offset string for a register

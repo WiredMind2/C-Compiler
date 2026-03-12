@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <cassert>
 
 #include "asm/arm64/AsmGeneratorARM64.h"
 #include "asm/x86_64/AsmGeneratorX86_64.h"
@@ -40,21 +41,90 @@ void IRInstr::gen_asm_instr(ostream &o) {
 
 // BasicBlock implementation
 BasicBlock::BasicBlock(CFG* cfg, string entry_label) : cfg(cfg), label(entry_label) {
-    exit_true = nullptr;
-    exit_false = nullptr;
+    terminator = nullptr;
     nextFreeSymbolIndex = -4;
 }
 
 void BasicBlock::gen_asm(ostream &o) {
+    // Determine if this is a function entry block
+    // A block is an entry block if its label matches a function name
+    bool isEntryBlock = false;
+    for (const auto& func : cfg->getFunctions()) {
+        if (label == func.name) {
+            isEntryBlock = true;
+            break;
+        }
+    }
+    
+    // Generate label
     o << label << ":\n";
+
+    if (isEntryBlock) {
+        int stackSpace = calculateRequiredStackSpace();
+        o << "    pushq %rbp\n";
+        o << "    movq %rsp, %rbp\n";
+        o << "    subq $" << stackSpace << ", %rsp\n";
+
+        // Copy parameters from registers to stack (x86_64 System V ABI)
+        // Parameters are passed in: %rdi, %rsi, %rdx, %rcx, %r8, %r9
+        static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        for (const auto& pair : get_params(16)) {
+            int offset = pair.second;
+            if (offset >= 16) {
+                int regIndex = (offset - 16) / 8;
+                if (regIndex >= 0 && regIndex < 6) {
+                    o << "    movq " << argRegs64[regIndex] << ", " << offset << "(%rbp)\n";
+                }
+            }
+        }
+    }
+
+    // Generate instructions
     for (auto instr : instrs) {
         instr->gen_asm(o);
     }
-    cfg->gen_control_flow(o, this);
+
+    // Generate code for the terminator
+    if (terminator) {
+        switch (terminator->kind) {
+            case TerminatorKind::FALLTHROUGH:
+                // No assembly needed for fallthrough
+                break;
+            case TerminatorKind::JMP:
+                o << "    jmp " << terminator->true_target->label << "\n";
+                break;
+            case TerminatorKind::BRANCH:
+                o << "    movl " << cfg->IR_reg_to_asm(terminator->test_var_name) << ", %eax\n";
+                o << "    cmpl $0, %eax\n";
+                o << "    je " << terminator->false_target->label << "\n";
+                o << "    jmp " << terminator->true_target->label << "\n";
+                break;
+        }
+    }
 }
 
 void BasicBlock::add_IRInstr(IRInstr::Operation op, Type t, vector<string> params) {
     instrs.push_back(new IRInstr(this, op, t, params));
+}
+
+void BasicBlock::setTerminator(TerminatorInstr* t) {
+    assert(!hasTerminator() && "BasicBlock already has a terminator!");
+    terminator = t;
+}
+
+BasicBlock* BasicBlock::getSuccessor(bool is_true) const {
+    assert(hasTerminator() && "BasicBlock has no terminator!");
+    switch (terminator->kind) {
+        case TerminatorKind::BRANCH:
+            return is_true ? terminator->true_target : terminator->false_target;
+        case TerminatorKind::JMP:
+            return terminator->true_target;
+        case TerminatorKind::FALLTHROUGH:
+            // For fallthrough, the successor is determined by the CFG layout
+            // This would need to be handled by the CFG during layout
+            return nullptr;
+    }
+    return nullptr;
 }
 
 // CFG implementation
@@ -80,10 +150,6 @@ void CFG::gen_asm(ostream& o) {
     asmGenerator->gen_asm(o);
 }
 
-void CFG::gen_control_flow(ostream& o, BasicBlock* bb) {
-    asmGenerator->gen_control_flow(o, bb);
-}
-
 string CFG::IR_reg_to_asm(string reg) {
     return asmGenerator->IR_reg_to_asm(reg);
 }
@@ -101,8 +167,8 @@ string CFG::new_BB_name() {
 }
 
 void BasicBlock::add_var_to_symbol_table(string name, Type t) {
-    if (cfg->findBBByVariable(name) != nullptr) {
-        cerr << "Error: Variable " << name << " already defined in a former or current scope." << endl;
+    if (has_var(name)) {
+        cerr << "Error: Variable " << name << " already defined in this scope." << endl;
         exit(1);
     }
     SymbolType[name] = t;
@@ -164,6 +230,25 @@ int CFG::calculateRequiredStackSpace() {
     return space;
 }
 
+bool CFG::validate() {
+    // Every basic block must have a terminator
+    for (auto bb : getBBs()) {
+        if (!bb->hasTerminator()) {
+            // Check if block is empty and could be removed or bridged
+            if (bb->instrs.empty()) {
+                // For now, let's just add a fallthrough to the next block if it exists
+                // This handles cases where ANTLR creates empty blocks for merge points
+                std::cerr << "Warning: Empty basic block " << bb->label << " has no terminator. Adding implicit ret 0." << std::endl;
+                bb->add_IRInstr(IRInstr::ret, INT, {});
+                continue;
+            }
+            cerr << "Error: Basic block " << bb->label << " has no terminator!" << endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 void BasicBlock::allocateVariable(string name, Type type) {
     // Get the size for this type
     int size = getTypeSize(type);
@@ -182,11 +267,25 @@ void CFG::genOptimizedPrologue(ostream& o) {
 
 
 BasicBlock* CFG::findBBByVariable(string var) {
-    for (auto bb : getStackBBs()) {
+    // 1. Search in the active BB stack (most recent/nested first)
+    for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
+        if ((*it)->has_var(var)) {
+            return *it;
+        }
+    }
+    
+    // 2. Search in the current_bb if it's not in the stack
+    if (current_bb && current_bb->has_var(var)) {
+        return current_bb;
+    }
+
+    // 3. Last resort: search ALL blocks (for variables from other functions, which is an error in C but helps debug)
+    for (auto bb : bbs) {
         if (bb->has_var(var)) {
             return bb;
         }
     }
+    
     return nullptr;
 }
 
@@ -212,18 +311,15 @@ CFG::FunctionSignature* CFG::get_function(string name) {
 BasicBlock* CFG::create_function_declaration(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames) {
     // Firstly check if the function is already declared
     if (get_function(name) != nullptr) {
-        cerr << "Error: Function " << name << " already declared." << endl;
-        exit(1);
+        // Function already declared, but we might be defining it now.
+        // If it was just a declaration, the BB hasn't been created yet.
+    } else {
+        // First add the function signature
+        add_function(name, returnType, paramTypes, paramNames);
     }
-    // First add the function signature
-    add_function(name, returnType, paramTypes, paramNames);
     
     // Create a new entry basic block with the function name as label
     BasicBlock* entryBB = new BasicBlock(this, name);
-    
-    // Reset symbol index for the new function (parameters will use positive offsets)
-    entryBB->reset_symbol_index();
-    
     // Add parameters to the symbol table
     // In x86_64, parameters are passed in registers (rdi, rsi, rdx, rcx, r8, r9)
     // For simplicity, we'll store them in memory at positive offsets

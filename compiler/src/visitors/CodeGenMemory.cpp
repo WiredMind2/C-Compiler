@@ -11,7 +11,13 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
 
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
 {
-    return (string)ctx->VAR()->getText();
+    string var = ctx->VAR()->getText();
+    // Create a temporary and copy the variable into it
+    // This ensures that the variable is accessible in the current basic block's context
+    // if it needs to be used by a terminator during assembly generation.
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {tmp, var});
+    return tmp;
 }
 
 antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx)

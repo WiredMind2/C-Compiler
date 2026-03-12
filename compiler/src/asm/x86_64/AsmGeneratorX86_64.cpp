@@ -8,16 +8,35 @@ using namespace std;
 AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 
 void AsmGeneratorX86_64::gen_asm(ostream& o) {
-    // Generate .globl for all functions
+    // Determine which BBs are function entry points
+    std::vector<BasicBlock*> functionEntryBBs;
     for (auto bb : cfg->getBBs()) {
+        bool isEntryBlock = false;
+        for (const auto& func : cfg->getFunctions()) {
+            if (bb->label == func.name) {
+                isEntryBlock = true;
+                break;
+            }
+        }
+        if (cfg->getFunctions().empty() && bb->label == "main") {
+            isEntryBlock = true;
+        }
+        if (isEntryBlock) {
+            functionEntryBBs.push_back(bb);
+        }
+    }
+
+    // Generate .globl only for function entry points
+    for (auto bb : functionEntryBBs) {
         o << ".globl " << bb->label << "\n";
     }
     
-    // Generate assembly for all basic blocks (each is a function)
-    bool isFirstBB = true;
+    // Generate assembly for all basic blocks
     for (auto bb : cfg->getBBs()) {
-        gen_asm_bb(o, bb, isFirstBB);
-        isFirstBB = false;
+        // Set current_bb for this BB so IR_reg_to_asm can find variable indices
+        cfg->current_bb = bb;
+        // Let the BasicBlock handle its own generation (instructions + terminator)
+        bb->gen_asm(o);
     }
 }
 
@@ -25,37 +44,8 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
     // Set current_bb for this BB so IR_reg_to_asm can find variable indices
     cfg->current_bb = bb;
     
-    // Generate prologue for this function (each BB is a function entry)
-    int stackSpace = bb->calculateRequiredStackSpace();
-    o << bb->label << ":\n";
-    o << "    pushq %rbp\n";
-    o << "    movq %rsp, %rbp\n";
-    o << "    subq $" << stackSpace << ", %rsp\n";
-    
-    // Copy parameters from registers to stack (x86_64 System V ABI)
-    // Parameters are passed in: %rdi, %rsi, %rdx, %rcx, %r8, %r9
-    // They are stored at positive offsets: 16(%rbp), 24(%rbp), 32(%rbp), etc.
-    static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
-    // Count parameters in this BB's symbol table that use positive offsets
-    for (const auto& pair : bb->get_params(16)) {
-        int offset = pair.second;
-        if (offset > 0 && offset >= 16) {
-            // This is a parameter - copy from the appropriate register
-            int regIndex = (offset - 16) / 8;
-            if (regIndex >= 0 && regIndex < 6) {
-                o << "    movq " << argRegs64[regIndex] << ", " << offset << "(%rbp)\n";
-            }
-        }
-    }
-    
-    // Generate instructions
-    for (auto instr : bb->instrs) {
-        gen_asm_instr(o, instr);
-    }
-    
-    // Generate epilogue
-    o << "    leave\n";
-    o << "    ret\n";
+    // Let the BasicBlock handle its own generation (instructions + terminator)
+    bb->gen_asm(o);
 }
 
 void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
@@ -342,7 +332,12 @@ string AsmGeneratorX86_64::IR_reg_to_asm(string reg) {
     if (reg == "!eax") {
         return "%eax";
     }
-    int index = cfg->getCurrentBB()->get_var_index(reg);
+    BasicBlock* bb = cfg->findBBByVariable(reg);
+    if (!bb) {
+        cerr << "Error: Variable " << reg << " not found in any basic block." << endl;
+        exit(1);
+    }
+    int index = bb->get_var_index(reg);
     return to_string(index) + "(%rbp)";
 }
 
@@ -369,18 +364,11 @@ void AsmGeneratorX86_64::gen_epilogue(ostream& o) {
     o << "    ret\n";
 }
 
-void AsmGeneratorX86_64::gen_control_flow(ostream& o, BasicBlock* bb) {
-    if (bb->exit_true == nullptr) {
-        gen_epilogue(o);
-    } else if (bb->exit_false == nullptr) {
-        o << "    jmp " << bb->exit_true->label << "\n";
-    } else {
-        o << "    movl " << IR_reg_to_asm(bb->test_var_name) << ", %eax\n";
-        o << "    cmpl $0, %eax\n";
-        o << "    je " << bb->exit_false->label << "\n";
-        o << "    jmp " << bb->exit_true->label << "\n";
-    }
+BasicBlock* AsmGeneratorX86_64::findBBByVariable(string var) {
+    return cfg->findBBByVariable(var);
 }
+
+
 
 void AsmGeneratorX86_64::gen_call(ostream& o, const vector<string>& params) {
     // call instruction: params[0] = function label, params[1] = destination, params[2+] = arguments
@@ -411,10 +399,11 @@ void AsmGeneratorX86_64::gen_call(ostream& o, const vector<string>& params) {
 
 void AsmGeneratorX86_64::gen_ret(ostream& o, const vector<string>& params) {
     // ret instruction: params[0] = return value register (or empty)
-    if (!params.empty() && !params[0].empty()) {
+    if (!params.empty() && !params[0].empty() && params[0] != "!eax") {
         // Move return value to %eax
         o << "    movl " << IR_reg_to_asm(params[0]) << ", %eax\n";
     }
-    // Generate return
+    // Standard function epilogue
+    o << "    leave\n";
     o << "    ret\n";
 }
