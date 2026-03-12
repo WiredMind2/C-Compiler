@@ -100,6 +100,21 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
         case IRInstr::cmp_le:
             gen_cmp_le(o, instr->params);
             break;
+        case IRInstr::cmp_gt:
+            gen_cmp_gt(o, instr->params);
+            break;
+        case IRInstr::cmp_ge:
+            gen_cmp_ge(o, instr->params);
+            break;
+        case IRInstr::cmp_mod:
+            gen_cmp_mod(o, instr->params);
+            break;
+        case IRInstr::logical_and:
+            gen_logical_and(o, instr->params);
+            break;
+        case IRInstr::logical_or:
+            gen_logical_or(o, instr->params);
+            break;
         case IRInstr::rmem:
             gen_rmem(o, instr->params);
             break;
@@ -237,6 +252,75 @@ void AsmGeneratorX86_64::gen_cmp_le(ostream& o, const vector<string>& params) {
     o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    setle %al\n";
     o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorX86_64::gen_cmp_gt(ostream& o, const vector<string>& params) {
+    // cmp_gt: destination = (param1 > param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+    o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+    o << "    setg %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorX86_64::gen_cmp_ge(ostream& o, const vector<string>& params) {
+    // cmp_ge: destination = (param1 >= param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+    o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+    o << "    setge %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorX86_64::gen_cmp_mod(ostream& o, const vector<string>& params) {
+    // cmp_mod: destination = param1 % param2
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+    o << "    cltd\n";
+    o << "    idivl " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    movl %edx, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorX86_64::gen_logical_and(ostream& o, const vector<string>& params) {
+    // logical_and: destination = (param1 && param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    // For logical AND, we need to evaluate both operands and convert to 0/1
+    static int labelCount = 0;
+    int thisLabel = labelCount++;
+    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+    o << "    cmpl $0, %eax\n";
+    o << "    je .Lend_and_" << thisLabel << "\n";
+    o << "    movl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+    o << "    cmpl $0, %eax\n";
+    o << "    je .Lend_and_" << thisLabel << "\n";
+    o << "    movl $1, %eax\n";
+    o << "    jmp .Ldone_and_" << thisLabel << "\n";
+    o << ".Lend_and_" << thisLabel << ":\n";
+    o << "    movl $0, %eax\n";
+    o << ".Ldone_and_" << thisLabel << ":\n";
+    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorX86_64::gen_logical_or(ostream& o, const vector<string>& params) {
+    // logical_or: destination = (param1 || param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    // For logical OR, we need to evaluate both operands and convert to 0/1
+    static int labelCount = 0;
+    int thisLabel = labelCount++;
+    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+    o << "    cmpl $0, %eax\n";
+    o << "    jne .Lend_or_" << thisLabel << "\n";
+    o << "    movl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+    o << "    cmpl $0, %eax\n";
+    o << "    jne .Lend_or_" << thisLabel << "\n";
+    o << "    movl $0, %eax\n";
+    o << "    jmp .Ldone_or_" << thisLabel << "\n";
+    o << ".Lend_or_" << thisLabel << ":\n";
+    o << "    movl $1, %eax\n";
+    o << ".Ldone_or_" << thisLabel << ":\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
 

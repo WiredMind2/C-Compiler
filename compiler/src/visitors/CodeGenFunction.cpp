@@ -9,12 +9,12 @@
 antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext *ctx) {
     std::string func_name = ctx->VAR()->getText();
     
-    // Get parameter types and names from var_declarations_function
+    // Get parameter types and names from param_list
     std::vector<Type> paramTypes;
     std::vector<std::string> paramNames;
     
-    auto params = ctx->var_declarations_function();
-    if (!params.empty()) {
+    if (ctx->param_list()) {
+        auto params = ctx->param_list()->param();
         for (auto param : params) {
             paramTypes.push_back(INT);  // All parameters are int in our grammar
             paramNames.push_back(param->VAR()->getText());
@@ -42,12 +42,12 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext *ctx) {
     std::string func_name = ctx->VAR()->getText();
     
-    // Get parameter types from var_declarations_function
+    // Get parameter types from param_list
     std::vector<Type> paramTypes;
     std::vector<std::string> paramNames;
     
-    auto params = ctx->var_declarations_function();
-    if (!params.empty()) {
+    if (ctx->param_list()) {
+        auto params = ctx->param_list()->param();
         for (auto param : params) {
             paramTypes.push_back(INT);  // All parameters are int in our grammar
             paramNames.push_back(param->VAR()->getText());

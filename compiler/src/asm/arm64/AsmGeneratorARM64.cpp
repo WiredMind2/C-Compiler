@@ -76,6 +76,21 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
         case IRInstr::cmp_le:
             gen_cmp_le(o, instr->params);
             break;
+        case IRInstr::cmp_gt:
+            gen_cmp_gt(o, instr->params);
+            break;
+        case IRInstr::cmp_ge:
+            gen_cmp_ge(o, instr->params);
+            break;
+        case IRInstr::cmp_mod:
+            gen_cmp_mod(o, instr->params);
+            break;
+        case IRInstr::logical_and:
+            gen_logical_and(o, instr->params);
+            break;
+        case IRInstr::logical_or:
+            gen_logical_or(o, instr->params);
+            break;
         case IRInstr::rmem:
             gen_rmem(o, instr->params);
             break;
@@ -219,6 +234,74 @@ void AsmGeneratorARM64::gen_cmp_le(ostream& o, const vector<string>& params) {
     o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
     o << "    cmp w0, w8\n";
     o << "    cset w0, le\n";
+    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorARM64::gen_cmp_gt(ostream& o, const vector<string>& params) {
+    // cmp_gt: destination = (param1 > param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    cmp w0, w8\n";
+    o << "    cset w0, gt\n";
+    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorARM64::gen_cmp_ge(ostream& o, const vector<string>& params) {
+    // cmp_ge: destination = (param1 >= param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    cmp w0, w8\n";
+    o << "    cset w0, ge\n";
+    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorARM64::gen_cmp_mod(ostream& o, const vector<string>& params) {
+    // cmp_mod: destination = param1 % param2
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    // In ARM64, we need to use sdiv to get quotient and then multiply/subtract
+    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    sdiv w1, w0, w8\n";  // quotient
+    o << "    mul w1, w1, w8\n";    // quotient * divisor
+    o << "    sub w0, w0, w1\n";    // remainder
+    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorARM64::gen_logical_and(ostream& o, const vector<string>& params) {
+    // logical_and: destination = (param1 && param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    // For logical AND, we need to evaluate both operands and convert to 0/1
+    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    cmp w0, #0\n";
+    o << "    b.eq .Lend_and\n";
+    o << "    ldr w0, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    cmp w0, #0\n";
+    o << "    b.eq .Lend_and\n";
+    o << "    mov w0, #1\n";
+    o << "    b .Ldone_and\n";
+    o << ".Lend_and:\n";
+    o << "    mov w0, #0\n";
+    o << ".Ldone_and:\n";
+    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorARM64::gen_logical_or(ostream& o, const vector<string>& params) {
+    // logical_or: destination = (param1 || param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    // For logical OR, we need to evaluate both operands and convert to 0/1
+    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    cmp w0, #0\n";
+    o << "    b.ne .Lend_or\n";
+    o << "    ldr w0, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    cmp w0, #0\n";
+    o << "    b.ne .Lend_or\n";
+    o << "    mov w0, #0\n";
+    o << "    b .Ldone_or\n";
+    o << ".Lend_or:\n";
+    o << "    mov w0, #1\n";
+    o << ".Ldone_or:\n";
     o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
 }
 

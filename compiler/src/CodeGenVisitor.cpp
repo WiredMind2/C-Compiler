@@ -18,7 +18,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
 
 antlrcpp::Any CodeGenVisitor::visitExpr(ifccParser::ExprContext *ctx)
 {
-    return visit(ctx->bitwiseOR());
+    return visit(ctx->sequential());
 }
 
 antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *ctx)
@@ -36,14 +36,19 @@ antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
     return ::visitVariable(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDeclaration_list(ifccParser::Declaration_listContext *ctx)
 {
-    return ::visitDeclaration(this, ctx);
+    return ::visitDeclaration_list(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDeclaration_assignement(ifccParser::Declaration_assignementContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitVar_decl(ifccParser::Var_declContext *ctx)
 {
-    return ::visitDeclaration_assignement(this, ctx);
+    return ::visitVar_decl(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx)
+{
+    return ::visitVar_decl_with_init(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
@@ -77,6 +82,11 @@ antlrcpp::Any CodeGenVisitor::visitDivision(ifccParser::DivisionContext *ctx)
     return ::visitDivision(this, ctx);
 }
 
+antlrcpp::Any CodeGenVisitor::visitModulo(ifccParser::ModuloContext *ctx)
+{
+    return ::visitModulo(this, ctx);
+}
+
 antlrcpp::Any CodeGenVisitor::visitUnaryMinus(ifccParser::UnaryMinusContext *ctx)
 {
     return ::visitUnaryMinus(this, ctx);
@@ -90,6 +100,69 @@ antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx)
 {
     return this->visit(ctx->primitive());
+}
+
+// Equality expression handlers
+antlrcpp::Any CodeGenVisitor::visitEqualityExprRef(ifccParser::EqualityExprRefContext *ctx)
+{
+    return this->visit(ctx->relational());
+}
+
+antlrcpp::Any CodeGenVisitor::visitEquals(ifccParser::EqualsContext *ctx)
+{
+    return ::visitEquals(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitDifferent(ifccParser::DifferentContext *ctx)
+{
+    return ::visitDifferent(this, ctx);
+}
+
+// Relational expression handlers
+antlrcpp::Any CodeGenVisitor::visitRelationalExprRef(ifccParser::RelationalExprRefContext *ctx)
+{
+    return ::visitRelationalExprRef(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitSmallerStrictThan(ifccParser::SmallerStrictThanContext *ctx)
+{
+    return ::visitSmallerStrictThan(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitGreaterStrictThan(ifccParser::GreaterStrictThanContext *ctx)
+{
+    return ::visitGreaterStrictThan(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitSmallerThan(ifccParser::SmallerThanContext *ctx)
+{
+    return ::visitSmallerThan(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitGreaterThan(ifccParser::GreaterThanContext *ctx)
+{
+    return ::visitGreaterThan(this, ctx);
+}
+
+// Logical expression handlers
+antlrcpp::Any CodeGenVisitor::visitLogicalORRef(ifccParser::LogicalORRefContext *ctx)
+{
+    return ::visitLogicalORRef(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitLogicalORRule(ifccParser::LogicalORRuleContext *ctx)
+{
+    return ::visitLogicalORRule(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitLogicalANDRef(ifccParser::LogicalANDRefContext *ctx)
+{
+    return ::visitLogicalANDRef(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitLogicalANDRule(ifccParser::LogicalANDRuleContext *ctx)
+{
+    return ::visitLogicalANDRule(this, ctx);
 }
 
 // Function handlers

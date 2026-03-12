@@ -14,31 +14,38 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
     return (string)ctx->VAR()->getText();
 }
 
-antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext *ctx)
+antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx)
 {
-    // With the new grammar, VAR returns a vector of TerminalNodes
-    for (auto varNode : ctx->VAR()) {
-        string var = varNode->getText();
-        // Add to CFG's symbol table for code generation
+    // Handle multiple variable declarations: int x, y, z;
+    for (auto varCtx : ctx->VAR()) {
+        string var = varCtx->getText();
         visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
     }
     return 0;
 }
 
-antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
+antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext *ctx)
 {
+    // Handle single variable declaration: int x;
     string var = ctx->VAR()->getText();
+    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
+    return 0;
+}
+
+antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext *ctx)
+{
+    // Handle declaration with initialization: int x = expr;
+    string var = ctx->VAR()->getText();
+    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
     string val = std::any_cast<string>(visitor->visit(ctx->expr()));
     visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {var, val});
     return var;
 }
 
-antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::Declaration_assignementContext *ctx)
+antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
 {
     string var = ctx->VAR()->getText();
-    // Add to CFG's symbol table for code generation
-    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
-    string val = std::any_cast<string>(visitor->visit(ctx->expr()));
+    string val = std::any_cast<string>(visitor->visit(ctx->compoundAssignment()));
     visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {var, val});
     return var;
 }

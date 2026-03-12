@@ -74,6 +74,21 @@ public:
     //! Generate cmp_le: destination = (param1 <= param2)
     virtual void gen_cmp_le(std::ostream& o, const std::vector<std::string>& params) = 0;
 
+    //! Generate cmp_gt: destination = (param1 > param2)
+    virtual void gen_cmp_gt(std::ostream& o, const std::vector<std::string>& params) = 0;
+
+    //! Generate cmp_ge: destination = (param1 >= param2)
+    virtual void gen_cmp_ge(std::ostream& o, const std::vector<std::string>& params) = 0;
+
+    //! Generate cmp_mod: destination = param1 % param2
+    virtual void gen_cmp_mod(std::ostream& o, const std::vector<std::string>& params) = 0;
+
+    //! Generate logical_and: destination = (param1 && param2)
+    virtual void gen_logical_and(std::ostream& o, const std::vector<std::string>& params) = 0;
+
+    //! Generate logical_or: destination = (param1 || param2)
+    virtual void gen_logical_or(std::ostream& o, const std::vector<std::string>& params) = 0;
+
     //! Generate rmem: read from memory
     virtual void gen_rmem(std::ostream& o, const std::vector<std::string>& params) = 0;
 

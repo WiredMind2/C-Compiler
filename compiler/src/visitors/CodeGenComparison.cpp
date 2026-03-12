@@ -4,7 +4,7 @@
 antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ctx)
 {
     string left = std::any_cast<string>(visitor->visit(ctx->equality()));
-    string right = std::any_cast<string>(visitor->visit(ctx->additive()));
+    string right = std::any_cast<string>(visitor->visit(ctx->relational()));
     string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
     visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_eq, INT, {tmp, left, right});
     return tmp;
@@ -13,7 +13,7 @@ antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ct
 antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext *ctx)
 {
     string left = std::any_cast<string>(visitor->visit(ctx->equality()));
-    string right = std::any_cast<string>(visitor->visit(ctx->additive()));
+    string right = std::any_cast<string>(visitor->visit(ctx->relational()));
     string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
     visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_eq, INT, {tmp, left, right});
     // TODO: Implement "not equal" - could do XOR with 1 or use cmp_ne if available

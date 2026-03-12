@@ -38,6 +38,15 @@ antlrcpp::Any visitDivision(CodeGenVisitor* visitor, ifccParser::DivisionContext
     return tmp;
 }
 
+antlrcpp::Any visitModulo(CodeGenVisitor* visitor, ifccParser::ModuloContext *ctx)
+{
+    string left = std::any_cast<string>(visitor->visit(ctx->multiplicative()));
+    string right = std::any_cast<string>(visitor->visit(ctx->unary()));
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_mod, INT, {tmp, left, right});
+    return tmp;
+}
+
 antlrcpp::Any visitUnaryPlus(CodeGenVisitor* visitor, ifccParser::UnaryPlusContext *ctx)
 {
     return visitor->visit(ctx->primitive());

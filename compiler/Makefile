@@ -20,6 +20,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenComparison.o \
 	build/CodeGenMemory.o \
 	build/CodeGenFunction.o \
+	build/CodeGenRelational.o \
+	build/CodeGenLogical.o \
 	build/IR.o \
 	build/AsmGeneratorX86_64.o \
 	build/AsmGeneratorARM64.o
