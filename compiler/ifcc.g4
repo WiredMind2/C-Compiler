@@ -18,7 +18,7 @@ param_list : param (',' param)* ;
 
 function_declaration : 'int' VAR '(' param_list? ')' ';' ;
 function_definition  : 'int' VAR '(' param_list? ')' scope;
-condition : 'if' '(' expr ')' scope ('else' scope)? ;
+condition : 'if' '(' expr ')' scope ('else' (scope | condition) )? ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
 
