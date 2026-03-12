@@ -63,6 +63,12 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {
     std::string func_name = ctx->VAR()->getText();
     
+    // Check if function has been declared or defined before this call
+    if (visitor->getCFG()->get_function(func_name) == nullptr) {
+        std::cerr << "Error: implicit declaration of function '" << func_name << "'" << std::endl;
+        exit(1);
+    }
+    
     // Evaluate and pass arguments
     std::vector<std::string> argValues;
     auto args = ctx->expr();

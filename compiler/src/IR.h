@@ -118,6 +118,18 @@ class BasicBlock {
 	}
 	void reset_symbol_index() { nextFreeSymbolIndex = -4; }
 
+	// Get parameters (symbols with positive offset >= minOffset)
+	// Returns pairs of (name, offset) for parameters
+	vector<pair<string, int>> get_params(int minOffset = 16) const {
+		vector<pair<string, int>> params;
+		for (const auto& pair : SymbolIndex) {
+			if (pair.second >= minOffset) {
+				params.push_back(pair);
+			}
+		}
+		return params;
+	}
+
 	// No encapsulation whatsoever here. Feel free to do better.
 	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */
 	BasicBlock* exit_false; /**< pointer to the next basic block, false branch. If null_ptr, the basic block ends with an unconditional jump */
@@ -176,7 +188,8 @@ class CFG {
 		if (!bbStack.empty()) {
 			return bbStack.back();
 		}
-		return nullptr;
+		// Fall back to current_bb if bbStack is empty (e.g., during assembly generation)
+		return current_bb;
 	}
 
 	void push_bb(BasicBlock* bb) {

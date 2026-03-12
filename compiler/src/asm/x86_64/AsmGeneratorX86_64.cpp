@@ -8,8 +8,12 @@ using namespace std;
 AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 
 void AsmGeneratorX86_64::gen_asm(ostream& o) {
-    gen_prologue(o);
-    // Generate assembly for all basic blocks
+    // Generate .globl for all functions
+    for (auto bb : cfg->getBBs()) {
+        o << ".globl " << bb->label << "\n";
+    }
+    
+    // Generate assembly for all basic blocks (each is a function)
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
         gen_asm_bb(o, bb, isFirstBB);
@@ -18,14 +22,40 @@ void AsmGeneratorX86_64::gen_asm(ostream& o) {
 }
 
 void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
-    // Skip label for the first BB since prologue already outputs it
-    if (!isFirstBB) {
-        o << bb->label << ":\n";
+    // Set current_bb for this BB so IR_reg_to_asm can find variable indices
+    cfg->current_bb = bb;
+    
+    // Generate prologue for this function (each BB is a function entry)
+    int stackSpace = bb->calculateRequiredStackSpace();
+    o << bb->label << ":\n";
+    o << "    pushq %rbp\n";
+    o << "    movq %rsp, %rbp\n";
+    o << "    subq $" << stackSpace << ", %rsp\n";
+    
+    // Copy parameters from registers to stack (x86_64 System V ABI)
+    // Parameters are passed in: %rdi, %rsi, %rdx, %rcx, %r8, %r9
+    // They are stored at positive offsets: 16(%rbp), 24(%rbp), 32(%rbp), etc.
+    static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    // Count parameters in this BB's symbol table that use positive offsets
+    for (const auto& pair : bb->get_params(16)) {
+        int offset = pair.second;
+        if (offset > 0 && offset >= 16) {
+            // This is a parameter - copy from the appropriate register
+            int regIndex = (offset - 16) / 8;
+            if (regIndex >= 0 && regIndex < 6) {
+                o << "    movq " << argRegs64[regIndex] << ", " << offset << "(%rbp)\n";
+            }
+        }
     }
+    
+    // Generate instructions
     for (auto instr : bb->instrs) {
         gen_asm_instr(o, instr);
     }
-    gen_control_flow(o, bb);
+    
+    // Generate epilogue
+    o << "    leave\n";
+    o << "    ret\n";
 }
 
 void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
@@ -243,7 +273,7 @@ void AsmGeneratorX86_64::gen_prologue(ostream& o) {
     if (!cfg->getBBs().empty()) {
         funcName = cfg->getBBs()[0]->label;
     }
-    o << ".globl " << funcName << "\n";
+    // Skip .globl here since it's generated in gen_asm for all functions
     o << funcName << ":\n";
     o << "    pushq %rbp\n";
     o << "    movq %rsp, %rbp\n";
@@ -273,9 +303,6 @@ void AsmGeneratorX86_64::gen_call(ostream& o, const vector<string>& params) {
     string funcLabel = params[0];
     string destReg = params[1];
     
-    // Save caller-saved registers before call
-    o << "    pushq %rax\n";
-    
     // Handle arguments - pass them in registers (rdi, rsi, rdx, rcx, r8, r9)
     // For x86_64, we need to use 64-bit registers
     static const string argRegs[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
@@ -285,15 +312,12 @@ void AsmGeneratorX86_64::gen_call(ostream& o, const vector<string>& params) {
         string arg = params[2 + i];
         // Move argument to appropriate register (sign-extend 32-bit to 64-bit)
         o << "    movl " << IR_reg_to_asm(arg) << ", %eax\n";
-        o << "    movslq %eax, %eax\n";
+        o << "    movslq %eax, %rax\n";
         o << "    movq %rax, " << argRegs[i] << "\n";
     }
     
     // Generate call instruction
     o << "    call " << funcLabel << "\n";
-    
-    // Restore caller-saved registers
-    o << "    popq %rax\n";
     
     // Move return value to destination
     if (destReg != "!eax") {
