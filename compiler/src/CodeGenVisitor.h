@@ -30,6 +30,7 @@ public:
         virtual antlrcpp::Any visitParenthesis(ifccParser::ParenthesisContext *ctx) override;
 
         virtual antlrcpp::Any visitConstant(ifccParser::ConstantContext *ctx) override;
+        virtual antlrcpp::Any visitDouble_constant(ifccParser::Double_constantContext* context) override;
 
         virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 

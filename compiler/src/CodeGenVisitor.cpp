@@ -38,6 +38,10 @@ antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
     return ::visitConstant(this, ctx);
 }
 
+antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantContext* ctx) {
+    return ::visitDouble_constant(this, ctx);
+}
+
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
 {
     return ::visitVariable(this, ctx);
