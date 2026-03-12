@@ -5,202 +5,447 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <memory>
+#include <climits>
 
 #include "asm/AsmGenerator.h"
+#include "Reg.h"
+#include "type.h"
 
 using namespace std;
-
-// Declarations from the parser -- replace with your own
-#include "type.h"
 
 class BasicBlock;
 class CFG;
 class AsmGenerator;
-// class DefFonction; // Removing as it's not defined yet, will use void* or simpler structure if needed
 
+// ============================================================
+//  Parameters
+// ============================================================
 
-//! The class for one 3-address instruction
-class IRInstr {
+enum class ParamKind { Const, Stack, Reg };
 
-   public:
-	/** The instructions themselves -- feel free to subclass instead */
-	typedef enum {
-		ldconst,
-		copy,
-		add,
-		sub,
-		mul,
-		div,
-		bit_not,
-		bit_and,
-		bit_or,
-		bit_xor,
-		rmem,
-		wmem,
-		call,
-		cmp_eq,
-		cmp_lt,
-		cmp_le,
-		ret
-	} Operation;
-
-
-	/**  constructor */
-	IRInstr(BasicBlock* bb_, Operation op, Type t, vector<string> params);
-
-	/** Actual code generation */
-	void gen_asm(ostream &o); /**< x86 assembly code generation for this IR instruction */
-	void gen_asm_instr(ostream &o); /**< Delegate to AsmGenerator for instruction generation */
-
-public:
-	Operation op; /**< The operation type */
-	vector<string> params; /**< For 3-op instrs: d, x, y; for ldconst: d, c;  For call: label, d, params;  for wmem and rmem: choose yourself */
-
-private:
-	BasicBlock* bb; /**< The BB this instruction belongs to, which provides a pointer to the CFG this instruction belong to */
-	Type t;
-	// if you subclass IRInstr, each IRInstr subclass has its parameters and the previous (very important) comment becomes useless: it would be a better design.
+struct Param {
+    virtual ~Param() = default;
+    virtual ParamKind kind() const = 0;
+    virtual string to_string() const = 0;
 };
 
+/** A compile-time constant with its IRType (replaces the old ConstParam) */
+struct ConstParam : Param {
+    TypedConst val;
+    explicit ConstParam(TypedConst v)       : val(v) {}
+    ParamKind kind() const override { return ParamKind::Const; }
+    string to_string() const override { return val.to_string(); }
+};
 
+/** A variable or temporary allocated on the stack, identified by name */
+struct StackParam : Param {
+    string name;
+    explicit StackParam(string n) : name(std::move(n)) {}
+    ParamKind kind() const override { return ParamKind::Stack; }
+    string to_string() const override { return name; }
+};
 
+/** A machine register, identified by the architecture-agnostic Reg enum */
+struct RegParam : Param {
+    Reg reg;
+    explicit RegParam(Reg r) : reg(r) {}
+    ParamKind kind() const override { return ParamKind::Reg; }
+    string to_string() const override { return reg_name(reg); }
+};
 
+// ============================================================
+//  Forward declarations
+// ============================================================
+struct LdConstInstr;
+struct CopyRegInstr;
+struct StoreStackInstr;
+struct LoadStackInstr;
+struct AddInstr;
+struct SubInstr;
+struct MulInstr;
+struct DivInstr;
+struct BitNotInstr;
+struct BitAndInstr;
+struct BitOrInstr;
+struct BitXorInstr;
+struct CmpEqInstr;
+struct CmpLtInstr;
+struct CmpLeInstr;
+struct CallInstr;
+struct RetInstr;
 
+// ============================================================
+//  IRInstr — abstract base
+// ============================================================
 
-/**  The class for a basic block */
+class IRInstr {
+public:
+    virtual ~IRInstr() = default;
 
-/* A few important comments.
-	 IRInstr has no jump instructions.
-	 cmp_* instructions behaves as an arithmetic two-operand instruction (add or mult),
-	  returning a boolean value (as an int)
+    virtual void accept(AsmGenerator& gen, ostream& o) = 0;
+    virtual string to_string() const = 0;
 
-	 Assembly jumps are generated as follows:
-	 BasicBlock::gen_asm() first calls IRInstr::gen_asm() on all its instructions, and then
-		    if  exit_true  is a  nullptr,
-            the epilogue is generated
-        else if exit_false is a nullptr,
-          an unconditional jmp to the exit_true branch is generated
-				else (we have two successors, hence a branch)
-          an instruction comparing the value of test_var_name to true is generated,
-					followed by a conditional branch to the exit_false branch,
-					followed by an unconditional branch to the exit_true branch
-	 The attribute test_var_name itself is defined when converting
-  the if, while, etc of the AST  to IR.
+    void gen_asm(ostream& o);
 
-Possible optimization:
-     a cmp_* comparison instructions, if it is the last instruction of its block,
-       generates an actual assembly comparison
-       followed by a conditional jump to the exit_false branch
-*/
+    BasicBlock* bb;
+    IRType      type; ///< the type this instruction operates on
+
+protected:
+    explicit IRInstr(BasicBlock* bb_, IRType t = IRType::INT32)
+        : bb(bb_), type(t) {}
+};
+
+// ============================================================
+//  Concrete IRInstr subclasses
+//  All register operands use Reg enum.
+//  All stack operands use variable name strings (via StackParam).
+// ============================================================
+
+/** Load constant into register:  dest = value */
+struct LdConstInstr : IRInstr {
+    RegParam   dest;
+    TypedConst val;
+    LdConstInstr(BasicBlock* bb, Reg d, TypedConst v)
+        : IRInstr(bb, v.type), dest(d), val(v) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "ldconst." + irtype_name(type) + " "
+             + dest.to_string() + ", " + val.to_string();
+    }
+};
+
+/** Copy register to register:  dest = src */
+struct CopyRegInstr : IRInstr {
+    RegParam dest, src;
+    CopyRegInstr(BasicBlock* bb, Reg d, Reg s, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), src(s) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "copy_reg." + irtype_name(type) + " "
+             + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** Store register to stack slot:  stack[dest] = src */
+struct StoreStackInstr : IRInstr {
+    StackParam dest;
+    RegParam   src;
+    StoreStackInstr(BasicBlock* bb, const string& d, Reg s, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), src(s) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "store_stack." + irtype_name(type) + " "
+             + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** Load stack slot into register:  dest = stack[src] */
+struct LoadStackInstr : IRInstr {
+    RegParam   dest;
+    StackParam src;
+    LoadStackInstr(BasicBlock* bb, Reg d, const string& s, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), src(s) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "load_stack." + irtype_name(type) + " "
+             + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest = lhs + rhs  (all registers) */
+struct AddInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    AddInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "add." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = lhs - rhs */
+struct SubInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    SubInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "sub." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = lhs * rhs */
+struct MulInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    MulInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "mul." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = lhs / rhs */
+struct DivInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    DivInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "div." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = ~src */
+struct BitNotInstr : IRInstr {
+    RegParam dest, src;
+    BitNotInstr(BasicBlock* bb, Reg d, Reg s, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), src(s) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "bit_not." + irtype_name(type) + " "
+             + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest = lhs & rhs */
+struct BitAndInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    BitAndInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "bit_and." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = lhs | rhs */
+struct BitOrInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    BitOrInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "bit_or." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = lhs ^ rhs */
+struct BitXorInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    BitXorInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "bit_xor." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = (lhs == rhs) */
+struct CmpEqInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    CmpEqInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "cmp_eq." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = (lhs < rhs) */
+struct CmpLtInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    CmpLtInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "cmp_lt." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = (lhs <= rhs) */
+struct CmpLeInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+    CmpLeInstr(BasicBlock* bb, Reg d, Reg l, Reg r, IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d), lhs(l), rhs(r) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "cmp_le." + irtype_name(type) + " "
+             + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = funcLabel(args...)  — args and dest are registers */
+struct CallInstr : IRInstr {
+    string           funcLabel;
+    RegParam         dest;
+    vector<RegParam> args;
+    CallInstr(BasicBlock* bb, const string& label, Reg d,
+              vector<Reg> argRegs, IRType t = IRType::INT32)
+        : IRInstr(bb, t), funcLabel(label), dest(d) {
+        for (Reg r : argRegs) args.emplace_back(r);
+    }
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        string s = "call." + irtype_name(type) + " "
+                 + dest.to_string() + " = " + funcLabel + "(";
+        for (size_t i = 0; i < args.size(); ++i) {
+            if (i) s += ", ";
+            s += args[i].to_string();
+        }
+        return s + ")";
+    }
+};
+
+/** Return — the return value must already be in Reg::RET */
+struct RetInstr : IRInstr {
+    explicit RetInstr(BasicBlock* bb, IRType t = IRType::INT32)
+        : IRInstr(bb, t) {}
+    void accept(AsmGenerator& gen, ostream& o) override;
+    string to_string() const override {
+        return "ret." + irtype_name(type);
+    }
+};
+
+// ============================================================
+//  BasicBlock
+// ============================================================
 
 class BasicBlock {
- public:
-	BasicBlock(CFG* cfg, string entry_label);
-	void gen_asm(ostream &o); /**< x86 assembly code generation for this basic block (very simple) */
-
-	void add_IRInstr(IRInstr::Operation op, Type t, vector<string> params);
-
-	// Helper functions for automatic memory allocation
-	int calculateRequiredStackSpace(); /**< Calculate exact stack space needed based on variables */
-	void allocateVariable(string name, Type type); /**< Unified variable allocation with type-based sizing */
-
-	// symbol table methods
-	void add_var_to_symbol_table(string name, Type t);
-	void add_function_to_symbol_table(string name, Type returnType, vector<Type> paramTypes);
-	string create_new_tempvar(Type t);
-	int get_var_index(string name);
-	Type get_var_type(string name);
-
-	// Public access methods for CFG
-	void add_param_to_symbol_table(string name, Type t, int offset) {
-		SymbolType[name] = t;
-		SymbolIndex[name] = offset;
-	}
-	void reset_symbol_index() { nextFreeSymbolIndex = -4; }
-
-	// No encapsulation whatsoever here. Feel free to do better.
-	BasicBlock* exit_true;  /**< pointer to the next basic block, true branch. If nullptr, return from procedure */
-	BasicBlock* exit_false; /**< pointer to the next basic block, false branch. If null_ptr, the basic block ends with an unconditional jump */
-	string label; /**< label of the BB, also will be the label in the generated code */
-	CFG* cfg; /** < the CFG where this block belongs */
-	vector<IRInstr*> instrs; /** < the instructions themselves. */
-	string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc,
-													 store here the name of the variable that holds the value of expr */
- protected:
- 	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
-	map <string, Type> SymbolType; /**< part of the symbol table  */
-	map <string, int> SymbolIndex; /**< part of the symbol table  */
-
-
-};
-
-
-
-
-/** The class for the control flow graph, also includes the symbol table */
-
-/* A few important comments:
-	 The entry block is the one with the same label as the AST function name.
-	   (it could be the first of bbs, or it could be defined by an attribute value)
-	 The exit block is the one with both exit pointers equal to nullptr.
-     (again it could be identified in a more explicit way)
-
- */
-class CFG {
- public:
-	CFG(TargetArch arch);
-
-	// void* ast; /**< The AST this CFG comes from */
-
-	void add_bb(BasicBlock* bb);
-
-	// x86 code generation: could be encapsulated in a processor class in a retargetable compiler
-	void gen_asm(ostream& o);
-	string IR_reg_to_asm(string reg); /**< helper method: inputs a IR reg or input variable, returns e.g. "-24(%rbp)" for the proper value of 24 */
-	void gen_asm_prologue(ostream& o);
-	void gen_asm_epilogue(ostream& o);
-	void gen_control_flow(ostream& o, BasicBlock* bb);
-	void genOptimizedPrologue(ostream& o); /**< Generate optimized prologue with exact stack space (16-byte aligned) */
-
-
-	int calculateRequiredStackSpace();
-
-	// basic block management
-	BasicBlock* findBBByVariable(string var);
-	string new_BB_name();
-	vector<BasicBlock*>& getBBs() { return bbs; } // return all the BBs of this CFG
-	vector<BasicBlock*>& getStackBBs() { return bbStack; } // return the stack of BBs of this CFG, used when generating
-	// IR code from the AST:when we enter an if, while, etc, we push the current BB on the stack, and when we exit it, we pop it from the stack.
-
-	BasicBlock* current_bb;
-
-	// Function support
-	struct FunctionSignature {
-		string name;
-		string label;
-		Type returnType;
-		vector<Type> paramTypes;
-		vector<string> paramNames;
-	};
-
-	void add_function(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
-	FunctionSignature* get_function(string name);
-	vector<FunctionSignature>& get_functions() { return functions; }
-	BasicBlock* create_function_entry(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
-
- protected:
-	int nextBBnumber; /**< just for naming */
-
-	vector <BasicBlock*> bbs; /**< all the basic blocks of this CFG*/
-	vector <BasicBlock*> bbStack; /**< the stack of basic blocks, used when generating IR code
-	from the AST:when we enter an if, while, etc, we push the current BB on the stack, and when we exit it, we pop it from the stack. */
-
 public:
-	AsmGenerator* asmGenerator; /**< Assembly generator for the target architecture */
+    BasicBlock(CFG* cfg, string entry_label);
+    void gen_asm(ostream& o);
+
+    void add_IRInstr(IRInstr* instr);
+
+
+    /** Emit: load varName into R0, op with R1 loaded from rhs,
+     *  store result into a new temp.  Returns the temp name.
+     *  Template param is the instruction type (AddInstr, SubInstr, …). */
+    template<class BinInstr>
+    string emit_binop(const string& lhs_var, const string& rhs_var,
+                      IRType t = IRType::INT32) {
+        add_IRInstr(new LoadStackInstr(this, Reg::W0_32, lhs_var, t));
+        add_IRInstr(new LoadStackInstr(this, Reg::W1_32, rhs_var, t));
+        add_IRInstr(new BinInstr(this, Reg::W0_32, Reg::W0_32, Reg::W1_32, t));
+        string tmp = create_new_tempvar(IRType_to_Type(t));
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0_32, t));
+        return tmp;
+    }
+
+    /** Emit: load src_var → R0, apply unary op, store → new temp. */
+    template<class UnaryInstr>
+    string emit_unop(const string& src_var, IRType t = IRType::INT32) {
+        add_IRInstr(new LoadStackInstr(this, Reg::W0_32, src_var, t));
+        add_IRInstr(new UnaryInstr(this, Reg::W0_32, Reg::W0_32, t));
+        string tmp = create_new_tempvar(IRType_to_Type(t));
+        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0_32, t));
+        return tmp;
+    }
+
+    // Helper functions for automatic memory allocation
+    int  calculateRequiredStackSpace();
+    void allocateVariable(string name, Type type);
+
+    // Symbol table methods
+    void   add_var_to_symbol_table(string name, Type t);
+    string create_new_tempvar(Type t);
+    int    get_var_index(string name);
+    int    get_var_index_or_none(const string& name) const {
+        auto it = SymbolIndex.find(name);
+        return (it != SymbolIndex.end()) ? it->second : INT_MIN;
+    }
+    Type   get_var_type(string name);
+
+    void add_param_to_symbol_table(string name, Type t, int offset) {
+        SymbolType[name] = t;
+        SymbolIndex[name] = offset;
+    }
+    void reset_symbol_index() { nextFreeSymbolIndex = -4; }
+
+    BasicBlock* exit_true;
+    BasicBlock* exit_false;
+    string      label;
+    CFG*        cfg;
+    vector<IRInstr*> instrs;
+    string      test_var_name;
+
+protected:
+    int nextFreeSymbolIndex = -4;
+    map<string, Type> SymbolType;
+    map<string, int>  SymbolIndex;
+
 private:
-	vector<FunctionSignature> functions; /**< List of function signatures */
-	map<string, int> functionIndex; /**< Map from function name to index in functions vector */
+    /** Convert IRType back to parser Type for symbol table */
+    static Type IRType_to_Type(IRType t) {
+        switch (t) {
+            case IRType::INT32:
+            case IRType::INT64:   return INT;
+            default:              return INT;
+        }
+    }
 };
 
+// ============================================================
+//  CFG
+// ============================================================
 
-#endif
+class CFG {
+public:
+    explicit CFG(TargetArch arch);
+
+    void add_bb(BasicBlock* bb);
+
+    void gen_asm(ostream& o);
+    void gen_asm_instr(ostream& o, IRInstr* instr);
+    void gen_asm_prologue(ostream& o);
+    void gen_asm_epilogue(ostream& o);
+    void gen_control_flow(ostream& o, BasicBlock* bb);
+
+    int  calculateRequiredStackSpace();
+
+    BasicBlock* findBBByVariable(const string& var);
+    string      new_BB_name();
+
+    vector<BasicBlock*>& getBBs()      { return bbs; }
+    vector<BasicBlock*>& getStackBBs() { return bbStack; }
+
+    BasicBlock* current_bb;
+
+    struct FunctionSignature {
+        string         name, label;
+        Type           returnType;
+        vector<Type>   paramTypes;
+        vector<string> paramNames;
+    };
+
+    void               add_function(string name, Type returnType,
+                                    vector<Type> paramTypes, vector<string> paramNames);
+    FunctionSignature* get_function(string name);
+    vector<FunctionSignature>& get_functions() { return functions; }
+    BasicBlock*        create_function_entry(string name, Type returnType,
+                                             vector<Type> paramTypes, vector<string> paramNames);
+
+    AsmGenerator* asmGenerator;
+
+protected:
+    int                 nextBBnumber = 0;
+    vector<BasicBlock*> bbs;
+    vector<BasicBlock*> bbStack;
+
+private:
+    vector<FunctionSignature> functions;
+    map<string, int>          functionIndex;
+};
+
+#endif // IR_H

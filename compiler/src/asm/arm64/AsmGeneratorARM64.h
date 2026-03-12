@@ -3,96 +3,45 @@
 
 #include "../AsmGenerator.h"
 
-//! ARM64 assembly generator implementation (Apple Silicon)
+//! ARM64 (Apple Silicon) assembly generator
 class AsmGeneratorARM64 : public AsmGenerator {
 public:
-    //! Constructor
-    AsmGeneratorARM64(CFG* cfg);
-
-    //! Destructor
+    explicit AsmGeneratorARM64(CFG* cfg);
     ~AsmGeneratorARM64() override = default;
 
-    //! Generate assembly for the entire CFG
     void gen_asm(std::ostream& o) override;
-
-    //! Generate assembly for a single basic block
     void gen_asm_bb(std::ostream& o, BasicBlock* bb, bool isFirstBB = false) override;
-
-    //! Generate assembly for a single IR instruction
     void gen_asm_instr(std::ostream& o, IRInstr* instr) override;
 
-    //---------------- IR Operations ----------------
+    //---------------- Visitor methods ----------------
+    void visit(std::ostream& o, LdConstInstr&    instr) override;
+    void visit(std::ostream& o, CopyRegInstr&    instr) override;
+    void visit(std::ostream& o, StoreStackInstr& instr) override;
+    void visit(std::ostream& o, LoadStackInstr&  instr) override;
+    void visit(std::ostream& o, AddInstr&    instr) override;
+    void visit(std::ostream& o, SubInstr&    instr) override;
+    void visit(std::ostream& o, MulInstr&    instr) override;
+    void visit(std::ostream& o, DivInstr&    instr) override;
+    void visit(std::ostream& o, BitNotInstr& instr) override;
+    void visit(std::ostream& o, BitAndInstr& instr) override;
+    void visit(std::ostream& o, BitOrInstr&  instr) override;
+    void visit(std::ostream& o, BitXorInstr& instr) override;
+    void visit(std::ostream& o, CmpEqInstr&  instr) override;
+    void visit(std::ostream& o, CmpLtInstr&  instr) override;
+    void visit(std::ostream& o, CmpLeInstr&  instr) override;
+    void visit(std::ostream& o, CallInstr&   instr) override;
+    void visit(std::ostream& o, RetInstr&    instr) override;
 
-    //! Generate ldconst: load constant into destination
-    void gen_ldconst(std::ostream& o, const std::vector<std::string>& params) override;
+    //---------------- Helpers ----------------
+    /** Map Reg enum → 32-bit register name (e.g. Reg::R0 → "w0") */
+    std::string reg_to_asm(Reg r) override;
+    /** Map stack variable name → memory operand (e.g. "x" → "[fp, #-4]") */
+    std::string var_to_asm(const std::string& varName) override;
 
-    //! Generate copy: copy value from source to destination
-    void gen_copy(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate add: destination = param1 + param2
-    void gen_add(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate sub: destination = param1 - param2
-    void gen_sub(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate mul: destination = param1 * param2
-    void gen_mul(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate div: destination = param1 / param2
-    void gen_div(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate bit_not: destination = ~param1
-    void gen_bit_not(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate bit_and: destination = param1 & param2
-    void gen_bit_and(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate bit_or: destination = param1 | param2
-    void gen_bit_or(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate bit_xor: destination = param1 ^ param2
-    void gen_bit_xor(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate cmp_eq: destination = (param1 == param2)
-    void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate cmp_lt: destination = (param1 < param2)
-    void gen_cmp_lt(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate cmp_le: destination = (param1 <= param2)
-    void gen_cmp_le(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate rmem: read from memory
-    void gen_rmem(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate wmem: write to memory
-    void gen_wmem(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate call: call a function
-    void gen_call(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //! Generate ret: return from function
-    void gen_ret(std::ostream& o, const std::vector<std::string>& params) override;
-
-    //---------------- Helper Methods ----------------
-
-    //! Convert IR register to assembly representation
-    std::string IR_reg_to_asm(std::string reg) override;
-
-    //---------------- Prologue/Epilogue ----------------
-
-    //! Generate function prologue
+    //---------------- Prologue / Epilogue ----------------
     void gen_prologue(std::ostream& o) override;
-
-    //! Generate function epilogue
     void gen_epilogue(std::ostream& o) override;
-
-    //! Generate control flow for basic block
     void gen_control_flow(std::ostream& o, BasicBlock* bb) override;
-
-private:
-    //! Helper to get offset string for a register
-    std::string getOffset(const std::string& reg);
 };
 
 #endif // ASMGENERATORARM64_H

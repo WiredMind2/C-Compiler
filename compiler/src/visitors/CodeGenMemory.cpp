@@ -3,42 +3,46 @@
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx)
 {
-    string val = ctx->CONST()->getText();
-    string tmp = visitor->getCFG()->current_bb->create_new_tempvar(INT);
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::ldconst, INT, {tmp, val});
+    int64_t val = stol(ctx->CONST()->getText());
+    BasicBlock *bb = visitor->getCFG()->current_bb;
+
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0_32, TypedConst(IRType::INT32, val)));
+    string tmp = bb->create_new_tempvar(INT);
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0_32, IRType::INT32));
     return tmp;
 }
 
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
 {
-    return (string)ctx->VAR()->getText();
+    // Return the variable name; callers (arithmetic, return, …) will load it
+    return ctx->VAR()->getText();
 }
 
 antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext *ctx)
 {
-    // With the new grammar, VAR returns a vector of TerminalNodes
-    for (auto varNode : ctx->VAR()) {
-        string var = varNode->getText();
-        // Add to CFG's symbol table for code generation
-        visitor->getCFG()->current_bb->add_var_to_symbol_table(var, INT);
-    }
+    for (auto varNode : ctx->VAR())
+        visitor->getCFG()->current_bb->add_var_to_symbol_table(varNode->getText(), INT);
     return 0;
 }
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
 {
     string var = ctx->VAR()->getText();
-    string val = std::any_cast<string>(visitor->visit(ctx->expr()));
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});
+    string src = std::any_cast<string>(visitor->visit(ctx->expr()));
+    auto* bb = visitor->getCFG()->current_bb;
+    // load src → W0, store W0 → var
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0_32, src));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0_32));
     return var;
 }
 
 antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::Declaration_assignementContext *ctx)
 {
     string var = ctx->VAR()->getText();
-    // Add to CFG's symbol table for code generation
     visitor->getCFG()->current_bb->add_var_to_symbol_table(var, INT);
-    string val = std::any_cast<string>(visitor->visit(ctx->expr()));
-    visitor->getCFG()->current_bb->add_IRInstr(IRInstr::copy, INT, {var, val});
+    string src = std::any_cast<string>(visitor->visit(ctx->expr()));
+    auto* bb = visitor->getCFG()->current_bb;
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0_32, src));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0_32));
     return var;
 }

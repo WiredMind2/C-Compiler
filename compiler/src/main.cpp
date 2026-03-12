@@ -73,7 +73,7 @@ int main(int argn, const char **argv) {
     // Run optimizations
     optim::OptimizationManager optimizer;
     optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
-    optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+    //optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
     optimizer.runOptimizations(cfg);
 
     cfg->gen_asm(cout);

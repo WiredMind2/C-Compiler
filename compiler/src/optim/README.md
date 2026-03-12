@@ -22,8 +22,8 @@ The optimization framework is a modular system that sits between IR generation a
 
 ```
 Source Code → Parser → AST → CodeGenVisitor → IR → Optimizer → Assembly
-                                                            ↑
-                                                            Here!
+                                                       ↑
+                                                       Here!
 ```
 
 ### What Problem Does It Solve?
