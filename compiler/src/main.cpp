@@ -77,7 +77,6 @@ int main(int argn, const char **argv) {
     optimizer.runOptimizations(cfg);
 
     cfg->gen_asm(cout);
-    cfg->gen_asm(cout);
 
     return 0;
 }
