@@ -1,5 +1,5 @@
 #include "CodeGenBitwise.h"
-#include "../CodeGenVisitor.h"
+#include "CodeGenVisitor.h"
 
 antlrcpp::Any visitBitwiseORRule(CodeGenVisitor* visitor, ifccParser::BitwiseORRuleContext *ctx)
 {

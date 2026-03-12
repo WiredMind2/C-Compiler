@@ -3,7 +3,7 @@
 //
 
 #include "CodeGenFunction.h"
-#include "../CodeGenVisitor.h"
+#include "CodeGenVisitor.h"
 #include <iostream>
 
 antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext *ctx)

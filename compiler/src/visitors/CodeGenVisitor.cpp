@@ -1,5 +1,5 @@
 #include "CodeGenVisitor.h"
-#include "visitors/CodeGenArithmetic.h"
+#include "CodeGenArithmetic.h"
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {

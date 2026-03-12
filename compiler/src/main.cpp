@@ -9,7 +9,7 @@
 #include "optim/LoadConstantToRegister.h"
 #include "optim/ConstantPropagation.h"
 
-#include "CodeGenVisitor.h"
+#include "visitors/CodeGenVisitor.h"
 #include "ir/IR.h"
 
 using namespace antlr4;
@@ -72,7 +72,7 @@ int main(int argn, const char **argv) {
 
     // Run optimizations
     optim::OptimizationManager optimizer;
-    optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
+    //optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
     //optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
     optimizer.runOptimizations(cfg);
 

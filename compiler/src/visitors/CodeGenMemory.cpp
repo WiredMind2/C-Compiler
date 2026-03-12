@@ -1,5 +1,5 @@
 #include "CodeGenMemory.h"
-#include "../CodeGenVisitor.h"
+#include "CodeGenVisitor.h"
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx)
 {
@@ -30,7 +30,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     string var = ctx->VAR()->getText();
     string src = std::any_cast<string>(visitor->visit(ctx->expr()));
     auto* bb = visitor->getCFG()->current_bb;
-    // load src → W0, store W0 → var
+
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0_32, src));
     bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0_32));
     return var;
@@ -42,6 +42,7 @@ antlrcpp::Any visitDeclaration_assignement(CodeGenVisitor* visitor, ifccParser::
     visitor->getCFG()->current_bb->add_var_to_symbol_table(var, INT);
     string src = std::any_cast<string>(visitor->visit(ctx->expr()));
     auto* bb = visitor->getCFG()->current_bb;
+
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0_32, src));
     bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0_32));
     return var;

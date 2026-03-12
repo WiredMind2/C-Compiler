@@ -1,22 +1,10 @@
-#ifndef REG_H
-#define REG_H
+#pragma once
 
 #include <string>
 #include <stdexcept>
 
 /**
- * Architecture-agnostic virtual register set.
- *
- * Registers are grouped by their *physical* identity on most ABIs
- * (x86-64 / ARM64).  Each register has four size variants:
- *
- *   W0_64 / W0_32 / W0_16 / W0_8   — 64 / 32 / 16 / 8-bit view of W0
- *   ...
- *
- * RET, ARG0..ARG5 are *distinct enum values* from the general-purpose
- * registers even though they may map to the same physical register on a
- * given architecture.  Use reg_physical() to test physical identity.
- *
+ * W0_64 / W0_32 / W0_16 / W0_8 are 64 / 32 / 16 / 8-bit view of W0
  * Naming: "W" = working (general temporaries inside a BB),
  *         "ARG" = argument-passing,
  *         "RET" = return value.
@@ -51,84 +39,6 @@ enum class Reg {
     RET_64, RET_32, RET_16, RET_8,
 };
 
-// ── Convenience aliases for the most common sizes ───────────────────────────
-// 32-bit (C int)
-constexpr Reg W0   = Reg::W0_32;
-constexpr Reg W1   = Reg::W1_32;
-constexpr Reg W2   = Reg::W2_32;
-constexpr Reg W3   = Reg::W3_32;
-constexpr Reg ARG0 = Reg::ARG0_32;
-constexpr Reg ARG1 = Reg::ARG1_32;
-constexpr Reg ARG2 = Reg::ARG2_32;
-constexpr Reg ARG3 = Reg::ARG3_32;
-constexpr Reg ARG4 = Reg::ARG4_32;
-constexpr Reg ARG5 = Reg::ARG5_32;
-constexpr Reg RET  = Reg::RET_32;
-
-// ── Physical register identity ───────────────────────────────────────────────
-
-/**
- * Physical register index — architecture-independent.
- * Two Reg values with the same PhysReg map to the same hardware register.
- *
- * x86-64 mapping:
- *   PHYS_W0   → rax   PHYS_W1   → rcx   PHYS_W2   → rdx   PHYS_W3   → rbx
- *   PHYS_ARG0 → rdi   PHYS_ARG1 → rsi   PHYS_ARG2 → rdx   PHYS_ARG3 → rcx
- *   PHYS_ARG4 → r8    PHYS_ARG5 → r9    PHYS_RET  → rax
- *
- * ARM64 mapping:
- *   PHYS_W0   → x0/w0   PHYS_W1 → x9/w9   PHYS_W2 → x10/w10  PHYS_W3 → x11/w11
- *   PHYS_ARG0 → x0/w0   PHYS_ARG1 → x1    PHYS_ARG2 → x2
- *   PHYS_ARG3 → x3      PHYS_ARG4 → x4    PHYS_ARG5 → x5
- *   PHYS_RET  → x0/w0
- */
-enum class PhysReg {
-    PHYS_W0,
-    PHYS_W1,
-    PHYS_W2,
-    PHYS_W3,
-    PHYS_ARG0,
-    PHYS_ARG1,
-    PHYS_ARG2,
-    PHYS_ARG3,
-    PHYS_ARG4,
-    PHYS_ARG5,
-    PHYS_RET,
-};
-
-/** Return the physical register that backs a given Reg (any size variant). */
-inline PhysReg reg_physical(Reg r) {
-    switch (r) {
-        case Reg::W0_64: case Reg::W0_32: case Reg::W0_16: case Reg::W0_8:
-            return PhysReg::PHYS_W0;
-        case Reg::W1_64: case Reg::W1_32: case Reg::W1_16: case Reg::W1_8:
-            return PhysReg::PHYS_W1;
-        case Reg::W2_64: case Reg::W2_32: case Reg::W2_16: case Reg::W2_8:
-            return PhysReg::PHYS_W2;
-        case Reg::W3_64: case Reg::W3_32: case Reg::W3_16: case Reg::W3_8:
-            return PhysReg::PHYS_W3;
-        case Reg::ARG0_64: case Reg::ARG0_32: case Reg::ARG0_16: case Reg::ARG0_8:
-            return PhysReg::PHYS_ARG0;
-        case Reg::ARG1_64: case Reg::ARG1_32: case Reg::ARG1_16: case Reg::ARG1_8:
-            return PhysReg::PHYS_ARG1;
-        case Reg::ARG2_64: case Reg::ARG2_32: case Reg::ARG2_16: case Reg::ARG2_8:
-            return PhysReg::PHYS_ARG2;
-        case Reg::ARG3_64: case Reg::ARG3_32: case Reg::ARG3_16: case Reg::ARG3_8:
-            return PhysReg::PHYS_ARG3;
-        case Reg::ARG4_64: case Reg::ARG4_32: case Reg::ARG4_16: case Reg::ARG4_8:
-            return PhysReg::PHYS_ARG4;
-        case Reg::ARG5_64: case Reg::ARG5_32: case Reg::ARG5_16: case Reg::ARG5_8:
-            return PhysReg::PHYS_ARG5;
-        case Reg::RET_64: case Reg::RET_32: case Reg::RET_16: case Reg::RET_8:
-            return PhysReg::PHYS_RET;
-    }
-    throw std::invalid_argument("reg_physical: unknown Reg");
-}
-
-/** True when two Reg values refer to the same physical hardware register. */
-inline bool reg_same_physical(Reg a, Reg b) {
-    return reg_physical(a) == reg_physical(b);
-}
 
 /** Bit-width of a Reg variant. */
 inline int reg_width(Reg r) {
@@ -181,6 +91,3 @@ inline std::string reg_name(Reg r) {
     }
     throw std::invalid_argument("reg_name: unknown Reg");
 }
-
-#endif // REG_H
-
