@@ -124,8 +124,8 @@ class BasicBlock {
 	string label; /**< label of the BB, also will be the label in the generated code */
 	CFG* cfg; /** < the CFG where this block belongs */
 	vector<IRInstr*> instrs; /** < the instructions themselves. */
-	string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc,
-													 store here the name of the variable that holds the value of expr */
+	string test_var_name;  /** < when generating IR code for an if(expr) or while(expr) etc, */
+	bool has_var(string name) const { return SymbolIndex.find(name) != SymbolIndex.end();}
  protected:
  	int nextFreeSymbolIndex; /**< to allocate new symbols in the symbol table */
 	map <string, Type> SymbolType; /**< part of the symbol table  */
@@ -204,7 +204,12 @@ class CFG {
 	void add_function(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
 	FunctionSignature* get_function(string name);
 	vector<FunctionSignature>& get_functions() { return functions; }
-	BasicBlock* create_function_entry(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+	BasicBlock* create_function_declaration(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+	BasicBlock* getBBByName(string name);
+	void enter_function_definition(string name);
+	BasicBlock* getOrCreateFunctionEntryBB(string name, Type returnType, vector<Type> paramTypes, vector<string> paramNames);
+
+
 
  protected:
 	int nextBBnumber; /**< just for naming */

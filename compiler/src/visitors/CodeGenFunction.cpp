@@ -22,13 +22,20 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     }
     
     // Create function entry point
-    BasicBlock* entryBB = visitor->getCFG()->create_function_entry(func_name, INT, paramTypes, paramNames);
-    
+    BasicBlock* entryBB = visitor->getCFG()->getOrCreateFunctionEntryBB(func_name, INT, paramTypes, paramNames);
+    // Set current bb to the function entry block
+    BasicBlock* formerBB = visitor->getCFG()->current_bb; // Save the former current BB to restore later
+    visitor->getCFG()->current_bb = entryBB;
+    // Add the entryBB on the stack of BBs to manage variable scopes
+    visitor->getCFG()->getStackBBs().push_back(entryBB);
     // Visit the function body (scope)
     if (ctx->scope()) {
         visitor->visit(ctx->scope());
     }
-    
+    // Restore the former current BB after visiting the function body
+    visitor->getCFG()->current_bb = formerBB;
+    // Pop the function entry BB from the stack of BBs
+    visitor->getCFG()->getStackBBs().pop_back();
     return 0;
 }
 
