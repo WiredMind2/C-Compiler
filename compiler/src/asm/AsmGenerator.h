@@ -68,7 +68,7 @@ public:
     virtual void gen_bit_xor(std::ostream& o, const std::vector<std::string>& params) = 0;
 
     //! Generate cmp_eq: destination = (param1 == param2)
-    virtual void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params) = 0;
+    virtual void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params, Type type) = 0;
 
     //! Generate cmp_lt: destination = (param1 < param2)
     virtual void gen_cmp_lt(std::ostream& o, const std::vector<std::string>& params) = 0;

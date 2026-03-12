@@ -54,7 +54,7 @@ public:
     void gen_bit_xor(std::ostream& o, const std::vector<std::string>& params) override;
 
     //! Generate cmp_eq: destination = (param1 == param2)
-    void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params) override;
+    void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params, Type type) override;
 
     //! Generate cmp_lt: destination = (param1 < param2)
     void gen_cmp_lt(std::ostream& o, const std::vector<std::string>& params) override;

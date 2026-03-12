@@ -94,7 +94,7 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
             gen_bit_xor(o, instr->params);
             break;
         case IRInstr::cmp_eq:
-            gen_cmp_eq(o, instr->params);
+            gen_cmp_eq(o, instr->params, instr->t);
             break;
         case IRInstr::cmp_lt:
             gen_cmp_lt(o, instr->params);
@@ -282,14 +282,25 @@ void AsmGeneratorX86_64::gen_bit_xor(ostream& o, const vector<string>& params) {
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-void AsmGeneratorX86_64::gen_cmp_eq(ostream& o, const vector<string>& params) {
+void AsmGeneratorX86_64::gen_cmp_eq(ostream& o, const vector<string>& params, Type type) {
     // cmp_eq: destination = (param1 == param2)
     // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
-    o << "    sete %al\n";
-    o << "    movzbl %al, %eax\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+    if (type == Type::INT) {
+        o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+        o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+        o << "    sete %al\n";
+        o << "    movzbl %al, %eax\n";
+        o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+    } else if (type == Type::DOUBLE) {
+        o << "    movsd " << IR_reg_to_asm(params[1]) << ", %xmm0\n";
+        o << "    ucomisd " << IR_reg_to_asm(params[2]) << ", %xmm0\n";
+        o << "    sete %al\n";
+        o << "    setnp %cl\n";
+        o << "    andb %cl, %al\n";
+        o << "    movzbl %al, %eax\n";
+        o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+    }
+
 }
 
 void AsmGeneratorX86_64::gen_cmp_lt(ostream& o, const vector<string>& params) {

@@ -68,7 +68,7 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
             gen_bit_xor(o, instr->params);
             break;
         case IRInstr::cmp_eq:
-            gen_cmp_eq(o, instr->params);
+            gen_cmp_eq(o, instr->params, instr->t);
             break;
         case IRInstr::cmp_lt:
             gen_cmp_lt(o, instr->params);
@@ -207,7 +207,7 @@ void AsmGeneratorARM64::gen_bit_xor(ostream& o, const vector<string>& params) {
     o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
 }
 
-void AsmGeneratorARM64::gen_cmp_eq(ostream& o, const vector<string>& params) {
+void AsmGeneratorARM64::gen_cmp_eq(ostream& o, const vector<string>& params, Type type) {
     // cmp_eq: destination = (param1 == param2)
     // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
