@@ -56,19 +56,7 @@ build/%.o: src/asm/x86_64/%.cpp src/generated/ifccParser.cpp
 
 ##########################################
 # compile optimization passes
-build/LoadConstantToRegister.o: optim/LoadConstantToRegister.cpp generated/ifccParser.cpp
-	@mkdir -p build
-	$(CC) $(CCFLAGS) -MMD -o $@ $<
-
-build/ConstantPropagation.o: optim/ConstantPropagation.cpp generated/ifccParser.cpp
-	@mkdir -p build
-	$(CC) $(CCFLAGS) -MMD -o $@ $<
-
-build/OptimizationManager.o: optim/OptimizationManager.cpp generated/ifccParser.cpp
-	@mkdir -p build
-	$(CC) $(CCFLAGS) -MMD -o $@ $<
-
-build/PassRegistry.o: optim/PassRegistry.cpp generated/ifccParser.cpp
+build/%.o: src/optim/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
