@@ -1,5 +1,6 @@
 compiler/build/
 compiler/generated/
+compiler/src/generated/
 ifcc
 ifcc-test-output/
 test
