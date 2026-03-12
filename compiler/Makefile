@@ -24,7 +24,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenLogical.o \
 	build/IR.o \
 	build/AsmGeneratorX86_64.o \
-	build/AsmGeneratorARM64.o
+	build/AsmGeneratorARM64.o \
+	build/type.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build

@@ -14,12 +14,21 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
     return (string)ctx->VAR()->getText();
 }
 
+antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext *ctx)
+{
+    string val = ctx->DOUBLE_CONST()->getText();
+    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(DOUBLE);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::ldconst, DOUBLE, {tmp, val});
+    return tmp;
+}
+
 antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx)
 {
     // Handle multiple variable declarations: int x, y, z;
+    Type type = type_from_string(ctx->type_specifier()->getText());
     for (auto varCtx : ctx->VAR()) {
         string var = varCtx->getText();
-        visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
+        visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, type);
     }
     return 0;
 }
@@ -28,7 +37,8 @@ antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext
 {
     // Handle single variable declaration: int x;
     string var = ctx->VAR()->getText();
-    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
+    Type type = type_from_string(ctx->type_specifier()->getText());
+    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, type);
     return 0;
 }
 
@@ -36,9 +46,10 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 {
     // Handle declaration with initialization: int x = expr;
     string var = ctx->VAR()->getText();
-    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, INT);
+    Type type = type_from_string(ctx->type_specifier()->getText());
+    visitor->getCFG()->getCurrentBB()->add_var_to_symbol_table(var, type);
     string val = std::any_cast<string>(visitor->visit(ctx->expr()));
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {var, val});
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, type, {var, val});
     return var;
 }
 
@@ -46,6 +57,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 {
     string var = ctx->VAR()->getText();
     string val = std::any_cast<string>(visitor->visit(ctx->compoundAssignment()));
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, INT, {var, val});
+    Type type  =  visitor->getCFG()->getCurrentBB()->get_var_type(var);
+    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::copy, type, {var, val});
     return var;
 }
