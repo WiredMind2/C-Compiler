@@ -56,6 +56,9 @@ public:
     //! Generate cmp_eq: destination = (param1 == param2)
     void gen_cmp_eq(std::ostream& o, const std::vector<std::string>& params) override;
 
+    //! Generate cmp_ne: destination = (param1 != param2)
+    void gen_cmp_ne(std::ostream& o, const std::vector<std::string>& params) override;
+
     //! Generate cmp_lt: destination = (param1 < param2)
     void gen_cmp_lt(std::ostream& o, const std::vector<std::string>& params) override;
 

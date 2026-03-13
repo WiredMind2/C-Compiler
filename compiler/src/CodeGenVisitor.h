@@ -76,9 +76,10 @@ public:
         
         // Condition handler
         virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
+        // While loop handler
+        virtual antlrcpp::Any visitWhile_loop(ifccParser::While_loopContext *ctx) override;
 
         CFG *getCFG() { return cfg; }
 
-private:
         CFG *cfg;
 };

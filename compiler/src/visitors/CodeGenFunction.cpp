@@ -23,6 +23,19 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     
     // Create function entry point
     BasicBlock* entryBB = visitor->getCFG()->getOrCreateFunctionEntryBB(func_name, INT, paramTypes, paramNames);
+    
+    // Register parameters as local variables and move them from registers
+    static const std::vector<std::string> argRegs = {"%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d"};
+    for (size_t i = 0; i < paramNames.size(); ++i) {
+        entryBB->add_var_to_symbol_table(paramNames[i], paramTypes[i]);
+        if (i < argRegs.size()) {
+            // copy from register to stack slot
+            // we use ret op as a placeholder for copy if needed, or just add a copy instr
+            // Actually IRInstr::copy expects {dest, src}
+            entryBB->add_IRInstr(IRInstr::copy, paramTypes[i], {paramNames[i], "!" + argRegs[i].substr(1)});
+        }
+    }
+
     // Set current bb to the function entry block
     BasicBlock* formerBB = visitor->getCFG()->current_bb; // Save the former current BB to restore later
     visitor->getCFG()->current_bb = entryBB;
@@ -68,10 +81,6 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
     return 0;
 }
 
-antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::FunctionCallContext *ctx) {
-    return visitor->visit(ctx->function_call()); // Delegate to function_call rule
-}
-
 antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {
     std::string func_name = ctx->VAR()->getText();
     
@@ -92,7 +101,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     }
     
     // Create temporary for return value
-    std::string resultTmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
+    std::string resultTmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
     
     // Generate call instruction
     // params format: {function_label, destination_register, arg1, arg2, ...}

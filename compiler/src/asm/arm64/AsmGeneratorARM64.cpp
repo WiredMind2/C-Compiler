@@ -64,6 +64,9 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
         case IRInstr::cmp_eq:
             gen_cmp_eq(o, instr->params);
             break;
+        case IRInstr::cmp_ne:
+            gen_cmp_ne(o, instr->params);
+            break;
         case IRInstr::cmp_lt:
             gen_cmp_lt(o, instr->params);
             break;
@@ -208,6 +211,16 @@ void AsmGeneratorARM64::gen_cmp_eq(ostream& o, const vector<string>& params) {
     o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
     o << "    cmp w0, w8\n";
     o << "    cset w0, eq\n";
+    o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
+}
+
+void AsmGeneratorARM64::gen_cmp_ne(ostream& o, const vector<string>& params) {
+    // cmp_ne: destination = (param1 != param2)
+    // params[0] = destination, params[1] = operand1, params[2] = operand2
+    o << "    ldr w0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    ldr w8, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    cmp w0, w8\n";
+    o << "    cset w0, ne\n";
     o << "    str w0, " << IR_reg_to_asm(params[0]) << "\n";
 }
 

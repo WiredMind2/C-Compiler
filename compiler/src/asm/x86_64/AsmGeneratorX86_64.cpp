@@ -1,55 +1,48 @@
 #include "AsmGeneratorX86_64.h"
 #include "../../IR.h"
-#include <iostream>
-#include <sstream>
-
-using namespace std;
 
 AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 
 void AsmGeneratorX86_64::gen_asm(ostream& o) {
-    // Determine which BBs are function entry points
-    std::vector<BasicBlock*> functionEntryBBs;
     for (auto bb : cfg->getBBs()) {
-        bool isEntryBlock = false;
-        for (const auto& func : cfg->getFunctions()) {
+        bool isFunction = false;
+        for (const auto& func : cfg->get_functions()) {
             if (bb->label == func.name) {
-                isEntryBlock = true;
+                isFunction = true;
                 break;
             }
         }
-        if (cfg->getFunctions().empty() && bb->label == "main") {
-            isEntryBlock = true;
+        
+        if (isFunction) {
+            o << ".globl " << bb->label << "\n";
+            o << bb->label << ":\n";
+            o << "    pushq %rbp\n";
+            o << "    movq %rsp, %rbp\n";
+            int stackSize = cfg->calculateRequiredStackSpace();
+            if (stackSize > 0) {
+                o << "    subq $" << stackSize << ", %rsp\n";
+            }
+        } else {
+            o << bb->label << ":\n";
         }
-        if (isEntryBlock) {
-            functionEntryBBs.push_back(bb);
-        }
-    }
 
-    // Generate .globl only for function entry points
-    for (auto bb : functionEntryBBs) {
-        o << ".globl " << bb->label << "\n";
-    }
-    
-    // Generate assembly for all basic blocks
-    for (auto bb : cfg->getBBs()) {
-        // Set current_bb for this BB so IR_reg_to_asm can find variable indices
         cfg->current_bb = bb;
-        // Let the BasicBlock handle its own generation (instructions + terminator)
         bb->gen_asm(o);
     }
 }
 
 void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
-    // Set current_bb for this BB so IR_reg_to_asm can find variable indices
     cfg->current_bb = bb;
-    
-    // Let the BasicBlock handle its own generation (instructions + terminator)
     bb->gen_asm(o);
 }
 
 void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
-    // This method dispatches to the appropriate gen_* method based on operation
+    if (instr->op == IRInstr::ret) {
+        o << "    leave\n";
+        o << "    ret\n";
+        return;
+    }
+    
     switch (instr->op) {
         case IRInstr::ldconst:
             gen_ldconst(o, instr->params);
@@ -69,20 +62,14 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
         case IRInstr::div:
             gen_div(o, instr->params);
             break;
-        case IRInstr::bit_not:
-            gen_bit_not(o, instr->params);
-            break;
-        case IRInstr::bit_and:
-            gen_bit_and(o, instr->params);
-            break;
-        case IRInstr::bit_or:
-            gen_bit_or(o, instr->params);
-            break;
-        case IRInstr::bit_xor:
-            gen_bit_xor(o, instr->params);
+        case IRInstr::call:
+            gen_call(o, instr->params);
             break;
         case IRInstr::cmp_eq:
             gen_cmp_eq(o, instr->params);
+            break;
+        case IRInstr::cmp_ne:
+            gen_cmp_ne(o, instr->params);
             break;
         case IRInstr::cmp_lt:
             gen_cmp_lt(o, instr->params);
@@ -99,311 +86,185 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
         case IRInstr::cmp_mod:
             gen_cmp_mod(o, instr->params);
             break;
+        case IRInstr::bit_not:
+            gen_bit_not(o, instr->params);
+            break;
+        case IRInstr::bit_and:
+            gen_bit_and(o, instr->params);
+            break;
+        case IRInstr::bit_or:
+            gen_bit_or(o, instr->params);
+            break;
+        case IRInstr::bit_xor:
+            gen_bit_xor(o, instr->params);
+            break;
         case IRInstr::logical_and:
             gen_logical_and(o, instr->params);
             break;
         case IRInstr::logical_or:
             gen_logical_or(o, instr->params);
             break;
-        case IRInstr::rmem:
-            gen_rmem(o, instr->params);
-            break;
-        case IRInstr::wmem:
-            gen_wmem(o, instr->params);
-            break;
-        case IRInstr::call:
-            gen_call(o, instr->params);
-            break;
-        case IRInstr::ret:
-            gen_ret(o, instr->params);
-            break;
         default:
-            cerr << "Error: Unknown operation in gen_asm_instr" << endl;
+            o << "    # Unknown instruction " << (int)instr->op << "\n";
             break;
     }
 }
 
-void AsmGeneratorX86_64::gen_ldconst(ostream& o, const vector<string>& params) {
-    // ldconst: load constant into destination
-    // params[0] = destination, params[1] = constant
-    o << "    movl $" << params[1] << ", " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorX86_64::gen_copy(ostream& o, const vector<string>& params) {
-    // copy: copy value from source to destination
-    // params[0] = destination, params[1] = source
-    if (params[0] != params[1]) {
-        string src_asm = IR_reg_to_asm(params[1]);
-        string dest_asm = IR_reg_to_asm(params[0]);
-        
-        // Special case: if destination is !eax (return value register),
-        // directly move from source to %eax without intermediate copy
-        if (params[0] == "!eax") {
-            o << "    movl " << src_asm << ", %eax\n";
-        } else if (params[1] == "!eax") {
-            // Source is !eax, just move from %eax to destination
-            o << "    movl %eax, " << dest_asm << "\n";
-        } else if (dest_asm != src_asm) {
-            o << "    movl " << src_asm << ", %eax\n";
-            o << "    movl %eax, " << dest_asm << "\n";
-        }
-    }
-}
-
-void AsmGeneratorX86_64::gen_add(ostream& o, const vector<string>& params) {
-    // add: destination = param1 + param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    addl " << IR_reg_to_asm(params[2]) << ", %eax\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorX86_64::gen_sub(ostream& o, const vector<string>& params) {
-    // sub: destination = param1 - param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    subl " << IR_reg_to_asm(params[2]) << ", %eax\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorX86_64::gen_mul(ostream& o, const vector<string>& params) {
-    // mul: destination = param1 * param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    imull " << IR_reg_to_asm(params[2]) << ", %eax\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorX86_64::gen_div(ostream& o, const vector<string>& params) {
-    // div: destination = param1 / param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    cltd\n";
-    o << "    idivl " << IR_reg_to_asm(params[2]) << "\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
-}
+void AsmGeneratorX86_64::gen_ldconst(ostream& o, const vector<string>& params) { o << "    movl $" << params[1] << ", " << IR_reg_to_asm(params[0]) << "\n"; }
+void AsmGeneratorX86_64::gen_copy(ostream& o, const vector<string>& params) { o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n    movl %eax, " << IR_reg_to_asm(params[0]) << "\n"; }
+void AsmGeneratorX86_64::gen_add(ostream& o, const vector<string>& params) { o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n    addl " << IR_reg_to_asm(params[2]) << ", %eax\n    movl %eax, " << IR_reg_to_asm(params[0]) << "\n"; }
+void AsmGeneratorX86_64::gen_sub(ostream& o, const vector<string>& params) { o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n    subl " << IR_reg_to_asm(params[2]) << ", %eax\n    movl %eax, " << IR_reg_to_asm(params[0]) << "\n"; }
+void AsmGeneratorX86_64::gen_mul(ostream& o, const vector<string>& params) { o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n    imull " << IR_reg_to_asm(params[2]) << ", %eax\n    movl %eax, " << IR_reg_to_asm(params[0]) << "\n"; }
+void AsmGeneratorX86_64::gen_div(ostream& o, const vector<string>& params) { o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n    cltd\n    idivl " << IR_reg_to_asm(params[2]) << "\n    movl %eax, " << IR_reg_to_asm(params[0]) << "\n"; }
 
 void AsmGeneratorX86_64::gen_bit_not(ostream& o, const vector<string>& params) {
-    // bit_not: destination = ~param1
-    // params[0] = destination, params[1] = operand
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    not %eax\n";
+    o << "    notl %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_bit_and(ostream& o, const vector<string>& params) {
-    // bit_and: destination = param1 & param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    andl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_bit_or(ostream& o, const vector<string>& params) {
-    // bit_or: destination = param1 | param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    orl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_bit_xor(ostream& o, const vector<string>& params) {
-    // bit_xor: destination = param1 ^ param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    xorl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_cmp_eq(ostream& o, const vector<string>& params) {
-    // cmp_eq: destination = (param1 == param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    sete %al\n";
     o << "    movzbl %al, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
+void AsmGeneratorX86_64::gen_cmp_ne(ostream& o, const vector<string>& params) {
+    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
+    o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+    o << "    setne %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
+}
 void AsmGeneratorX86_64::gen_cmp_lt(ostream& o, const vector<string>& params) {
-    // cmp_lt: destination = (param1 < param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    setl %al\n";
     o << "    movzbl %al, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_cmp_le(ostream& o, const vector<string>& params) {
-    // cmp_le: destination = (param1 <= param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    setle %al\n";
     o << "    movzbl %al, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_cmp_gt(ostream& o, const vector<string>& params) {
-    // cmp_gt: destination = (param1 > param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    setg %al\n";
     o << "    movzbl %al, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_cmp_ge(ostream& o, const vector<string>& params) {
-    // cmp_ge: destination = (param1 >= param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    cmpl " << IR_reg_to_asm(params[2]) << ", %eax\n";
     o << "    setge %al\n";
     o << "    movzbl %al, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_cmp_mod(ostream& o, const vector<string>& params) {
-    // cmp_mod: destination = param1 % param2
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
     o << "    cltd\n";
     o << "    idivl " << IR_reg_to_asm(params[2]) << "\n";
     o << "    movl %edx, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_logical_and(ostream& o, const vector<string>& params) {
-    // logical_and: destination = (param1 && param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    // For logical AND, we need to evaluate both operands and convert to 0/1
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    cmpl $0, %eax\n";
-    o << "    je .Lend_and_" << thisLabel << "\n";
-    o << "    movl " << IR_reg_to_asm(params[2]) << ", %eax\n";
-    o << "    cmpl $0, %eax\n";
-    o << "    je .Lend_and_" << thisLabel << "\n";
-    o << "    movl $1, %eax\n";
-    o << "    jmp .Ldone_and_" << thisLabel << "\n";
-    o << ".Lend_and_" << thisLabel << ":\n";
-    o << "    movl $0, %eax\n";
-    o << ".Ldone_and_" << thisLabel << ":\n";
+    o << "    cmpl $0, " << IR_reg_to_asm(params[1]) << "\n";
+    o << "    setne %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    cmpl $0, " << IR_reg_to_asm(params[2]) << "\n";
+    o << "    setne %cl\n";
+    o << "    movzbl %cl, %ecx\n";
+    o << "    andl %ecx, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
 void AsmGeneratorX86_64::gen_logical_or(ostream& o, const vector<string>& params) {
-    // logical_or: destination = (param1 || param2)
-    // params[0] = destination, params[1] = operand1, params[2] = operand2
-    // For logical OR, we need to evaluate both operands and convert to 0/1
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
     o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    cmpl $0, %eax\n";
-    o << "    jne .Lend_or_" << thisLabel << "\n";
-    o << "    movl " << IR_reg_to_asm(params[2]) << ", %eax\n";
-    o << "    cmpl $0, %eax\n";
-    o << "    jne .Lend_or_" << thisLabel << "\n";
-    o << "    movl $0, %eax\n";
-    o << "    jmp .Ldone_or_" << thisLabel << "\n";
-    o << ".Lend_or_" << thisLabel << ":\n";
-    o << "    movl $1, %eax\n";
-    o << ".Ldone_or_" << thisLabel << ":\n";
+    o << "    orl " << IR_reg_to_asm(params[2]) << ", %eax\n";
+    o << "    setne %al\n";
+    o << "    movzbl %al, %eax\n";
     o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
 }
-
-void AsmGeneratorX86_64::gen_rmem(ostream& o, const vector<string>& params) {
-    // rmem: read from memory
-    // params[0] = destination, params[1] = address
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-void AsmGeneratorX86_64::gen_wmem(ostream& o, const vector<string>& params) {
-    // wmem: write to memory
-    // params[0] = address, params[1] = source
-    o << "    movl " << IR_reg_to_asm(params[1]) << ", %eax\n";
-    o << "    movl %eax, " << IR_reg_to_asm(params[0]) << "\n";
-}
-
-string AsmGeneratorX86_64::IR_reg_to_asm(string reg) {
-    if (reg == "!eax") {
-        return "%eax";
-    }
-    BasicBlock* bb = cfg->findBBByVariable(reg);
-    if (!bb) {
-        cerr << "Error: Variable " << reg << " not found in any basic block." << endl;
-        exit(1);
-    }
-    int index = bb->get_var_index(reg);
-    return to_string(index) + "(%rbp)";
-}
-
-string AsmGeneratorX86_64::getOffset(const string& reg) {
-    return IR_reg_to_asm(reg);
-}
-
-void AsmGeneratorX86_64::gen_prologue(ostream& o) {
-    int stackSpace = cfg->calculateRequiredStackSpace();
-    // Get the function name from the first basic block's label
-    string funcName = "main";
-    if (!cfg->getBBs().empty()) {
-        funcName = cfg->getBBs()[0]->label;
-    }
-    // Skip .globl here since it's generated in gen_asm for all functions
-    o << funcName << ":\n";
-    o << "    pushq %rbp\n";
-    o << "    movq %rsp, %rbp\n";
-    o << "    subq $" << stackSpace << ", %rsp\n";
-}
-
-void AsmGeneratorX86_64::gen_epilogue(ostream& o) {
-    o << "    leave\n";
-    o << "    ret\n";
-}
-
-BasicBlock* AsmGeneratorX86_64::findBBByVariable(string var) {
-    return cfg->findBBByVariable(var);
-}
-
-
+void AsmGeneratorX86_64::gen_rmem(ostream& o, const vector<string>& params) {}
+void AsmGeneratorX86_64::gen_wmem(ostream& o, const vector<string>& params) {}
 
 void AsmGeneratorX86_64::gen_call(ostream& o, const vector<string>& params) {
-    // call instruction: params[0] = function label, params[1] = destination, params[2+] = arguments
-    string funcLabel = params[0];
-    string destReg = params[1];
+    // params = {function_label, result_dest, arg1, arg2, ...}
+    static const vector<string> argRegs = {"%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d"};
+
+    // 1. Save caller-saved registers that might be in use
+    // In our current simple compiler, we mainly use %eax, %ecx, %edx for intermediate results.
+    // %eax is used for return value, so we don't need to save it if we are about to overwrite it.
+    // However, the IR might have stored something in a temp that maps to a stack slot.
+    // Our IR_reg_to_asm currently maps everything to stack slots except when it's an explicit register name.
+    // So we don't strictly need to push/pop %rax, %rcx, %rdx etc. UNLESS they are used for something else.
     
-    // Handle arguments - pass them in registers (rdi, rsi, rdx, rcx, r8, r9)
-    // For x86_64, we need to use 64-bit registers
-    static const string argRegs[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
-    int numArgs = params.size() - 2;
+    // 2. Align stack to 16 bytes before call
+    // The stack must be 16-byte aligned at the moment of the 'call' instruction.
+    // After 'push %rbp', the stack is 16-byte aligned if it was 16-byte aligned at entry.
+    // BUT 'call' pushes 8 bytes (return address), and 'push %rbp' pushes another 8 bytes.
+    // So inside the function body, RSP is 16-byte aligned.
+    // If we subq $N, %rsp where N is a multiple of 16, it remains aligned.
+    // Currently CFG::calculateRequiredStackSpace() ensures 16-byte alignment.
     
-    for (int i = 0; i < numArgs && i < 6; i++) {
-        string arg = params[2 + i];
-        // Move argument to appropriate register (sign-extend 32-bit to 64-bit)
-        o << "    movl " << IR_reg_to_asm(arg) << ", %eax\n";
-        o << "    movslq %eax, %rax\n";
-        o << "    movq %rax, " << argRegs[i] << "\n";
+    // 3. Move arguments into specific registers according to System V AMD64 ABI
+    for (size_t i = 2; i < params.size() && i - 2 < argRegs.size(); ++i) {
+        o << "    movl " << IR_reg_to_asm(params[i]) << ", " << argRegs[i - 2] << "\n";
     }
     
-    // Generate call instruction
-    o << "    call " << funcLabel << "\n";
+    // 4. Call function
+    o << "    call " << params[0] << "\n";
     
-    // Move return value to destination
-    if (destReg != "!eax") {
-        o << "    movl %eax, " << IR_reg_to_asm(destReg) << "\n";
-    }
+    // 5. Move result back to destination
+    o << "    movl %eax, " << IR_reg_to_asm(params[1]) << "\n";
 }
 
-void AsmGeneratorX86_64::gen_ret(ostream& o, const vector<string>& params) {
-    // ret instruction: params[0] = return value register (or empty)
-    if (!params.empty() && !params[0].empty() && params[0] != "!eax") {
-        // Move return value to %eax
-        o << "    movl " << IR_reg_to_asm(params[0]) << ", %eax\n";
+void AsmGeneratorX86_64::gen_ret(ostream& o, const vector<string>& params) {}
+void AsmGeneratorX86_64::gen_prologue(ostream& o) {}
+void AsmGeneratorX86_64::gen_epilogue(ostream& o) {}
+BasicBlock* AsmGeneratorX86_64::findBBByVariable(string var) { return cfg->findBBByVariable(var); }
+
+string AsmGeneratorX86_64::IR_reg_to_asm(string reg) {
+    if (reg == "%edi" || reg == "!edi" || 
+        reg == "%esi" || reg == "!esi" ||
+        reg == "%edx" || reg == "!edx" ||
+        reg == "%ecx" || reg == "!ecx" ||
+        reg == "%r8d" || reg == "!r8d" ||
+        reg == "%r9d" || reg == "!r9d" ||
+        reg == "%eax" || reg == "!eax" ||
+        reg == "%rax" || reg == "!rax") {
+        if (reg[0] == '!') return "%" + reg.substr(1);
+        return reg;
     }
-    // Standard function epilogue
-    o << "    leave\n";
-    o << "    ret\n";
+    
+    // Look for variable in the current BB or other BBs if not found
+    BasicBlock* varBB = cfg->findBBByVariable(reg);
+    if (!varBB && reg[0] == '!') {
+        // Fallback to current BB for temps if not found elsewhere
+        varBB = cfg->getCurrentBB();
+    }
+    
+    if (varBB && varBB->has_var(reg)) {
+        int index = varBB->get_var_index(reg);
+        return to_string(index) + "(%rbp)";
+    }
+    
+    return reg;
 }

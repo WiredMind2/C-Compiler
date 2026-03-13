@@ -1,21 +1,20 @@
-#include "CodeGenComparison.h"
 #include "../CodeGenVisitor.h"
+#include <iostream>
 
-antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ctx)
+antlrcpp::Any visitEquals(CodeGenVisitor *visitor, ifccParser::EqualsContext *ctx)
 {
     string left = std::any_cast<string>(visitor->visit(ctx->equality()));
     string right = std::any_cast<string>(visitor->visit(ctx->relational()));
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_eq, INT, {tmp, left, right});
-    return tmp;
+    string res = visitor->cfg->current_bb->create_new_tempvar(Type::INT);
+    visitor->cfg->current_bb->add_IRInstr(IRInstr::cmp_eq, INT, {res, left, right});
+    return res;
 }
 
-antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext *ctx)
+antlrcpp::Any visitDifferent(CodeGenVisitor *visitor, ifccParser::DifferentContext *ctx)
 {
     string left = std::any_cast<string>(visitor->visit(ctx->equality()));
     string right = std::any_cast<string>(visitor->visit(ctx->relational()));
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_eq, INT, {tmp, left, right});
-    // TODO: Implement "not equal" - could do XOR with 1 or use cmp_ne if available
-    return tmp;
+    string res = visitor->cfg->current_bb->create_new_tempvar(Type::INT);
+    visitor->cfg->current_bb->add_IRInstr(IRInstr::cmp_ne, INT, {res, left, right});
+    return res;
 }
