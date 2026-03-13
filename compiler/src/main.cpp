@@ -5,9 +5,12 @@
 #include "antlr4-runtime.h"
 #include "generated/ifccLexer.h"
 #include "generated/ifccParser.h"
+#include "optim/OptimizationManager.h"
+#include "optim/LoadConstantToRegister.h"
+#include "optim/ConstantPropagation.h"
 
-#include "CodeGenVisitor.h"
-#include "IR.h"
+#include "visitors/CodeGenVisitor.h"
+#include "ir/IR.h"
 
 using namespace antlr4;
 using namespace std;
@@ -66,25 +69,12 @@ int main(int argn, const char **argv) {
     CodeGenVisitor v(arch);
     v.visit(tree);
     CFG *cfg = v.getCFG();
-    
-    // Ensure "main" exists as a function if it was not explicitly defined
-    // but code was generated in a block named "main"
-    bool mainExists = false;
-    for (auto& func : cfg->get_functions()) {
-        if (func.name == "main") {
-            mainExists = true;
-            break;
-        }
-    }
-    
-    if (!mainExists) {
-        for (auto bb : cfg->getBBs()) {
-            if (bb->label == "main") {
-                cfg->add_function("main", Type::INT, {}, {});
-                break;
-            }
-        }
-    }
+
+    // Run optimizations
+    optim::OptimizationManager optimizer;
+    optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
+    optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+    optimizer.runOptimizations(cfg);
 
     cfg->gen_asm(cout);
 

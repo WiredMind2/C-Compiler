@@ -1,7 +1,7 @@
 include config.mk
 
 CC=g++
-CCFLAGS=-g -c -std=c++17 -I$(ANTLRINC) -Wno-attributes
+CCFLAGS=-g -c -std=c++20 -I$(ANTLRINC) -Wno-attributes
 LDFLAGS=-g
 
 default: all
@@ -23,8 +23,13 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenRelational.o \
 	build/CodeGenLogical.o \
 	build/IR.o \
+	build/IRInstr.o \
 	build/AsmGeneratorX86_64.o \
-	build/AsmGeneratorARM64.o
+	build/AsmGeneratorARM64.o \
+	build/OptimizationManager.o \
+	build/PassRegistry.o \
+	build/LoadConstantToRegister.o \
+	build/ConstantPropagation.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build
@@ -33,6 +38,10 @@ ifcc: $(OBJECTS)
 ##########################################
 # compile our hand-writen C++ code: main(), CodeGenVisitor, etc.
 build/%.o: src/%.cpp src/generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
+build/%.o: src/ir/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
@@ -49,6 +58,11 @@ build/%.o: src/asm/arm64/%.cpp src/generated/ifccParser.cpp
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
 build/%.o: src/asm/x86_64/%.cpp src/generated/ifccParser.cpp
+	@mkdir -p build
+	$(CC) $(CCFLAGS) -MMD -o $@ $<
+
+
+build/%.o: src/optim/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 

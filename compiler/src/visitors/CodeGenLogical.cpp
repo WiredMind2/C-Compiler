@@ -1,30 +1,26 @@
 #include "CodeGenLogical.h"
-#include "../CodeGenVisitor.h"
+#include "CodeGenVisitor.h"
 
-antlrcpp::Any visitLogicalORRule(CodeGenVisitor* visitor, ifccParser::LogicalORRuleContext *ctx) 
+antlrcpp::Any visitLogicalORRule(CodeGenVisitor* visitor, ifccParser::LogicalORRuleContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->logicalOR()));
-    string right = std::any_cast<string>(visitor->visit(ctx->logicalAND()));
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::logical_or, INT, {tmp, left, right});
-    return tmp;
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->logicalOR()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->logicalAND()));
+    return visitor->getCFG()->current_bb->emit_binop<LogicalOrInstr>(left, right);
 }
 
-antlrcpp::Any visitLogicalANDRule(CodeGenVisitor* visitor, ifccParser::LogicalANDRuleContext *ctx) 
+antlrcpp::Any visitLogicalANDRule(CodeGenVisitor* visitor, ifccParser::LogicalANDRuleContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->logicalAND()));
-    string right = std::any_cast<string>(visitor->visit(ctx->bitwiseOR()));
-    string tmp = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::logical_and, INT, {tmp, left, right});
-    return tmp;
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->logicalAND()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->bitwiseOR()));
+    return visitor->getCFG()->current_bb->emit_binop<LogicalAndInstr>(left, right);
 }
 
-antlrcpp::Any visitLogicalORRef(CodeGenVisitor* visitor, ifccParser::LogicalORRefContext *ctx) 
+antlrcpp::Any visitLogicalORRef(CodeGenVisitor* visitor, ifccParser::LogicalORRefContext *ctx)
 {
     return visitor->visit(ctx->logicalAND());
 }
 
-antlrcpp::Any visitLogicalANDRef(CodeGenVisitor* visitor, ifccParser::LogicalANDRefContext *ctx) 
+antlrcpp::Any visitLogicalANDRef(CodeGenVisitor* visitor, ifccParser::LogicalANDRefContext *ctx)
 {
     return visitor->visit(ctx->bitwiseOR());
 }

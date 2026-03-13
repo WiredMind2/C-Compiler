@@ -1,40 +1,37 @@
-#include "../CodeGenVisitor.h"
+#include "CodeGenRelational.h"
+#include "CodeGenVisitor.h"
 #include <iostream>
 
 antlrcpp::Any visitSmallerStrictThan(CodeGenVisitor* visitor, ifccParser::SmallerStrictThanContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->relational()));
-    string right = std::any_cast<string>(visitor->visit(ctx->additive()));
-    string res = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_lt, INT, {res, left, right});
-    return res;
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->relational()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
+    if (left.type != right.type) { std::cerr << "type not identical. Not supported right now" << std::endl; exit(1); }
+    return visitor->getCFG()->current_bb->emit_cmp_binop<CmpLtInstr>(left, right);
 }
 
 antlrcpp::Any visitGreaterStrictThan(CodeGenVisitor* visitor, ifccParser::GreaterStrictThanContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->relational()));
-    string right = std::any_cast<string>(visitor->visit(ctx->additive()));
-    string res = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_gt, INT, {res, left, right});
-    return res;
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->relational()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
+    if (left.type != right.type) { std::cerr << "type not identical. Not supported right now" << std::endl; exit(1); }
+    return visitor->getCFG()->current_bb->emit_cmp_binop<CmpGtInstr>(left, right);
 }
 
 antlrcpp::Any visitSmallerThan(CodeGenVisitor* visitor, ifccParser::SmallerThanContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->relational()));
-    string right = std::any_cast<string>(visitor->visit(ctx->additive()));
-    string res = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_le, INT, {res, left, right});
-    return res;
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->relational()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
+    if (left.type != right.type) { std::cerr << "type not identical. Not supported right now" << std::endl; exit(1); }
+    return visitor->getCFG()->current_bb->emit_cmp_binop<CmpLeInstr>(left, right);
 }
 
 antlrcpp::Any visitGreaterThan(CodeGenVisitor* visitor, ifccParser::GreaterThanContext *ctx)
 {
-    string left = std::any_cast<string>(visitor->visit(ctx->relational()));
-    string right = std::any_cast<string>(visitor->visit(ctx->additive()));
-    string res = visitor->getCFG()->getCurrentBB()->create_new_tempvar(Type::INT);
-    visitor->getCFG()->getCurrentBB()->add_IRInstr(IRInstr::cmp_ge, INT, {res, left, right});
-    return res;
+    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->relational()));
+    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
+    if (left.type != right.type) { std::cerr << "type not identical. Not supported right now" << std::endl; exit(1); }
+    return visitor->getCFG()->current_bb->emit_cmp_binop<CmpGeInstr>(left, right);
 }
 
 antlrcpp::Any visitRelationalExprRef(CodeGenVisitor* visitor, ifccParser::RelationalExprRefContext *ctx)
