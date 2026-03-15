@@ -84,7 +84,7 @@ gcc -o 00_return_42 00_return_42.s                                    # assemble
 ## Tests
 
 ```bash
-make test-all     # run all tests (compares ifcc vs gcc)
+make test-all     # run all tests (compares ifcc vs gcc) except for one test that requires user input (getchar)
 make test-01      # run only the test suite 01
 make test-x86-01  # run only the test suite 01 with x86-64 target architecture
 ```
