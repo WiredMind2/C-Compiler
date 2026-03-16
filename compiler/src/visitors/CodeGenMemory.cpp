@@ -30,21 +30,12 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
     return StackParam(name, t);
 }
 
-antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx)
+antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_listContext *ctx)
 {
     // Handle multiple variable declarations: int x, y, z;
     IRType type = irtype_from_string(ctx->type_specifier()->getText());
     for (auto varNode : ctx->VAR())
         visitor->getCFG()->current_bb->add_var_to_symbol_table(varNode->getText(), type);
-    return 0;
-}
-
-antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext *ctx)
-{
-    // Handle single variable declaration: int x;
-    string var = ctx->VAR()->getText();
-    IRType type = irtype_from_string(ctx->type_specifier()->getText());
-    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
     return 0;
 }
 
@@ -61,6 +52,17 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
     bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
     return StackParam(var, type);
 }
+antlrcpp::Any visitArray_decl_list(CodeGenVisitor* visitor, ifccParser::Array_decl_listContext *ctx)
+{
+    // TODO
+}
+
+antlrcpp::Any visitArray_decl_with_init(CodeGenVisitor* visitor, ifccParser::Array_decl_with_initContext *ctx)
+{
+    // TODO
+}
+
+
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
 {
@@ -71,4 +73,17 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
     bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
     return StackParam(var, type);
+}
+
+
+antlrcpp::Any visitDereference(CodeGenVisitor* visitor, ifccParser::DereferenceContext *ctx) {
+    // TODO
+}
+antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfContext *ctx) {
+    // TODO
+}
+
+
+antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_subscriptContext *ctx) {
+    // TODO
 }

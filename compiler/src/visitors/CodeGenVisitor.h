@@ -33,9 +33,10 @@ public:
 
     virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 
-    virtual antlrcpp::Any visitDeclaration_list(ifccParser::Declaration_listContext *ctx) override;
-    virtual antlrcpp::Any visitVar_decl(ifccParser::Var_declContext *ctx) override;
+    virtual antlrcpp::Any visitVar_decl_list(ifccParser::Var_decl_listContext *ctx) override;
     virtual antlrcpp::Any visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx) override;
+    virtual antlrcpp::Any visitArray_decl_list(ifccParser::Array_decl_listContext *ctx) override;
+    virtual antlrcpp::Any visitArray_decl_with_init(ifccParser::Array_decl_with_initContext *ctx) override;
     virtual antlrcpp::Any visitAssignment(ifccParser::AssignmentContext *ctx) override;
 
     // Arithmetic expression handlers
@@ -48,8 +49,11 @@ public:
     virtual antlrcpp::Any visitUnaryMinus(ifccParser::UnaryMinusContext *ctx) override;
     virtual antlrcpp::Any visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) override;
     virtual antlrcpp::Any visitUnaryNot(ifccParser::UnaryNotContext *ctx) override;
+    virtual antlrcpp::Any visitDereference(ifccParser::DereferenceContext *ctx) override;
+    virtual antlrcpp::Any visitAddressOf(ifccParser::AddressOfContext *ctx) override;
     virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
     virtual antlrcpp::Any visitFunctionCall(ifccParser::FunctionCallContext *ctx) override;
+    virtual antlrcpp::Any visitArray_subscript(ifccParser::Array_subscriptContext *ctx) override;
 
     // Sequential / compound-assignment pass-throughs
     virtual antlrcpp::Any visitSequentialExprRef(ifccParser::SequentialExprRefContext *ctx) override;

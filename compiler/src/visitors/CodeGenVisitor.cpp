@@ -46,19 +46,23 @@ antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
     return ::visitVariable(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDeclaration_list(ifccParser::Declaration_listContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitVar_decl_list(ifccParser::Var_decl_listContext *ctx)
 {
-    return ::visitDeclaration_list(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitVar_decl(ifccParser::Var_declContext *ctx)
-{
-    return ::visitVar_decl(this, ctx);
+    return ::visitVar_decl_list(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx)
 {
     return ::visitVar_decl_with_init(this, ctx);
+}
+antlrcpp::Any CodeGenVisitor::visitArray_decl_list(ifccParser::Array_decl_listContext *ctx)
+{
+    return ::visitArray_decl_list(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitArray_decl_with_init(ifccParser::Array_decl_with_initContext *ctx)
+{
+    return ::visitArray_decl_with_init(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
@@ -111,6 +115,14 @@ antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx)
 {
     return ::visitUnaryNot(this, ctx);
 }
+antlrcpp::Any CodeGenVisitor::visitDereference(ifccParser::DereferenceContext *ctx)
+{
+    return ::visitDereference(this, ctx);
+}
+antlrcpp::Any CodeGenVisitor::visitAddressOf(ifccParser::AddressOfContext *ctx)
+{
+    return ::visitAddressOf(this, ctx);
+}
 
 antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx)
 {
@@ -120,6 +132,11 @@ antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRef
 antlrcpp::Any CodeGenVisitor::visitFunctionCall(ifccParser::FunctionCallContext *ctx)
 {
     return this->visit(ctx->function_call());
+}
+
+
+antlrcpp::Any CodeGenVisitor::visitArray_subscript(ifccParser::Array_subscriptContext *ctx) {
+    return ::visitArray_subscript(this, ctx);
 }
 
 // Sequential / compound-assignment pass-throughs

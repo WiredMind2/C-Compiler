@@ -4,15 +4,18 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | var_decl | declaration_list | var_decl_with_init ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop
+    | var_decl_list | var_decl_with_init | array_decl_list | array_decl_with_init;
 
 return_stmt: RETURN expr ;
 
 type_specifier : 'int' | 'double' ;
 
-var_decl : type_specifier VAR ';' ;
-declaration_list : type_specifier VAR (',' VAR)* ';' ;
+var_decl_list : type_specifier VAR (',' VAR)* ';' ;
 var_decl_with_init : type_specifier VAR '=' expr ';' ;
+
+array_decl_list : type_specifier VAR '[' expr ']' (',' VAR '[' expr ']')* ';' ;
+array_decl_with_init : type_specifier VAR '[]' '=' '{' expr (',' expr)* '}' ';' ;
 
 
 param : 'int' VAR ;
@@ -70,13 +73,13 @@ relational : additive # relationalExprRef
     ;
 
 additive
-    : multiplicative             # multiplicativeExprRef
+    : multiplicative              # multiplicativeExprRef
     | additive '+' multiplicative # addition
     | additive '-' multiplicative # substraction
     ;
 
 multiplicative
-    : unary                      # unaryExprRef
+    : unary                       # unaryExprRef
     | multiplicative '*' unary    # multiplication
     | multiplicative '/' unary    # division
     | multiplicative '%' unary    # modulo
@@ -86,12 +89,15 @@ unary
     : '-' primitive              # unaryMinus
     | '+' primitive              # unaryPlus
     | '!' primitive              # unaryNot
+    | '*' primitive              # dereference
+    | '&' primitive              # addressOf
     | primitive                  # primitiveExprRef
     ;
 
 primitive
     : '(' expr ')'               # parenthesis
     | function_call              # functionCall
+    | '[' expr ']'               # array_subscript
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant
