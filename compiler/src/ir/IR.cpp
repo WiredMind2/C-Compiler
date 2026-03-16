@@ -13,21 +13,21 @@ using namespace std;
 //  BasicBlock
 // ============================================================
 
-BasicBlock::BasicBlock(CFG* cfg, string entry_label)
+BasicBlock::BasicBlock(CFG *cfg, string entry_label)
     : cfg(cfg), label(entry_label) {
-    exit_true  = nullptr;
+    exit_true = nullptr;
     exit_false = nullptr;
     nextFreeSymbolIndex = -4;
 }
 
-void BasicBlock::gen_asm(ostream& o) {
+void BasicBlock::gen_asm(ostream &o) {
     o << label << ":\n";
-    for (auto instr : instrs)
+    for (auto instr: instrs)
         cfg->gen_asm_instr(o, instr);
     cfg->gen_control_flow(o, this);
 }
 
-void BasicBlock::add_IRInstr(IRInstr* instr) {
+void BasicBlock::add_IRInstr(IRInstr *instr) {
     instrs.push_back(instr);
 }
 
@@ -38,12 +38,18 @@ void BasicBlock::add_IRInstr(IRInstr* instr) {
 void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
     if (cfg->findBBByVariable(name) != nullptr) {
         cerr << "Error: Variable " << name
-             << " already defined in a former or current scope." << endl;
+                << " already defined in a former or current scope." << endl;
         exit(1);
     }
     SymbolType[name] = t;
     SymbolIndex[name] = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= irtype_size(t);
+}
+
+int BasicBlock::allocate_bytes_on_symbol_table(int size) {
+    int index = nextFreeSymbolIndex;
+    nextFreeSymbolIndex -= size;
+    return index;
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {
@@ -66,7 +72,7 @@ IRType BasicBlock::get_var_type(string name) {
 
 int BasicBlock::calculateRequiredStackSpace() {
     int usedSpace = -nextFreeSymbolIndex;
-    int aligned   = usedSpace;
+    int aligned = usedSpace;
     if (aligned % 16 != 0)
         aligned = ((aligned / 16) + 1) * 16;
     if (aligned < 16) aligned = 16;
@@ -74,7 +80,7 @@ int BasicBlock::calculateRequiredStackSpace() {
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {
-    SymbolType[name]  = type;
+    SymbolType[name] = type;
     SymbolIndex[name] = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= irtype_size(type);
 }
@@ -85,7 +91,7 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
-    current_bb   = new BasicBlock(this, new_BB_name());
+    current_bb = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
 
     switch (arch) {
@@ -98,25 +104,25 @@ CFG::CFG(TargetArch arch) {
     }
 }
 
-void CFG::add_bb(BasicBlock* bb) { bbs.push_back(bb); }
+void CFG::add_bb(BasicBlock *bb) { bbs.push_back(bb); }
 
-void CFG::gen_asm(ostream& o) { asmGenerator->gen_asm(o); }
+void CFG::gen_asm(ostream &o) { asmGenerator->gen_asm(o); }
 
-void CFG::gen_control_flow(ostream& o, BasicBlock* bb) {
+void CFG::gen_control_flow(ostream &o, BasicBlock *bb) {
     asmGenerator->gen_control_flow(o, bb);
 }
 
-void CFG::gen_asm_instr(ostream& o, IRInstr* instr) {
+void CFG::gen_asm_instr(ostream &o, IRInstr *instr) {
     cout << ";   " << instr->to_string() << endl;
     asmGenerator->gen_asm_instr(o, instr);
 }
 
-void CFG::gen_asm_prologue(ostream& o) {
+void CFG::gen_asm_prologue(ostream &o) {
     cout << ";   Prologue:" << endl;
     asmGenerator->gen_prologue(o);
 }
 
-void CFG::gen_asm_epilogue(ostream& o) {
+void CFG::gen_asm_epilogue(ostream &o) {
     cout << ";   Epilogue:" << endl;
     asmGenerator->gen_epilogue(o);
 }
@@ -127,15 +133,15 @@ string CFG::new_BB_name() {
 
 int CFG::calculateRequiredStackSpace() {
     int space = 0;
-    for (BasicBlock* bb : getBBs())
+    for (BasicBlock *bb: getBBs())
         space += bb->calculateRequiredStackSpace();
     return space;
 }
 
-BasicBlock* CFG::findBBByVariable(const string& var) {
-    for (auto bb : getStackBBs())
+BasicBlock *CFG::findBBByVariable(const string &var) {
+    for (auto bb: getStackBBs())
         if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
-    for (auto bb : getBBs())
+    for (auto bb: getBBs())
         if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
     return nullptr;
 }
@@ -143,8 +149,8 @@ BasicBlock* CFG::findBBByVariable(const string& var) {
 void CFG::add_function(string name, IRType returnType,
                        vector<IRType> paramTypes, vector<string> paramNames) {
     FunctionSignature sig;
-    sig.name       = name;
-    sig.label      = name;
+    sig.name = name;
+    sig.label = name;
     sig.returnType = returnType;
     sig.paramTypes = paramTypes;
     sig.paramNames = paramNames;
@@ -152,17 +158,17 @@ void CFG::add_function(string name, IRType returnType,
     functionIndex[name] = functions.size() - 1;
 }
 
-CFG::FunctionSignature* CFG::get_function(string name) {
+CFG::FunctionSignature *CFG::get_function(string name) {
     auto it = functionIndex.find(name);
     return (it != functionIndex.end()) ? &functions[it->second] : nullptr;
 }
 
-BasicBlock* CFG::create_function_entry(string name, IRType returnType,
+BasicBlock *CFG::create_function_entry(string name, IRType returnType,
                                        vector<IRType> paramTypes, vector<string> paramNames) {
     add_function(name, returnType, paramTypes, paramNames);
     bbs.clear();
 
-    BasicBlock* entryBB = new BasicBlock(this, name);
+    BasicBlock *entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();
 
     int paramOffset = 16;

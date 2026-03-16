@@ -65,6 +65,7 @@ public:
 
     // Symbol table methods
     void   add_var_to_symbol_table(string name, IRType t);
+    int    allocate_bytes_on_symbol_table(int size);
     string create_new_tempvar(IRType t);
     int    get_var_index(string name);
     int    get_var_index_or_none(const string& name) const {

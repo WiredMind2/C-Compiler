@@ -54,7 +54,22 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 }
 antlrcpp::Any visitArray_decl_list(CodeGenVisitor* visitor, ifccParser::Array_decl_listContext *ctx)
 {
-    // TODO
+    IRType type = irtype_from_string(ctx->type_specifier()->getText());
+    BasicBlock *bb = visitor->getCFG()->current_bb;
+    int i = 0;
+    for (auto varNode : ctx->VAR()) {
+        int64_t val = stol(ctx->CONST().at(i)->getText());
+
+        bb->add_var_to_symbol_table(varNode->getText(), type);
+        int stack_offset = bb->allocate_bytes_on_symbol_table(val * irtype_size(type));
+
+        // Store the address of the stack allocated space on the variable varNode
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, static_cast<int64_t>(stack_offset)));
+        bb->add_IRInstr(new StoreStackInstr(bb, varNode->getText(), Reg::W0, IRType::INT32));
+
+        i++;
+    }
+    return 0;
 }
 
 antlrcpp::Any visitArray_decl_with_init(CodeGenVisitor* visitor, ifccParser::Array_decl_with_initContext *ctx)

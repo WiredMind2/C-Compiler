@@ -14,7 +14,7 @@ type_specifier : 'int' | 'double' ;
 var_decl_list : type_specifier VAR (',' VAR)* ';' ;
 var_decl_with_init : type_specifier VAR '=' expr ';' ;
 
-array_decl_list : type_specifier VAR '[' expr ']' (',' VAR '[' expr ']')* ';' ;
+array_decl_list : type_specifier VAR '[' CONST ']' (',' VAR '[' CONST ']')* ';' ;
 array_decl_with_init : type_specifier VAR '[]' '=' '{' expr (',' expr)* '}' ';' ;
 
 
@@ -97,7 +97,7 @@ unary
 primitive
     : '(' expr ')'               # parenthesis
     | function_call              # functionCall
-    | '[' expr ']'               # array_subscript
+    | primitive '[' expr ']'     # array_subscript
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant
