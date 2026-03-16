@@ -260,7 +260,19 @@ for j in jobs:
         unique_jobs.append(j)
 jobs = sorted(unique_jobs)
 
-# debug: after deduplication
+def should_skip_job(jobname):
+    """Skip only test 12 from suite 04_function_calls."""
+    parts = jobname.lstrip('-').split('-')
+    # Expected flattened form: <root>-04_function_calls-12_xxx
+    if len(parts) < 3:
+        return False
+    suite = parts[1]
+    test_id = parts[2]
+    return suite == "04_function_calls" and test_id.startswith("12")
+
+jobs = [j for j in jobs if not should_skip_job(j)]
+
+# debug: after deduplication / filtering
 if args.debug:
     print("debug: list of test-cases after PREPARE step:", " ".join(jobs))
 

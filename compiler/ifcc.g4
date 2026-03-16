@@ -104,5 +104,6 @@ CONST : '-'?[0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
+LINE_COMMENT : '//' ~[\r\n]* -> skip ;
 DIRECTIVE : '#' .*? '\n' -> skip ;
 WS    : [ \t\r\n] -> channel(HIDDEN);
