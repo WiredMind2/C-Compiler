@@ -251,10 +251,34 @@ void AsmGeneratorARM64::visit(ostream &o, CmpGeInstr &instr) {
 
 
 void AsmGeneratorARM64::visit(ostream &o, LogicalAndInstr &instr) {
-
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
+    static int labelCount = 0;
+    int thisLabel = labelCount++;
+    o << "    cbz " << lhs << ", .Ldone_and_" << thisLabel << "\n";
+    o << ".Lend_and_" << thisLabel << ":\n";
+    // Sets lhs to 1 if rhs is nonzero, else 0
+    o << "    subs	" << rhs << ", " << rhs << ", #0\n";
+    o << "    cset	" << lhs << ", ne\n";
+    o << ".Ldone_and_" << thisLabel << ":\n";
+    // Sets dest to 1 if lhs is 1 else set it to 0
+    o << "    and	" << dest << ", " << lhs << ", #0x1\n";
 }
 void AsmGeneratorARM64::visit(ostream &o, LogicalOrInstr &instr) {
-
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    string dest = reg_to_asm(instr.dest);
+    static int labelCount = 0;
+    int thisLabel = labelCount++;
+    o << "    cbz " << lhs << ", .Lend_or_" << thisLabel << "\n";
+    o << "    mov " << dest << ", #1\n";
+    o << "    b .Ldone_or_" << thisLabel << "\n";
+    o << ".Lend_or_" << thisLabel << ":\n";
+    // Sets dest to 1 if rhs is nonzero, else 0
+    o << "    subs	" << rhs << ", " << rhs << ", #0\n";
+    o << "    cset	" << dest << ", ne\n";
+    o << ".Ldone_or_" << thisLabel << ":\n";
 }
 
 void AsmGeneratorARM64::visit(ostream& o, FToIInstr& instr) {
