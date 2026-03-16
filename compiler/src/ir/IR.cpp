@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <cassert>
 
 #include "../asm/arm64/AsmGeneratorARM64.h"
 #include "../asm/x86_64/AsmGeneratorX86_64.h"
@@ -13,11 +14,15 @@ using namespace std;
 //  BasicBlock
 // ============================================================
 
-BasicBlock::BasicBlock(CFG* cfg, string entry_label)
+BasicBlock::BasicBlock(CFG* cfg, string entry_label, bool is_loop)
     : cfg(cfg), label(entry_label) {
     exit_true  = nullptr;
     exit_false = nullptr;
-    nextFreeSymbolIndex = -4;
+    this->is_loop = is_loop;
+}
+
+void BasicBlock::reset_symbol_index() {
+    cfg->setNextFreeSymbolIndex(-4);
 }
 
 void BasicBlock::gen_asm(ostream& o) {
@@ -36,47 +41,96 @@ void BasicBlock::add_IRInstr(IRInstr* instr) {
 // ============================================================
 
 void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
-    if (cfg->findBBByVariable(name) != nullptr) {
-        cerr << "Error: Variable " << name
-             << " already defined in a former or current scope." << endl;
-        exit(1);
+    // Allow duplicate temp variables (they're local to each BB's computation)
+    // Temp variables start with "!tmp"
+    if (name.substr(0, 4) != "!tmp") {
+        if (cfg->findBBByVariable(name) != nullptr) {
+            cerr << "Error: Variable " << name
+                 << " already defined in a former or current scope." << endl;
+            exit(1);
+        }
     }
     SymbolType[name] = t;
-    SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= irtype_size(t);
+    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(t));
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {
-    string name = "!tmp" + to_string(-nextFreeSymbolIndex);
+    string name = "!tmp" + to_string(-cfg->getNextFreeSymbolIndex());
     add_var_to_symbol_table(name, t);
     return name;
 }
 
 int BasicBlock::get_var_index(string name) {
-    if (SymbolIndex.find(name) == SymbolIndex.end()) {
-        cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
-        exit(1);
+    // First check the current BB's symbol table
+    if (SymbolIndex.find(name) != SymbolIndex.end()) {
+        return SymbolIndex[name];
     }
-    return SymbolIndex[name];
+    // Then check the scope stack (parent scopes)
+    if (cfg) {
+        for (auto bb : cfg->getStackBBs()) {
+            if (bb != this && bb->get_var_index_or_none(name) != INT_MIN) {
+                return bb->get_var_index_or_none(name);
+            }
+        }
+        // Also check BBs in the current function
+        if (!cfg->getCurrentFunction().empty()) {
+            auto* sig = cfg->get_function(cfg->getCurrentFunction());
+            if (sig) {
+                for (auto bb : sig->bbs) {
+                    if (bb != this && bb->get_var_index_or_none(name) != INT_MIN) {
+                        return bb->get_var_index_or_none(name);
+                    }
+                }
+            }
+        }
+    }
+    // If not found, print error and exit
+    cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
+    exit(1);
 }
 
 IRType BasicBlock::get_var_type(string name) {
-    return SymbolType[name];
+    // First check the current BB's symbol table
+    if (SymbolType.find(name) != SymbolType.end()) {
+        return SymbolType[name];
+    }
+    // Then check the scope stack (parent scopes)
+    if (cfg) {
+        for (auto bb : cfg->getStackBBs()) {
+            if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
+                return bb->SymbolType[name];
+            }
+        }
+        // Also check BBs in the current function
+        if (!cfg->getCurrentFunction().empty()) {
+            auto* sig = cfg->get_function(cfg->getCurrentFunction());
+            if (sig) {
+                for (auto bb : sig->bbs) {
+                    if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
+                        return bb->SymbolType[name];
+                    }
+                }
+            }
+        }
+    }
+    // If not found, print error and exit
+    cerr << "Error: Symbol " << name << " not found in symbol table (type lookup)." << endl;
+    exit(1);
 }
 
 int BasicBlock::calculateRequiredStackSpace() {
-    int usedSpace = -nextFreeSymbolIndex;
-    int aligned   = usedSpace;
-    if (aligned % 16 != 0)
-        aligned = ((aligned / 16) + 1) * 16;
-    if (aligned < 16) aligned = 16;
-    return aligned;
+    // Stack space is now tracked at the CFG level. This method is kept only to
+    // catch incorrect usage of the BasicBlock API and to delegate to the single
+    // source of truth when possible.
+    assert(cfg && "BasicBlock has no parent CFG; use CFG::calculateRequiredStackSpace instead");
+    return cfg->calculateRequiredStackSpace();
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {
     SymbolType[name]  = type;
-    SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= irtype_size(type);
+    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(type));
 }
 
 // ============================================================
@@ -85,6 +139,7 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
+    nextFreeSymbolIndex = -4;
     current_bb   = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
 
@@ -98,7 +153,14 @@ CFG::CFG(TargetArch arch) {
     }
 }
 
-void CFG::add_bb(BasicBlock* bb) { bbs.push_back(bb); }
+void CFG::add_bb(BasicBlock* bb) { 
+    bbs.push_back(bb); 
+    // Also add to current function's bbs if we have a current function
+    if (!currentFunctionName.empty()) {
+        FunctionSignature* sig = get_function(currentFunctionName);
+        if (sig) sig->bbs.push_back(bb);
+    }
+}
 
 void CFG::gen_asm(ostream& o) { asmGenerator->gen_asm(o); }
 
@@ -107,17 +169,14 @@ void CFG::gen_control_flow(ostream& o, BasicBlock* bb) {
 }
 
 void CFG::gen_asm_instr(ostream& o, IRInstr* instr) {
-    cout << ";   " << instr->to_string() << endl;
     asmGenerator->gen_asm_instr(o, instr);
 }
 
 void CFG::gen_asm_prologue(ostream& o) {
-    cout << ";   Prologue:" << endl;
     asmGenerator->gen_prologue(o);
 }
 
 void CFG::gen_asm_epilogue(ostream& o) {
-    cout << ";   Epilogue:" << endl;
     asmGenerator->gen_epilogue(o);
 }
 
@@ -126,17 +185,28 @@ string CFG::new_BB_name() {
 }
 
 int CFG::calculateRequiredStackSpace() {
-    int space = 0;
-    for (BasicBlock* bb : getBBs())
-        space += bb->calculateRequiredStackSpace();
-    return space;
+    int usedSpace = -nextFreeSymbolIndex;
+    int aligned   = usedSpace;
+    if (aligned % 16 != 0)
+        aligned = ((aligned / 16) + 1) * 16;
+    if (aligned < 16) aligned = 16;
+    return aligned;
 }
 
 BasicBlock* CFG::findBBByVariable(const string& var) {
+    // First search in the scope stack
     for (auto bb : getStackBBs())
         if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
-    for (auto bb : getBBs())
-        if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
+    
+    // Then search in the current function's BBs
+    if (!currentFunctionName.empty()) {
+        FunctionSignature* sig = get_function(currentFunctionName);
+        if (sig) {
+            for (auto bb : sig->bbs)
+                if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
+        }
+    }
+    
     return nullptr;
 }
 
@@ -159,8 +229,13 @@ CFG::FunctionSignature* CFG::get_function(string name) {
 
 BasicBlock* CFG::create_function_entry(string name, IRType returnType,
                                        vector<IRType> paramTypes, vector<string> paramNames) {
+    // Set current function name FIRST
+    currentFunctionName = name;
+    
     add_function(name, returnType, paramTypes, paramNames);
-    bbs.clear();
+    
+    // Get the function signature we just created
+    FunctionSignature* sig = get_function(name);
 
     BasicBlock* entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();
@@ -172,6 +247,14 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     }
 
     current_bb = entryBB;
-    add_bb(entryBB);
+    
+    // Add to the function's bbs list (entryBB is the first BB)
+    sig->bbs.push_back(entryBB);
+    // Also add to global bbs list for now
+    bbs.push_back(entryBB);
+    
+    // Store entryBB in the function signature
+    sig->entryBB = entryBB;
+    
     return entryBB;
 }

@@ -20,7 +20,7 @@ class CFG;
 
 class BasicBlock {
 public:
-    BasicBlock(CFG* cfg, string entry_label);
+    BasicBlock(CFG* cfg, string entry_label, bool is_loop = false);
     void gen_asm(ostream& o);
 
     void add_IRInstr(IRInstr* instr);
@@ -77,7 +77,7 @@ public:
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
     }
-    void reset_symbol_index() { nextFreeSymbolIndex = -4; }
+    void reset_symbol_index();
 
     BasicBlock* exit_true;
     BasicBlock* exit_false;
@@ -85,11 +85,13 @@ public:
     CFG*        cfg;
     vector<IRInstr*> instrs;
     string      test_var_name;
+    bool        is_loop = false;         // Flag to indicate if this block is part of a loop
+    BasicBlock* loop_continue_target = nullptr; // Target for 'continue' (condBB of the while)
+    BasicBlock* loop_break_target    = nullptr; // Target for 'break'    (afterBB of the while)
 
 protected:
-    int nextFreeSymbolIndex = -4;
-    map<string, IRType> SymbolType;
-    map<string, int>    SymbolIndex;
+    map<string, IRType>  SymbolType;
+    map<string, int>     SymbolIndex;
 };
 
 // ============================================================
@@ -112,6 +114,9 @@ public:
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();
+    
+    int  getNextFreeSymbolIndex() const { return nextFreeSymbolIndex; }
+    void setNextFreeSymbolIndex(int index) { nextFreeSymbolIndex = index; }
 
     vector<BasicBlock*>& getBBs()      { return bbs; }
     vector<BasicBlock*>& getStackBBs() { return bbStack; }
@@ -123,6 +128,8 @@ public:
         IRType           returnType;
         vector<IRType>   paramTypes;
         vector<string>   paramNames;
+        BasicBlock*      entryBB = nullptr;
+        vector<BasicBlock*> bbs;  // Basic blocks for this function
     };
 
     void               add_function(string name, IRType returnType,
@@ -131,13 +138,19 @@ public:
     vector<FunctionSignature>& get_functions() { return functions; }
     BasicBlock*        create_function_entry(string name, IRType returnType,
                                              vector<IRType> paramTypes, vector<string> paramNames);
+    
+    // Methods for multi-function support
+    void               setCurrentFunction(string name) { currentFunctionName = name; }
+    string             getCurrentFunction() const { return currentFunctionName; }
 
     AsmGenerator* asmGenerator;
 
 protected:
     int                 nextBBnumber = 0;
+    int                 nextFreeSymbolIndex = -4;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
+    string              currentFunctionName;  // Track current function being processed
 
 private:
     vector<FunctionSignature> functions;
