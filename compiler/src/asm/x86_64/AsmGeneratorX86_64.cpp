@@ -448,19 +448,18 @@ void AsmGeneratorX86_64::gen_control_flow(ostream& o, BasicBlock* bb) {
     if (bb->exit_true == nullptr) {
         gen_epilogue(o);
     } else if (bb->exit_false == nullptr) {
-        // Unconditional jump (for while loops, etc.)
+        // Unconditional jump
         o << "    jmp " << bb->exit_true->label << "\n";
     } else {
         // Both exit_true and exit_false set: conditional jump
-        // Load test variable into %eax
         if (!bb->test_var_name.empty()) {
             string test_asm = var_to_asm(bb->test_var_name);
             o << "    movl " << test_asm << ", %eax\n";
         }
         // If condition FALSE (eax == 0), jump to exit_false
-        // If condition TRUE (eax != 0), fall through to exit_true
         o << "    cmpl $0, %eax\n";
         o << "    je "  << bb->exit_false->label << "\n";
-        // No unconditional jmp - fall through to exit_true
+        // Always emit explicit jump to exit_true (do not rely on physical BB ordering)
+        o << "    jmp " << bb->exit_true->label << "\n";
     }
 }

@@ -326,9 +326,12 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         // Visit the scope (the if-body)
         this->visit(ctx->scope());
     }
-    // Add jump to merge block at end of then ONLY if it doesn't already have a return
-    if (thenBB->instrs.empty() || dynamic_cast<RetInstr*>(thenBB->instrs.back()) == nullptr) {
-        thenBB->exit_true = mergeBB;
+    // Get the last BB after visiting the then scope (may differ from thenBB if there are nested ifs)
+    BasicBlock* lastThenBB = cfg->current_bb;
+    // Add jump to merge block ONLY if it doesn't already have a return or break/continue
+    if (lastThenBB->exit_true == nullptr &&
+        (lastThenBB->instrs.empty() || dynamic_cast<RetInstr*>(lastThenBB->instrs.back()) == nullptr)) {
+        lastThenBB->exit_true = mergeBB;
     }
     
     // If there's an else clause
@@ -341,9 +344,12 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         } else if (elseBlock->condition()) {
             this->visit(elseBlock->condition());
         }
-        // Add jump to merge block at end of else ONLY if it doesn't already have a return
-        if (elseBB->instrs.empty() || dynamic_cast<RetInstr*>(elseBB->instrs.back()) == nullptr) {
-            elseBB->exit_true = mergeBB;
+        // Get the last BB after visiting the else scope
+        BasicBlock* lastElseBB = cfg->current_bb;
+        // Add jump to merge block ONLY if it doesn't already have a return or break/continue
+        if (lastElseBB->exit_true == nullptr &&
+            (lastElseBB->instrs.empty() || dynamic_cast<RetInstr*>(lastElseBB->instrs.back()) == nullptr)) {
+            lastElseBB->exit_true = mergeBB;
         }
     }
     
@@ -384,17 +390,27 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
     condBB->exit_true = bodyBB;
     condBB->exit_false = afterBB;
 
+    // Store break/continue targets on bodyBB via dedicated fields (not exit_true/exit_false,
+    // which will be overwritten if the body starts with an if-statement).
+    bodyBB->loop_continue_target = condBB;
+    bodyBB->loop_break_target    = afterBB;
+
     // Generate code for loop body
     cfg->current_bb = bodyBB;
+    cfg->getStackBBs().push_back(bodyBB);  // Push loop body onto stack so break/continue can find it
     if (ctx->scope()) {
         this->visit(ctx->scope());
     }
+    cfg->getStackBBs().pop_back();  // Pop loop body after visiting
 
-    // Keep explicit loop targets on the loop body block:
-    // - exit_true: continue target (re-check condition)
-    // - exit_false: break target (after loop)
-    bodyBB->exit_true = condBB;
-    bodyBB->exit_false = afterBB;
+    // cfg->current_bb is now the last BB generated inside the loop body
+    // (could be bodyBB itself, or a mergeBB from a nested if).
+    // Only set exit_true (back to condBB) if this BB hasn't already been
+    // redirected by a break/continue statement.
+    BasicBlock* lastBodyBB = cfg->current_bb;
+    if (lastBodyBB->exit_true == nullptr) {
+        lastBodyBB->exit_true = condBB;
+    }
 
     // Continue from after loop
     cfg->current_bb = afterBB;
@@ -413,7 +429,7 @@ antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx
     for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
         BasicBlock* bb = *it;
         if (bb->is_loop) {
-            targetBB = bb->exit_false;
+            targetBB = bb->loop_break_target;
             break;
         }
     }
@@ -438,7 +454,7 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
     for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
         BasicBlock* bb = *it;
         if (bb->is_loop) {
-            targetBB = bb->exit_true;
+            targetBB = bb->loop_continue_target;
             break;
         }
     }

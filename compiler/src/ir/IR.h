@@ -85,7 +85,9 @@ public:
     CFG*        cfg;
     vector<IRInstr*> instrs;
     string      test_var_name;
-    bool is_loop = false;  // Flag to indicate if this block is part of a loop
+    bool        is_loop = false;         // Flag to indicate if this block is part of a loop
+    BasicBlock* loop_continue_target = nullptr; // Target for 'continue' (condBB of the while)
+    BasicBlock* loop_break_target    = nullptr; // Target for 'break'    (afterBB of the while)
 
 protected:
     map<string, IRType>  SymbolType;
