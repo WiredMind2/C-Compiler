@@ -13,10 +13,11 @@ using namespace std;
 //  BasicBlock
 // ============================================================
 
-BasicBlock::BasicBlock(CFG* cfg, string entry_label)
+BasicBlock::BasicBlock(CFG* cfg, string entry_label, bool is_loop)
     : cfg(cfg), label(entry_label) {
     exit_true  = nullptr;
     exit_false = nullptr;
+    this->is_loop = is_loop;
 }
 
 void BasicBlock::reset_symbol_index() {

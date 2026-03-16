@@ -358,44 +358,96 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
 {
     CFG* cfg = this->cfg;
     BasicBlock* currentBB = cfg->current_bb;
-    
+
     // Create blocks for condition check, loop body, and after loop
     BasicBlock* condBB = new BasicBlock(cfg, cfg->new_BB_name());
-    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true); // Mark bodyBB as a loop block for break/continue handling
     BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
-    
+
     // Add blocks to CFG
     cfg->add_bb(condBB);
     cfg->add_bb(bodyBB);
     cfg->add_bb(afterBB);
-    
+
     // Set up current block to unconditionally jump to condition
     currentBB->exit_true = condBB;
-    // exit_false is nullptr - unconditional jump
-    
+
     // Set up condition block
     cfg->current_bb = condBB;
     StackParam condResult("!tmp0", IRType::INT32);
     if (ctx->expr()) {
         condResult = std::any_cast<StackParam>(this->visit(ctx->expr()));
     }
-    
+
     // Condition result determines whether to enter body or exit
     condBB->test_var_name = condResult.name;
     condBB->exit_true = bodyBB;
     condBB->exit_false = afterBB;
-    
+
     // Generate code for loop body
     cfg->current_bb = bodyBB;
     if (ctx->scope()) {
         this->visit(ctx->scope());
     }
-    // After body, jump back to condition
+
+    // Keep explicit loop targets on the loop body block:
+    // - exit_true: continue target (re-check condition)
+    // - exit_false: break target (after loop)
     bodyBB->exit_true = condBB;
-    // exit_false is nullptr - unconditional jump back to condition
-    
+    bodyBB->exit_false = afterBB;
+
     // Continue from after loop
     cfg->current_bb = afterBB;
-    
+
     return 0;
+}
+
+antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx)
+{
+    (void)ctx;
+
+    // Find nearest enclosing loop block and jump to its break target.
+    BasicBlock* currentBB = cfg->current_bb;
+    BasicBlock* targetBB = nullptr;
+    vector<BasicBlock*> bbStack = cfg->getStackBBs();
+    for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
+        BasicBlock* bb = *it;
+        if (bb->is_loop) {
+            targetBB = bb->exit_false;
+            break;
+        }
+    }
+
+    if (targetBB) {
+        currentBB->exit_true = targetBB;
+    } else {
+        cerr << "Error: 'break' statement not within a loop." << endl;
+        exit(1);
+    }
+    return nullptr;
+}
+
+antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContext *ctx)
+{
+    (void)ctx;
+
+    // Find nearest enclosing loop block and jump to its continue target.
+    BasicBlock* currentBB = cfg->current_bb;
+    BasicBlock* targetBB = nullptr;
+    vector<BasicBlock*> bbStack = cfg->getStackBBs();
+    for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
+        BasicBlock* bb = *it;
+        if (bb->is_loop) {
+            targetBB = bb->exit_true;
+            break;
+        }
+    }
+
+    if (targetBB) {
+        currentBB->exit_true = targetBB;
+    } else {
+        cerr << "Error: 'continue' statement not within a loop." << endl;
+        exit(1);
+    }
+    return nullptr;
 }

@@ -20,7 +20,7 @@ class CFG;
 
 class BasicBlock {
 public:
-    BasicBlock(CFG* cfg, string entry_label);
+    BasicBlock(CFG* cfg, string entry_label, bool is_loop = false);
     void gen_asm(ostream& o);
 
     void add_IRInstr(IRInstr* instr);
@@ -85,6 +85,7 @@ public:
     CFG*        cfg;
     vector<IRInstr*> instrs;
     string      test_var_name;
+    bool is_loop = false;  // Flag to indicate if this block is part of a loop
 
 protected:
     map<string, IRType>  SymbolType;
