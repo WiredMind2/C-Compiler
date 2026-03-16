@@ -260,6 +260,19 @@ void AsmGeneratorX86_64::AddFLOAT64_by_INT32(ostream& o, string lhs, string rhs,
     o << "    movsd %xmm0, " << dest << "\n";
 }   
 
+void AsmGeneratorX86_64::addINT32(std::ostream& o, string lhs_register, string rhs_register, string dest_register) {
+    if (dest_register != lhs_register) {
+        o << "    movl " << lhs_register << ", " << dest_register << "\n";
+    }
+    o << "    addl " << rhs_register << ", " << dest_register << "\n";
+}
+
+void AsmGeneratorX86_64::addFLOAT64(std::ostream& o, string lhs_register, string rhs_register, string dest_register) {
+    o << "    movsd " << lhs_register << ", %xmm0\n";
+    o << "    addsd " << rhs_register << ", %xmm0\n";
+    o << "    movsd %xmm0, " << dest_register << "\n";
+}
+
 void AsmGeneratorX86_64::visit(ostream& o, SubInstr& instr) {
     string lhs  = reg_to_asm(instr.lhs);
     string rhs  = reg_to_asm(instr.rhs);

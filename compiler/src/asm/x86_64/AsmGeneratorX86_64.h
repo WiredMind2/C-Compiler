@@ -92,6 +92,10 @@ public:
     void visit(std::ostream& o, RetInstr&    instr) override;
     void Ret(ostream& o, string src) override;
 
+    void addINT32(std::ostream& o, string lhs_register, string rhs_register, string dest_register) override;
+    void addFLOAT64(std::ostream& o, string lhs_register, string rhs_register, string dest_register) override;
+
+
     //---------------- Helpers ----------------
     /** Map Reg enum → 32-bit register name (e.g. Reg::R0 → "%eax") */
     std::string reg_to_asm(const RegParam& p) override;

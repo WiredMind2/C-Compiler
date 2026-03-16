@@ -121,6 +121,17 @@ void AsmGeneratorARM64::visit(ostream& o, LdConstInstr& instr) {
     }
 }
 
+
+void AsmGeneratorARM64::addINT32(std::ostream& o, string lhs_register, string rhs_register, string dest_register) {
+    return ;
+}
+
+
+void AsmGeneratorARM64::addFLOAT64(std::ostream& o, string lhs_register, string rhs_register, string dest_register) {
+    return ;
+}
+
+
 void AsmGeneratorARM64::visit(ostream& o, CopyRegInstr& instr) {
     string src  = reg_to_asm(instr.src);
     string dest = reg_to_asm(instr.dest);

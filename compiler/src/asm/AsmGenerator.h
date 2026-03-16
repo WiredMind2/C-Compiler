@@ -115,6 +115,9 @@ public:
     virtual void visit(std::ostream& o, RetInstr&        instr) = 0;
     virtual void Ret(ostream& o, string src) = 0;
 
+    virtual void addINT32(std::ostream& o, string lhs_register, string rhs_register, string dest_register) = 0;
+    virtual void addFLOAT64(std::ostream& o, string lhs_register, string rhs_register, string dest_register) = 0;
+
     //---------------- Helper Methods ----------------
 
     /** Convert a RegParam (reg + IRType) to a machine register name string */

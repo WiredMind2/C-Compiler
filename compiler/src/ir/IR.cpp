@@ -153,8 +153,8 @@ CFG::CFG(TargetArch arch) {
     }
 }
 
-void CFG::add_bb(BasicBlock* bb) { 
-    bbs.push_back(bb); 
+void CFG::add_bb(BasicBlock* bb) {
+    bbs.push_back(bb);
     // Also add to current function's bbs if we have a current function
     if (!currentFunctionName.empty()) {
         FunctionSignature* sig = get_function(currentFunctionName);
@@ -197,7 +197,7 @@ BasicBlock* CFG::findBBByVariable(const string& var) {
     // First search in the scope stack
     for (auto bb : getStackBBs())
         if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
-    
+
     // Then search in the current function's BBs
     if (!currentFunctionName.empty()) {
         FunctionSignature* sig = get_function(currentFunctionName);
@@ -206,7 +206,7 @@ BasicBlock* CFG::findBBByVariable(const string& var) {
                 if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
         }
     }
-    
+
     return nullptr;
 }
 
@@ -231,9 +231,9 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
                                        vector<IRType> paramTypes, vector<string> paramNames) {
     // Set current function name FIRST
     currentFunctionName = name;
-    
+
     add_function(name, returnType, paramTypes, paramNames);
-    
+
     // Get the function signature we just created
     FunctionSignature* sig = get_function(name);
 
@@ -247,14 +247,14 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     }
 
     current_bb = entryBB;
-    
+
     // Add to the function's bbs list (entryBB is the first BB)
     sig->bbs.push_back(entryBB);
     // Also add to global bbs list for now
     bbs.push_back(entryBB);
-    
+
     // Store entryBB in the function signature
     sig->entryBB = entryBB;
-    
+
     return entryBB;
 }
