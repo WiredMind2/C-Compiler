@@ -77,7 +77,7 @@ public:
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
     }
-    void reset_symbol_index() { nextFreeSymbolIndex = -4; }
+    void reset_symbol_index();
 
     BasicBlock* exit_true;
     BasicBlock* exit_false;
@@ -87,9 +87,8 @@ public:
     string      test_var_name;
 
 protected:
-    int nextFreeSymbolIndex = -4;
-    map<string, IRType> SymbolType;
-    map<string, int>    SymbolIndex;
+    map<string, IRType>  SymbolType;
+    map<string, int>     SymbolIndex;
 };
 
 // ============================================================
@@ -112,6 +111,9 @@ public:
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();
+    
+    int  getNextFreeSymbolIndex() const { return nextFreeSymbolIndex; }
+    void setNextFreeSymbolIndex(int index) { nextFreeSymbolIndex = index; }
 
     vector<BasicBlock*>& getBBs()      { return bbs; }
     vector<BasicBlock*>& getStackBBs() { return bbStack; }
@@ -142,6 +144,7 @@ public:
 
 protected:
     int                 nextBBnumber = 0;
+    int                 nextFreeSymbolIndex = -4;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
     string              currentFunctionName;  // Track current function being processed

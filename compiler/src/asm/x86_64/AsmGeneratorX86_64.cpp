@@ -1,5 +1,6 @@
 #include "AsmGeneratorX86_64.h"
 #include "../../ir/IR.h"
+#include "../../ir/IRInstr.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -77,23 +78,32 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
     // Set current_bb for this BB so var_to_asm can find variable indices
     cfg->current_bb = bb;
 
-    // Generate prologue for this function entry block
-    int stackSpace = bb->calculateRequiredStackSpace();
-    o << bb->label << ":\n";
-    o << "    pushq %rbp\n";
-    o << "    movq %rsp, %rbp\n";
-    o << "    subq $" << stackSpace << ", %rsp\n";
-
-    // Copy parameters from ABI registers to stack slots (System V ABI)
-    // Parameters are stored at positive offsets: 16(%rbp), 24(%rbp), ...
-    static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    // Check if this is a function entry block (has the same name as a function)
     auto* sig = cfg->get_function(bb->label);
-    if (sig) {
-        int numParams = (int)sig->paramNames.size();
-        for (int i = 0; i < numParams && i < 6; i++) {
-            int offset = 16 + i * 8;
-            o << "    movq " << argRegs64[i] << ", " << offset << "(%rbp)\n";
+    bool isFunctionEntry = (sig != nullptr);
+
+    // Only generate prologue for function entry blocks
+    if (isFunctionEntry) {
+        // Generate prologue for this function entry block
+        int stackSpace = cfg->calculateRequiredStackSpace();
+        o << bb->label << ":\n";
+        o << "    pushq %rbp\n";
+        o << "    movq %rsp, %rbp\n";
+        o << "    subq $" << stackSpace << ", %rsp\n";
+
+        // Copy parameters from ABI registers to stack slots (System V ABI)
+        // Parameters are stored at positive offsets: 16(%rbp), 24(%rbp), ...
+        static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        if (sig) {
+            int numParams = (int)sig->paramNames.size();
+            for (int i = 0; i < numParams && i < 6; i++) {
+                int offset = 16 + i * 8;
+                o << "    movq " << argRegs64[i] << ", " << offset << "(%rbp)\n";
+            }
         }
+    } else {
+        // For non-entry blocks, just output the label
+        o << bb->label << ":\n";
     }
 
     // Generate instructions
@@ -101,7 +111,20 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
         gen_asm_instr(o, instr);
     }
 
-    cfg->gen_asm_epilogue(o);
+    // Check if the last instruction is a return - if so, don't generate control flow
+    bool hasReturn = false;
+    if (!bb->instrs.empty()) {
+        // Check if last instr is RetInstr
+        IRInstr* lastInstr = bb->instrs.back();
+        if (dynamic_cast<RetInstr*>(lastInstr) != nullptr) {
+            hasReturn = true;
+        }
+    }
+
+    // If there's no explicit return, generate control flow (jump or return)
+    if (!hasReturn) {
+        gen_control_flow(o, bb);
+    }
 }
 
 void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
@@ -394,6 +417,7 @@ void AsmGeneratorX86_64::visit(ostream& o, CallInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(ostream& o, RetInstr& instr) {
+    o << "    leave\n";
     o << "    ret\n";
 }
 
@@ -424,11 +448,19 @@ void AsmGeneratorX86_64::gen_control_flow(ostream& o, BasicBlock* bb) {
     if (bb->exit_true == nullptr) {
         gen_epilogue(o);
     } else if (bb->exit_false == nullptr) {
+        // Unconditional jump (for while loops, etc.)
         o << "    jmp " << bb->exit_true->label << "\n";
     } else {
-        o << "    movl " << var_to_asm(bb->test_var_name) << ", %eax\n";
+        // Both exit_true and exit_false set: conditional jump
+        // Load test variable into %eax
+        if (!bb->test_var_name.empty()) {
+            string test_asm = var_to_asm(bb->test_var_name);
+            o << "    movl " << test_asm << ", %eax\n";
+        }
+        // If condition FALSE (eax == 0), jump to exit_false
+        // If condition TRUE (eax != 0), fall through to exit_true
         o << "    cmpl $0, %eax\n";
         o << "    je "  << bb->exit_false->label << "\n";
-        o << "    jmp " << bb->exit_true->label  << "\n";
+        // No unconditional jmp - fall through to exit_true
     }
 }

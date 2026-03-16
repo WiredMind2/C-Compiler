@@ -17,7 +17,10 @@ BasicBlock::BasicBlock(CFG* cfg, string entry_label)
     : cfg(cfg), label(entry_label) {
     exit_true  = nullptr;
     exit_false = nullptr;
-    nextFreeSymbolIndex = -4;
+}
+
+void BasicBlock::reset_symbol_index() {
+    cfg->setNextFreeSymbolIndex(-4);
 }
 
 void BasicBlock::gen_asm(ostream& o) {
@@ -46,12 +49,12 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
         }
     }
     SymbolType[name] = t;
-    SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= irtype_size(t);
+    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(t));
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {
-    string name = "!tmp" + to_string(-nextFreeSymbolIndex);
+    string name = "!tmp" + to_string(-cfg->getNextFreeSymbolIndex());
     add_var_to_symbol_table(name, t);
     return name;
 }
@@ -86,22 +89,41 @@ int BasicBlock::get_var_index(string name) {
 }
 
 IRType BasicBlock::get_var_type(string name) {
-    return SymbolType[name];
+    // First check the current BB's symbol table
+    if (SymbolType.find(name) != SymbolType.end()) {
+        return SymbolType[name];
+    }
+    // Then check the scope stack (parent scopes)
+    if (cfg) {
+        for (auto bb : cfg->getStackBBs()) {
+            if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
+                return bb->SymbolType[name];
+            }
+        }
+        // Also check BBs in the current function
+        if (!cfg->getCurrentFunction().empty()) {
+            auto* sig = cfg->get_function(cfg->getCurrentFunction());
+            if (sig) {
+                for (auto bb : sig->bbs) {
+                    if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
+                        return bb->SymbolType[name];
+                    }
+                }
+            }
+        }
+    }
+    // Default to INT32 if not found (should be handled by index lookup error)
+    return IRType::INT32;
 }
 
 int BasicBlock::calculateRequiredStackSpace() {
-    int usedSpace = -nextFreeSymbolIndex;
-    int aligned   = usedSpace;
-    if (aligned % 16 != 0)
-        aligned = ((aligned / 16) + 1) * 16;
-    if (aligned < 16) aligned = 16;
-    return aligned;
+    return 0;
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {
     SymbolType[name]  = type;
-    SymbolIndex[name] = nextFreeSymbolIndex;
-    nextFreeSymbolIndex -= irtype_size(type);
+    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(type));
 }
 
 // ============================================================
@@ -110,6 +132,7 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
+    nextFreeSymbolIndex = -4;
     current_bb   = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
 
@@ -155,10 +178,12 @@ string CFG::new_BB_name() {
 }
 
 int CFG::calculateRequiredStackSpace() {
-    int space = 0;
-    for (BasicBlock* bb : getBBs())
-        space += bb->calculateRequiredStackSpace();
-    return space;
+    int usedSpace = -nextFreeSymbolIndex;
+    int aligned   = usedSpace;
+    if (aligned % 16 != 0)
+        aligned = ((aligned / 16) + 1) * 16;
+    if (aligned < 16) aligned = 16;
+    return aligned;
 }
 
 BasicBlock* CFG::findBBByVariable(const string& var) {
