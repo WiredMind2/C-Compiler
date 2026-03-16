@@ -455,6 +455,12 @@ void AsmGeneratorX86_64::gen_control_flow(ostream& o, BasicBlock* bb) {
         if (!bb->test_var_name.empty()) {
             string test_asm = var_to_asm(bb->test_var_name);
             o << "    movl " << test_asm << ", %eax\n";
+        } else {
+            // Both exits are set but no condition variable provided.
+            // This is a bug in original CFG construction.
+            cerr << "Internal Error: Conditional branch in " << bb->label 
+                 << " has no test_var_name." << endl;
+            exit(1);
         }
         // If condition FALSE (eax == 0), jump to exit_false
         o << "    cmpl $0, %eax\n";

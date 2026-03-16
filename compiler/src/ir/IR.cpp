@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <cassert>
 
 #include "../asm/arm64/AsmGeneratorARM64.h"
 #include "../asm/x86_64/AsmGeneratorX86_64.h"
@@ -113,12 +114,17 @@ IRType BasicBlock::get_var_type(string name) {
             }
         }
     }
-    // Default to INT32 if not found (should be handled by index lookup error)
-    return IRType::INT32;
+    // If not found, print error and exit
+    cerr << "Error: Symbol " << name << " not found in symbol table (type lookup)." << endl;
+    exit(1);
 }
 
 int BasicBlock::calculateRequiredStackSpace() {
-    return 0;
+    // Stack space is now tracked at the CFG level. This method is kept only to
+    // catch incorrect usage of the BasicBlock API and to delegate to the single
+    // source of truth when possible.
+    assert(cfg && "BasicBlock has no parent CFG; use CFG::calculateRequiredStackSpace instead");
+    return cfg->calculateRequiredStackSpace();
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {

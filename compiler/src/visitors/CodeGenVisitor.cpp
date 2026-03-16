@@ -267,14 +267,18 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
 {
     auto* bb = cfg->current_bb;
-    // Check if current block already has a return
+    // Check if current block already has a return or an unconditional jump (break/continue)
     if (!bb->instrs.empty()) {
         if (dynamic_cast<RetInstr*>(bb->instrs.back()) != nullptr) {
             // Already returned, skip this statement to avoid unreachable code
-            // that might mess up our CFG jump logic
             return nullptr;
         }
     }
+    // Also check if the block is already closed with an unconditional branch (exit_true set but no exit_false)
+    if (bb->exit_true != nullptr && bb->exit_false == nullptr) {
+        return nullptr;
+    }
+
     return visitChildren(ctx);
 }
 
