@@ -123,6 +123,8 @@ public:
         IRType           returnType;
         vector<IRType>   paramTypes;
         vector<string>   paramNames;
+        BasicBlock*      entryBB = nullptr;
+        vector<BasicBlock*> bbs;  // Basic blocks for this function
     };
 
     void               add_function(string name, IRType returnType,
@@ -131,6 +133,10 @@ public:
     vector<FunctionSignature>& get_functions() { return functions; }
     BasicBlock*        create_function_entry(string name, IRType returnType,
                                              vector<IRType> paramTypes, vector<string> paramNames);
+    
+    // Methods for multi-function support
+    void               setCurrentFunction(string name) { currentFunctionName = name; }
+    string             getCurrentFunction() const { return currentFunctionName; }
 
     AsmGenerator* asmGenerator;
 
@@ -138,6 +144,7 @@ protected:
     int                 nextBBnumber = 0;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
+    string              currentFunctionName;  // Track current function being processed
 
 private:
     vector<FunctionSignature> functions;
