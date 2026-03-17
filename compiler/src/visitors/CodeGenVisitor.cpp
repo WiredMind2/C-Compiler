@@ -488,9 +488,11 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     cfg->current_bb = condBB;
     if (condExpr != nullptr) {
         StackParam condResult = std::any_cast<StackParam>(this->visit(condExpr));
-        condBB->test_var_name = condResult.name;
-        condBB->exit_true = bodyBB;
-        condBB->exit_false = afterBB;
+        // Get the last block after visiting condition (may have changed due to short-circuit booleans)
+        BasicBlock* condEndBB = cfg->current_bb;
+        condEndBB->test_var_name = condResult.name;
+        condEndBB->exit_true = bodyBB;
+        condEndBB->exit_false = afterBB;
     } else {
         // for(;;) or missing middle expression means an always-true loop.
         condBB->exit_true = bodyBB;
