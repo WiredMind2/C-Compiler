@@ -422,6 +422,113 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
     return 0;
 }
 
+// For loop handler
+antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
+{
+    CFG* cfg = this->cfg;
+
+    ifccParser::ExprContext* initExpr = nullptr;
+    ifccParser::ExprContext* condExpr = nullptr;
+    ifccParser::ExprContext* updateExpr = nullptr;
+
+    std::vector<int> semicolonTokenIndices;
+    if (!ctx->children.empty()) {
+        for (auto* child : ctx->children) {
+            auto* terminal = dynamic_cast<antlr4::tree::TerminalNode*>(child);
+            if (terminal != nullptr && terminal->getText() == ";") {
+                semicolonTokenIndices.push_back(terminal->getSymbol()->getTokenIndex());
+            }
+        }
+    }
+
+    if (semicolonTokenIndices.size() == 2) {
+        // if there are exactly 2 semicolons, we can determine the expressions based on their positions
+        for (auto* exprCtx : ctx->expr()) {
+            int exprStart = exprCtx->getStart()->getTokenIndex();
+            if (exprStart < semicolonTokenIndices[0]) {
+                // This is the initialization expression (before the first semicolon)
+                initExpr = exprCtx;
+            } else if (exprStart < semicolonTokenIndices[1]) {
+                // This is the condition expression (between the first and second semicolon)
+                condExpr = exprCtx;
+            } else {
+                // This is the update expression (after the second semicolon)
+                updateExpr = exprCtx;
+            }
+        }
+    } else {
+        auto exprs = ctx->expr();
+        if (exprs.size() > 0) initExpr = exprs[0];
+        if (exprs.size() > 1) condExpr = exprs[1];
+        if (exprs.size() > 2) updateExpr = exprs[2];
+    }
+
+    //  init
+    if (initExpr != nullptr) {
+        this->visit(initExpr);
+    }
+
+    // If init created extra blocks (for example a short-circuit expr), continue from the actual current BB.
+    BasicBlock* initEndBB = cfg->current_bb;
+
+    // Then create CFG blocks: cond -> body -> update -> cond, and after for exit.
+    BasicBlock* condBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true);
+    BasicBlock* updateBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+
+    cfg->add_bb(condBB);
+    cfg->add_bb(bodyBB);
+    cfg->add_bb(updateBB);
+    cfg->add_bb(afterBB);
+
+    initEndBB->exit_true = condBB;
+
+    // condition
+    cfg->current_bb = condBB;
+    if (condExpr != nullptr) {
+        StackParam condResult = std::any_cast<StackParam>(this->visit(condExpr));
+        condBB->test_var_name = condResult.name;
+        condBB->exit_true = bodyBB;
+        condBB->exit_false = afterBB;
+    } else {
+        // for(;;) or missing middle expression means an always-true loop.
+        condBB->exit_true = bodyBB;
+    }
+
+    // body
+    bodyBB->loop_continue_target = updateBB;
+    bodyBB->loop_break_target = afterBB;
+
+    cfg->current_bb = bodyBB;
+    cfg->getStackBBs().push_back(bodyBB);
+    if (ctx->scope()) {
+        this->visit(ctx->scope());
+    }
+    cfg->getStackBBs().pop_back();
+
+    BasicBlock* lastBodyBB = cfg->current_bb;
+    if (lastBodyBB->exit_true == nullptr &&
+        (lastBodyBB->instrs.empty() || dynamic_cast<RetInstr*>(lastBodyBB->instrs.back()) == nullptr)) {
+        lastBodyBB->exit_true = updateBB;
+    }
+
+    // update
+    cfg->current_bb = updateBB;
+    if (updateExpr != nullptr) {
+        this->visit(updateExpr);
+    }
+    if (updateBB->exit_true == nullptr &&
+        (updateBB->instrs.empty() || dynamic_cast<RetInstr*>(updateBB->instrs.back()) == nullptr)) {
+        updateBB->exit_true = condBB;
+    }
+
+    // continue after loop
+    cfg->current_bb = afterBB;
+
+    return 0;
+}
+
 antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx)
 {
     (void)ctx;
@@ -429,7 +536,7 @@ antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx
     // Find nearest enclosing loop block and jump to its break target.
     BasicBlock* currentBB = cfg->current_bb;
     BasicBlock* targetBB = nullptr;
-    vector<BasicBlock*> bbStack = cfg->getStackBBs();
+    std::vector<BasicBlock*> bbStack = cfg->getStackBBs();
     for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
         BasicBlock* bb = *it;
         if (bb->is_loop) {
@@ -441,7 +548,7 @@ antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx
     if (targetBB) {
         currentBB->exit_true = targetBB;
     } else {
-        cerr << "Error: 'break' statement not within a loop." << endl;
+        std::cerr << "Error: 'break' statement not within a loop." << std::endl;
         exit(1);
     }
     return nullptr;
@@ -454,7 +561,7 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
     // Find nearest enclosing loop block and jump to its continue target.
     BasicBlock* currentBB = cfg->current_bb;
     BasicBlock* targetBB = nullptr;
-    vector<BasicBlock*> bbStack = cfg->getStackBBs();
+    std::vector<BasicBlock*> bbStack = cfg->getStackBBs();
     for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
         BasicBlock* bb = *it;
         if (bb->is_loop) {
@@ -466,7 +573,7 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
     if (targetBB) {
         currentBB->exit_true = targetBB;
     } else {
-        cerr << "Error: 'continue' statement not within a loop." << endl;
+        std::cerr << "Error: 'continue' statement not within a loop." << std::endl;
         exit(1);
     }
     return nullptr;
