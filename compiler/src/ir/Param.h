@@ -96,7 +96,7 @@ struct RegParam : Param {
 
     string reg_to_asm() {
         // For FLOAT64, map working registers to XMM registers
-        if (type == IRType::FLOAT64) {
+        if (type == IRType::FLOAT64 || type == IRType::FLOAT32) {
             switch (reg) {
                 case Reg::W0:  case Reg::RET:  return "%xmm0";
                 case Reg::W1:                  return "%xmm1";

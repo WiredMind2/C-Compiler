@@ -169,7 +169,8 @@ void CFG::gen_control_flow(ostream& o, BasicBlock* bb) {
 }
 
 void CFG::gen_asm_instr(ostream& o, IRInstr* instr) {
-    asmGenerator->gen_asm_instr(o, instr);
+    cout << ";   " << instr->to_string() << endl;
+    instr->accept(*asmGenerator, o);
 }
 
 void CFG::gen_asm_prologue(ostream& o) {

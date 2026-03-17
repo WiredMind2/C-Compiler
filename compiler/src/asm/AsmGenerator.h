@@ -36,40 +36,31 @@ public:
     //---------------- Visitor methods (one per IRInstr subclass) ----------------
 
     virtual void visit(std::ostream& o, LdConstInstr&    instr) = 0;
-    virtual void ldConstInstrINT8(std::ostream& o, std::string src, std::string dest) = 0;
-    virtual void ldConstInstrINT32(std::ostream& o, std::string src, std::string dest) = 0;
-    virtual void ldConstInstrFLOAT64(std::ostream& o, std::string src, std::string dest) = 0;
+    virtual void ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) = 0;
+    virtual void ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) = 0;
 
     virtual void visit(std::ostream& o, CopyRegInstr&    instr) = 0;
-    virtual void CopyRegINT8(std::ostream& o, std::string src, std::string dest) = 0;
     virtual void CopyRegINT32(std::ostream& o, std::string src, std::string dest) = 0;
     virtual void CopyRegFLOAT64(std::ostream& o, std::string src, std::string dest) = 0;
 
     virtual void visit(std::ostream& o, StoreStackInstr& instr) = 0;
     virtual void visit(std::ostream& o, LoadStackInstr&  instr) = 0;
 
-    virtual void LoadStackInstrINT8(ostream& o, string src, string dest) = 0;
     virtual void LoadStackInstrINT32(ostream& o, string src, string dest) = 0;
     virtual void LoadStackInstrFLOAT64(ostream& o, string src, string dest) = 0;
 
     virtual void visit(std::ostream& o, AddInstr&        instr) = 0;
     virtual void AddINT32(std::ostream& o, std::string lhs, std::string rhs, std::string dest) = 0;
     virtual void AddFLOAT64(std::ostream& o, std::string lhs, std::string rhs, std::string dest) = 0;
-    virtual void AddINT32_by_FLOAT64(std::ostream& o, std::string lhs, std::string rhs, std::string dest) = 0;
-    virtual void AddFLOAT64_by_INT32(std::ostream& o, std::string lhs, std::string rhs, std::string dest) = 0;  
 
     virtual void visit(std::ostream& o, SubInstr&        instr) = 0;
     virtual void visit(std::ostream& o, MulInstr&        instr) = 0;
-    virtual void MulINT32_by_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void MulFLOAT64_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void MulINT32_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void MulFLOAT64_by_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void MulINT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void MulFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void visit(std::ostream& o, DivInstr&        instr) = 0;
-    virtual void DivINT32_by_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void DivFLOAT64_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void DivINT32_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void DivFLOAT64_by_INT32(ostream& o, string lhs, string rhs, string dest) = 0;  
+    virtual void DivINT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void DivFLOAT6(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void visit(std::ostream& o, ModInstr&        instr) = 0;
     virtual void visit(std::ostream& o, BitNotInstr&     instr) = 0;
@@ -83,23 +74,17 @@ public:
     virtual void BitXor(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void visit(std::ostream& o, CmpEqInstr&      instr) = 0;
-    virtual void CmpEqFLOAT64_with_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpEqINT32_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpEqFLOAT64_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpEqINT32_with_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpEqFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpEqINT32(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void visit(std::ostream& o, CmpLtInstr&      instr) = 0;
     virtual void visit(std::ostream& o, CmpLeInstr&      instr) = 0;
-    virtual void CmpLeINT32_with_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpLeFLOAT64_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpLeINT32_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpLeFLOAT64_with_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpLeINT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpLeFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void visit(std::ostream& o, CmpGtInstr&      instr) = 0;
-    virtual void CmpGtFLOAT64_with_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpGtINT32_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpGtFLOAT64_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpGtINT32_with_INT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpGtFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void visit(std::ostream& o, CmpGeInstr&      instr) = 0;
     virtual void visit(std::ostream& o, LogicalAndInstr& instr) = 0;
@@ -114,9 +99,6 @@ public:
     virtual void visit(std::ostream& o, FToIInstr&       instr) = 0;
     virtual void visit(std::ostream& o, RetInstr&        instr) = 0;
     virtual void Ret(ostream& o, string src) = 0;
-
-    virtual void addINT32(std::ostream& o, string lhs_register, string rhs_register, string dest_register) = 0;
-    virtual void addFLOAT64(std::ostream& o, string lhs_register, string rhs_register, string dest_register) = 0;
 
     //---------------- Helper Methods ----------------
 

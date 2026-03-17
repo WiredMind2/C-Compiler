@@ -121,17 +121,6 @@ void AsmGeneratorARM64::visit(ostream& o, LdConstInstr& instr) {
     }
 }
 
-
-void AsmGeneratorARM64::addINT32(std::ostream& o, string lhs_register, string rhs_register, string dest_register) {
-    return ;
-}
-
-
-void AsmGeneratorARM64::addFLOAT64(std::ostream& o, string lhs_register, string rhs_register, string dest_register) {
-    return ;
-}
-
-
 void AsmGeneratorARM64::visit(ostream& o, CopyRegInstr& instr) {
     string src  = reg_to_asm(instr.src);
     string dest = reg_to_asm(instr.dest);
@@ -357,39 +346,24 @@ void AsmGeneratorARM64::LogicalAnd(ostream& o, string lhs, string rhs, string de
 void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::Call(ostream& o, string funcLabel, vector<string> args, string dest) {}
 void AsmGeneratorARM64::Ret(ostream& o, string src) {}
-void AsmGeneratorARM64::ldConstInstrINT8(std::ostream& o, std::string src, std::string dest) {}
-void AsmGeneratorARM64::ldConstInstrINT32(std::ostream& o, std::string src, std::string dest) {}
-void AsmGeneratorARM64::ldConstInstrFLOAT64(std::ostream& o, std::string src, std::string dest) {}
-void AsmGeneratorARM64::CopyRegINT8(ostream& o, string src, string dest) {}
+void AsmGeneratorARM64::ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) {}
+void AsmGeneratorARM64::ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) {}
 void AsmGeneratorARM64::CopyRegINT32(ostream& o, string src, string dest) {}
 void AsmGeneratorARM64::CopyRegFLOAT64(ostream& o, string src, string dest) {}
-void AsmGeneratorARM64::LoadStackInstrINT8(ostream& o, string src, string dest) {}
 void AsmGeneratorARM64::LoadStackInstrINT32(ostream& o, string src, string dest) {}
 void AsmGeneratorARM64::LoadStackInstrFLOAT64(ostream& o, string src, string dest) {}
 void AsmGeneratorARM64::AddINT32(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::AddFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::AddINT32_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::AddFLOAT64_by_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::MulINT32_by_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::MulFLOAT64_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::MulINT32_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::MulFLOAT64_by_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::DivINT32_by_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::DivFLOAT64_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::DivINT32_by_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::DivFLOAT64_by_INT32(ostream& o, string lhs, string rhs, string dest) {} 
+void AsmGeneratorARM64::MulINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::MulFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::DivINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::DivFLOAT6(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::BitNot(ostream& o, string src, string dest) {}
 void AsmGeneratorARM64::BitAnd(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::BitXor(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpEqINT32_with_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpEqFLOAT64_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpEqFLOAT64_with_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpEqINT32_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpLeINT32_with_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpLeFLOAT64_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpLeFLOAT64_with_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpLeINT32_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpGtINT32_with_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpGtFLOAT64_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpGtFLOAT64_with_INT32(ostream& o, string lhs, string rhs, string dest) {}
-void AsmGeneratorARM64::CmpGtINT32_with_FLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpEqINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpEqFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpLeINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpLeFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpGtINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpGtFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
