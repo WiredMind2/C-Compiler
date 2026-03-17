@@ -42,12 +42,28 @@ public:
 
     template<class BinInstr>
     StackParam emit_binop(const StackParam& lhs, const StackParam& rhs) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs.name, lhs.type));
-        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs.name, rhs.type));
-        add_IRInstr(new BinInstr(this, Reg::W0, Reg::W0, Reg::W1, lhs.type));
-        string tmp = create_new_tempvar(lhs.type);
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, lhs.type));
-        return StackParam(tmp, lhs.type);
+        Reg lhs_register = Reg::W0;
+        Reg rhs_register = Reg::W1;
+
+        add_IRInstr(new LoadStackInstr(this, lhs_register, lhs.name, lhs.type));
+        add_IRInstr(new LoadStackInstr(this, rhs_register, rhs.name, rhs.type));
+
+        IRType target_operation_type = operation_type_from_operand_types(lhs, rhs);
+
+        if (lhs.type != target_operation_type) {
+            generate_conversion_instruction(lhs_register, lhs.type, Reg::W2, target_operation_type);
+            lhs_register = Reg::W2;
+        }
+
+        if (rhs.type != target_operation_type) {
+            generate_conversion_instruction(rhs_register, rhs.type, Reg::W3, target_operation_type);
+            rhs_register = Reg::W3;
+        }
+
+        add_IRInstr(new BinInstr(this, lhs_register, lhs_register, rhs_register, target_operation_type));
+        string tmp = create_new_tempvar(target_operation_type);
+        add_IRInstr(new StoreStackInstr(this, tmp, lhs_register, target_operation_type));
+        return StackParam(tmp, target_operation_type);
     }
 
     template<class UnaryInstr>
@@ -92,6 +108,12 @@ public:
 protected:
     map<string, IRType>  SymbolType;
     map<string, int>     SymbolIndex;
+
+    // Return the desired operation type from the types of the operands
+    // e.g. FLOAT32 + INT32 returns FLOAT32
+    IRType operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs);
+    void generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type);
+
 };
 
 // ============================================================
@@ -114,7 +136,7 @@ public:
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();
-    
+
     int  getNextFreeSymbolIndex() const { return nextFreeSymbolIndex; }
     void setNextFreeSymbolIndex(int index) { nextFreeSymbolIndex = index; }
 
@@ -138,7 +160,7 @@ public:
     vector<FunctionSignature>& get_functions() { return functions; }
     BasicBlock*        create_function_entry(string name, IRType returnType,
                                              vector<IRType> paramTypes, vector<string> paramNames);
-    
+
     // Methods for multi-function support
     void               setCurrentFunction(string name) { currentFunctionName = name; }
     string             getCurrentFunction() const { return currentFunctionName; }

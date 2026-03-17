@@ -448,6 +448,16 @@ void AsmGeneratorX86_64::FToI(ostream& o, string src, string dest) {
     o << "    cvttsd2sil " << src << ", " << dest << "\n";
 }
 
+void AsmGeneratorX86_64::I32ToF64(ostream& o, string src, string dest) {
+    // cvtsi2sdl: convert int32 to double (low)
+    o << "    cvtsi2sdl " << src << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::I8ToI32(ostream& o, string src, string dest) {
+    // movsbl: move with sign extension from byte to doubleword
+    o << "    movsbl " << src << ", " << dest << "\n";
+}
+
 // ---------------------------------------------------------------------------
 // Function Call / Return
 // ---------------------------------------------------------------------------

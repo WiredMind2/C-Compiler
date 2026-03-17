@@ -90,12 +90,14 @@ public:
     // Function Call / Return
     //---------------------------------------------------------------------------
     void Call(ostream& o, string funcLabel, vector<string> args, string dest) override;
+    void Ret(ostream& o) override;
 
     //---------------------------------------------------------------------------
     // Type Conversion
     //---------------------------------------------------------------------------
     void FToI(ostream& o, string src, string dest) override;
-    void Ret(ostream& o) override;
+    void I32ToF64(ostream& o, string src, string dest) override;
+    void I8ToI32(ostream& o, string src, string dest) override;
 
     //---------------------------------------------------------------------------
     // Helpers

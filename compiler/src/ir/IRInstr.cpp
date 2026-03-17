@@ -404,10 +404,25 @@ void CallInstr::accept(AsmGenerator& g, ostream& o) {
     string dest_register = g.reg_to_asm(dest);
     g.Call(o, funcLabel, arg_registers, dest_register);
 }
+void F64ToI32Instr::accept(AsmGenerator& g, ostream& o) {
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
+    g.FToI(o, src_register, dest_register);
+}
 void FToIInstr::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     g.FToI(o, src_register, dest_register);
+}
+void I32ToF64Instr::accept(AsmGenerator& g, ostream& o) {
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
+    g.I32ToF64(o, src_register, dest_register);
+}
+void I8ToI32Instr::accept(AsmGenerator& g, ostream& o) {
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
+    g.I8ToI32(o, src_register, dest_register);
 }
 void RetInstr::accept(AsmGenerator& g, ostream& o) {
     g.Ret(o);
