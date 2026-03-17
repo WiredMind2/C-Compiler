@@ -96,6 +96,7 @@ public:
     // Control flow handlers
     virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
     virtual antlrcpp::Any visitWhile_loop(ifccParser::While_loopContext *ctx) override;
+    virtual antlrcpp::Any visitFor_loop(ifccParser::For_loopContext *ctx) override;
     virtual antlrcpp::Any visitBreak_stmt(ifccParser::Break_stmtContext *ctx) override;
     virtual antlrcpp::Any visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) override;
 
