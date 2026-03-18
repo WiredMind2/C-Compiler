@@ -1,6 +1,5 @@
 #include "IRInstr.h"
 #include "../asm/AsmGenerator.h"
-#include <iostream>
 #include "IR.h"
 
 void IRInstr::gen_asm(ostream& o) {
@@ -41,11 +40,28 @@ void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) {
             break;
         }
         default: {
-            throw std::runtime_error("Type not supported for addition");
+            throw std::runtime_error("Type not supported for CopyRegInstr");
         }
     }
 }
-void StoreStackInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void StoreStackInstr::accept(AsmGenerator& g, ostream& o) {
+    string src_register_string = g.reg_to_asm(src);
+    string variable_name = g.var_to_asm(dest.name);
+
+    switch (type) {
+        case IRType::INT32: {
+            g.StoreStackInstrINT32(o, src_register_string, variable_name);
+            break;
+        }
+        case IRType::FLOAT64: {
+            g.StoreStackInstrFLOAT64(o, src_register_string, variable_name);
+            break;
+        }
+        default: {
+            throw std::runtime_error("Type not supported for store stack");
+        }
+    }
+}
 void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) {
     string dest_register = dest.reg_to_asm();
     string variable_name = src.name;
@@ -60,7 +76,7 @@ void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) {
             break;
         }
         default: {
-            throw std::runtime_error("Type not supported for addition");
+            throw std::runtime_error("Type not supported for LoadStackInstr");
         }
     }
 }
@@ -86,7 +102,28 @@ void AddInstr       ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
-void SubInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void SubInstr::accept(AsmGenerator& g, ostream& o) {
+    if (lhs.type != rhs.type) {
+        throw std::runtime_error("Incoherent types");
+    }
+
+    string lhs_register = lhs.reg_to_asm();
+    string rhs_register = rhs.reg_to_asm();
+    string dest_register = dest.reg_to_asm();
+    switch (lhs.type) {
+        case IRType::INT32: {
+            g.SubINT32(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        case IRType::FLOAT64: {
+            g.SubFLOAT64(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        default: {
+            throw std::runtime_error("Type not supported for subtraction");
+        }
+    }
+}
 void MulInstr       ::accept(AsmGenerator& g, ostream& o) {
     if (lhs.type != rhs.type) {
         throw std::runtime_error("Incoherent types");
@@ -131,7 +168,24 @@ void DivInstr       ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
-void ModInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void ModInstr::accept(AsmGenerator& g, ostream& o) {
+    if (lhs.type != rhs.type) {
+        throw std::runtime_error("Incoherent types");
+    }
+
+    string lhs_register = lhs.reg_to_asm();
+    string rhs_register = rhs.reg_to_asm();
+    string dest_register = dest.reg_to_asm();
+    switch (lhs.type) {
+        case IRType::INT32: {
+            g.ModINT32(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        default: {
+            throw std::runtime_error("Type not supported for modulo");
+        }
+    }
+}
 void BitNotInstr    ::accept(AsmGenerator& g, ostream& o) {
     string src_register = src.reg_to_asm();
     string dest_register = dest.reg_to_asm();
@@ -163,7 +217,24 @@ void BitAndInstr    ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
-void BitOrInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void BitOrInstr::accept(AsmGenerator& g, ostream& o) {
+    if (lhs.type != rhs.type) {
+        throw std::runtime_error("Incoherent types");
+    }
+
+    string lhs_register = lhs.reg_to_asm();
+    string rhs_register = rhs.reg_to_asm();
+    string dest_register = dest.reg_to_asm();
+    switch (lhs.type) {
+        case IRType::INT32: {
+            g.BitOr(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        default: {
+            throw std::runtime_error("Type not supported for bit or");
+        }
+    }
+}
 void BitXorInstr    ::accept(AsmGenerator& g, ostream& o) {
     if (lhs.type != rhs.type) {
         throw std::runtime_error("Incoherent types");
@@ -204,7 +275,28 @@ void CmpEqInstr     ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
-void CmpLtInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void CmpLtInstr::accept(AsmGenerator& g, ostream& o) {
+    if (lhs.type != rhs.type) {
+        throw std::runtime_error("Incoherent types");
+    }
+
+    string lhs_register = lhs.reg_to_asm();
+    string rhs_register = rhs.reg_to_asm();
+    string dest_register = dest.reg_to_asm();
+    switch (lhs.type) {
+        case IRType::INT32: {
+            g.CmpLtINT32(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        case IRType::FLOAT64: {
+            g.CmpLtFLOAT64(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        default: {
+            throw std::runtime_error("Type not supported for cmp lt");
+        }
+    }
+}
 void CmpLeInstr     ::accept(AsmGenerator& g, ostream& o) {
     if (lhs.type != rhs.type) {
         throw std::runtime_error("Incoherent types");
@@ -249,7 +341,24 @@ void CmpGtInstr     ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
-void CmpGeInstr     ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void CmpGeInstr::accept(AsmGenerator& g, ostream& o) {
+    if (lhs.type != rhs.type) {
+        throw std::runtime_error("Incoherent types");
+    }
+
+    string lhs_register = lhs.reg_to_asm();
+    string rhs_register = rhs.reg_to_asm();
+    string dest_register = dest.reg_to_asm();
+    switch (lhs.type) {
+        case IRType::INT32: {
+            g.CmpGeINT32(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
+        default: {
+            throw std::runtime_error("Type not supported for cmp ge");
+        }
+    }
+}
 void LogicalAndInstr::accept(AsmGenerator& g, ostream& o) {
     if (lhs.type != rhs.type) {
         throw std::runtime_error("Incoherent types");
@@ -286,6 +395,19 @@ void LogicalOrInstr ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
-void CallInstr      ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void FToIInstr      ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
-void RetInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void CallInstr::accept(AsmGenerator& g, ostream& o) {
+    vector<string> arg_registers;
+    for (auto& arg : args) {
+        arg_registers.push_back(arg.reg_to_asm());
+    }
+    string dest_register = dest.reg_to_asm();
+    g.Call(o, funcLabel, arg_registers, dest_register);
+}
+void FToIInstr::accept(AsmGenerator& g, ostream& o) {
+    string src_register = src.reg_to_asm();
+    string dest_register = dest.reg_to_asm();
+    g.FToI(o, src_register, dest_register);
+}
+void RetInstr::accept(AsmGenerator& g, ostream& o) {
+    g.Ret(o);
+}

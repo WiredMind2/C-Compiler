@@ -23,6 +23,8 @@ public:
     void CopyRegFLOAT64(ostream& o, string src, string dest) override;
 
     void visit(std::ostream& o, StoreStackInstr& instr) override;
+    void StoreStackInstrINT32(ostream& o, string src, string dest) override;
+    void StoreStackInstrFLOAT64(ostream& o, string src, string dest) override;
     void visit(std::ostream& o, LoadStackInstr&  instr) override;
     void LoadStackInstrINT32(ostream& o, string src, string dest) override;
     void LoadStackInstrFLOAT64(ostream& o, string src, string dest) override;
@@ -32,6 +34,8 @@ public:
     void AddFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
 
     void visit(std::ostream& o, SubInstr&    instr) override;
+    void SubINT32(ostream& o, string lhs, string rhs, string dest) override;
+    void SubFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
     void visit(std::ostream& o, MulInstr&    instr) override;
     void MulINT32(ostream& o, string lhs, string rhs, string dest) override;
     void MulFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
@@ -41,6 +45,7 @@ public:
     void DivFLOAT6(ostream& o, string lhs, string rhs, string dest) override;
 
     void visit(std::ostream& o, ModInstr&    instr) override;
+    void ModINT32(ostream& o, string lhs, string rhs, string dest) override;
     void visit(std::ostream& o, BitNotInstr& instr) override;
     void BitNot(ostream& o, string src, string dest) override;
 
@@ -48,6 +53,7 @@ public:
     void BitAnd(ostream& o, string lhs, string rhs, string dest) override;
 
     void visit(std::ostream& o, BitOrInstr&  instr) override;
+    void BitOr(ostream& o, string lhs, string rhs, string dest) override;
     void visit(std::ostream& o, BitXorInstr& instr) override;
     void BitXor(ostream& o, string lhs, string rhs, string dest) override;
 
@@ -56,6 +62,8 @@ public:
     void CmpEqINT32(ostream& o, string lhs, string rhs, string dest) override;
 
     void visit(std::ostream& o, CmpLtInstr&  instr) override;
+    void CmpLtINT32(ostream& o, string lhs, string rhs, string dest) override;
+    void CmpLtFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
     void visit(std::ostream& o, CmpLeInstr&  instr) override;
     void CmpLeINT32(ostream& o, string lhs, string rhs, string dest) override;
     void CmpLeFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
@@ -65,6 +73,7 @@ public:
     void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) override;
 
     void visit(std::ostream& o, CmpGeInstr&  instr) override;
+    void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) override;
     void visit(std::ostream& o, LogicalAndInstr&  instr) override;
     void LogicalAnd(ostream& o, string lhs, string rhs, string dest) override;
 
@@ -74,8 +83,9 @@ public:
     void visit(std::ostream& o, CallInstr&   instr) override;
     void Call(ostream& o, string funcLabel, vector<string> args, string dest) override;
     void visit(std::ostream& o, FToIInstr&   instr) override;
+    void FToI(ostream& o, string src, string dest) override;
     void visit(std::ostream& o, RetInstr&    instr) override;
-    void Ret(ostream& o, string src) override;
+    void Ret(ostream& o) override;
 
     //---------------- Helpers ----------------
     /** Map Reg enum → 32-bit register name (e.g. Reg::R0 → "%eax") */

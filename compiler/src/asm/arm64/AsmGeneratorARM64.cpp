@@ -345,7 +345,7 @@ void AsmGeneratorARM64::gen_control_flow(ostream& o, BasicBlock* bb) {
 void AsmGeneratorARM64::LogicalAnd(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::Call(ostream& o, string funcLabel, vector<string> args, string dest) {}
-void AsmGeneratorARM64::Ret(ostream& o, string src) {}
+void AsmGeneratorARM64::Ret(ostream& o) {}
 void AsmGeneratorARM64::ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) {}
 void AsmGeneratorARM64::ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) {}
 void AsmGeneratorARM64::CopyRegINT32(ostream& o, string src, string dest) {}
@@ -367,3 +367,13 @@ void AsmGeneratorARM64::CmpLeINT32(ostream& o, string lhs, string rhs, string de
 void AsmGeneratorARM64::CmpLeFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::CmpGtINT32(ostream& o, string lhs, string rhs, string dest) {}
 void AsmGeneratorARM64::CmpGtFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::StoreStackInstrINT32(ostream& o, string src, string dest) {}
+void AsmGeneratorARM64::StoreStackInstrFLOAT64(ostream& o, string src, string dest) {}
+void AsmGeneratorARM64::SubINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::SubFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::ModINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::BitOr(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpLtINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpLtFLOAT64(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::CmpGeINT32(ostream& o, string lhs, string rhs, string dest) {}
+void AsmGeneratorARM64::FToI(ostream& o, string src, string dest) {}
