@@ -465,10 +465,6 @@ void AsmGeneratorX86_64::Call(ostream& o, string funcLabel, vector<string> args,
         o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, RetInstr& instr) {
-    o << "    ret\n";
-}
-
 void AsmGeneratorX86_64::Ret(ostream& o) {
     o << "    leave\n";
     o << "    ret\n";
