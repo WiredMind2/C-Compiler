@@ -37,6 +37,7 @@ public:
 
     virtual void visit(std::ostream& o, LdConstInstr&    instr) = 0;
     virtual void ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) = 0;
+    virtual void ldConstInstrINT64(std::ostream& o, ConstParam src, std::string dest) = 0;
     virtual void ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) = 0;
 
     virtual void visit(std::ostream& o, CopyRegInstr&    instr) = 0;

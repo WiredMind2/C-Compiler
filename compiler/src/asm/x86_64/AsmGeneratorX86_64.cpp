@@ -152,6 +152,9 @@ void AsmGeneratorX86_64::visit(ostream& o, LdConstInstr& instr) {
 void AsmGeneratorX86_64::ldConstInstrINT32(ostream& o, ConstParam constant, string dest) {
     o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
 }
+void AsmGeneratorX86_64::ldConstInstrINT64(ostream& o, ConstParam constant, string dest) {
+    // Not implemented
+}
 void AsmGeneratorX86_64::ldConstInstrFLOAT64(ostream& o, double constant, string dest) {
     uint64_t bits = std::bit_cast<uint64_t>(constant);
     o << "    movabsq $" << bits << ", %rax\n";

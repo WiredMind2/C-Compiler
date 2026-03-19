@@ -16,6 +16,7 @@ public:
     //---------------- Visitor methods ----------------
     void visit(std::ostream& o, LdConstInstr&    instr) override;
     void ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) override;
+    void ldConstInstrINT64(std::ostream& o, ConstParam src, std::string dest) override;
     void ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) override;
 
     void visit(std::ostream& o, CopyRegInstr&    instr) override;
