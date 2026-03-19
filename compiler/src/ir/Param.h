@@ -93,44 +93,4 @@ struct RegParam : Param {
     ParamKind kind() const override { return ParamKind::Reg; }
     string to_string() const override { return reg_name(reg) + ":" + irtype_name(type); }
 
-
-    string reg_to_asm() {
-        // For FLOAT64, map working registers to XMM registers
-        if (type == IRType::FLOAT64 || type == IRType::FLOAT32) {
-            switch (reg) {
-                case Reg::W0:  case Reg::RET:  return "%xmm0";
-                case Reg::W1:                  return "%xmm1";
-                case Reg::W2:                  return "%xmm2";
-                case Reg::W3:                  return "%xmm3";
-                case Reg::ARG0:                return "%xmm0";
-                case Reg::ARG1:                return "%xmm1";
-                case Reg::ARG2:                return "%xmm2";
-                case Reg::ARG3:                return "%xmm3";
-                case Reg::ARG4:                return "%xmm4";
-                case Reg::ARG5:                return "%xmm5";
-            }
-        }
-        // x86-64 GPR mappings
-        bool is64 = (type == IRType::INT64);
-        switch (reg) {
-            case Reg::W0:   case Reg::RET:
-                return is64 ? "%rax" : "%eax";
-            case Reg::W1:   case Reg::ARG3:
-                return is64 ? "%rcx" : "%ecx";
-            case Reg::W2:   case Reg::ARG2:
-                return is64 ? "%rdx" : "%edx";
-            case Reg::W3:
-                return is64 ? "%rbx" : "%ebx";
-            case Reg::ARG0:
-                return is64 ? "%rdi" : "%edi";
-            case Reg::ARG1:
-                return is64 ? "%rsi" : "%esi";
-            case Reg::ARG4:
-                return is64 ? "%r8"  : "%r8d";
-            case Reg::ARG5:
-                return is64 ? "%r9"  : "%r9d";
-        }
-        throw std::invalid_argument("reg_to_asm: unknown Reg");
-    }
-
 };

@@ -7,7 +7,7 @@ void IRInstr::gen_asm(ostream& o) {
 }
 
 void LdConstInstr::accept(AsmGenerator& g, ostream& o) {
-    string dest_register = dest.reg_to_asm();
+    string dest_register = g.reg_to_asm(dest);
 
     switch (type) {
         case IRType::INT32: {
@@ -28,14 +28,14 @@ void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string src_register = src.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
     switch (src.type) {
         case IRType::INT32: {
             g.CopyRegINT32(o, src_register, dest_register);
             break;
         }
-        case IRType::INT64: {
+        case IRType::FLOAT64: {
             g.CopyRegFLOAT64(o, src_register, dest_register);
             break;
         }
@@ -63,7 +63,7 @@ void StoreStackInstr::accept(AsmGenerator& g, ostream& o) {
     }
 }
 void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) {
-    string dest_register = dest.reg_to_asm();
+    string dest_register = g.reg_to_asm(dest);
     string variable_name = src.name;
 
     switch (type) {
@@ -85,9 +85,9 @@ void AddInstr       ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.AddINT32(o, lhs_register, rhs_register, dest_register);
@@ -107,9 +107,9 @@ void SubInstr::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.SubINT32(o, lhs_register, rhs_register, dest_register);
@@ -129,9 +129,9 @@ void MulInstr       ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.MulINT32(o, lhs_register, rhs_register, dest_register);
@@ -151,16 +151,16 @@ void DivInstr       ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.DivINT32(o, lhs_register, rhs_register, dest_register);
             break;
         }
         case IRType::FLOAT64: {
-            g.DivFLOAT6(o, lhs_register, rhs_register, dest_register);
+            g.DivFLOAT64(o, lhs_register, rhs_register, dest_register);
             break;
         }
         default: {
@@ -173,9 +173,9 @@ void ModInstr::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.ModINT32(o, lhs_register, rhs_register, dest_register);
@@ -187,8 +187,8 @@ void ModInstr::accept(AsmGenerator& g, ostream& o) {
     }
 }
 void BitNotInstr    ::accept(AsmGenerator& g, ostream& o) {
-    string src_register = src.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
     switch (type) {
         case IRType::INT32: {
             g.BitNot(o, src_register, dest_register);
@@ -204,9 +204,9 @@ void BitAndInstr    ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.BitAnd(o, lhs_register, rhs_register, dest_register);
@@ -222,9 +222,9 @@ void BitOrInstr::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.BitOr(o, lhs_register, rhs_register, dest_register);
@@ -240,9 +240,9 @@ void BitXorInstr    ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.BitXor(o, lhs_register, rhs_register, dest_register);
@@ -258,9 +258,9 @@ void CmpEqInstr     ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.CmpEqINT32(o, lhs_register, rhs_register, dest_register);
@@ -275,14 +275,15 @@ void CmpEqInstr     ::accept(AsmGenerator& g, ostream& o) {
         }
     }
 }
+
 void CmpLtInstr::accept(AsmGenerator& g, ostream& o) {
     if (lhs.type != rhs.type) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.CmpLtINT32(o, lhs_register, rhs_register, dest_register);
@@ -302,9 +303,9 @@ void CmpLeInstr     ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.CmpLeINT32(o, lhs_register, rhs_register, dest_register);
@@ -324,9 +325,9 @@ void CmpGtInstr     ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.CmpGtINT32(o, lhs_register, rhs_register, dest_register);
@@ -346,9 +347,9 @@ void CmpGeInstr::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.CmpGeINT32(o, lhs_register, rhs_register, dest_register);
@@ -364,9 +365,9 @@ void LogicalAndInstr::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.LogicalAnd(o, lhs_register, rhs_register, dest_register);
@@ -382,9 +383,9 @@ void LogicalOrInstr ::accept(AsmGenerator& g, ostream& o) {
         throw std::runtime_error("Incoherent types");
     }
 
-    string lhs_register = lhs.reg_to_asm();
-    string rhs_register = rhs.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string lhs_register = g.reg_to_asm(lhs);
+    string rhs_register = g.reg_to_asm(rhs);
+    string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
         case IRType::INT32: {
             g.LogicalOr(o, lhs_register, rhs_register, dest_register);
@@ -398,14 +399,14 @@ void LogicalOrInstr ::accept(AsmGenerator& g, ostream& o) {
 void CallInstr::accept(AsmGenerator& g, ostream& o) {
     vector<string> arg_registers;
     for (auto& arg : args) {
-        arg_registers.push_back(arg.reg_to_asm());
+        arg_registers.push_back(g.reg_to_asm(arg));
     }
-    string dest_register = dest.reg_to_asm();
+    string dest_register = g.reg_to_asm(dest);
     g.Call(o, funcLabel, arg_registers, dest_register);
 }
 void FToIInstr::accept(AsmGenerator& g, ostream& o) {
-    string src_register = src.reg_to_asm();
-    string dest_register = dest.reg_to_asm();
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
     g.FToI(o, src_register, dest_register);
 }
 void RetInstr::accept(AsmGenerator& g, ostream& o) {
