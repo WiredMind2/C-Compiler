@@ -408,8 +408,7 @@ void AsmGeneratorX86_64::CmpGeINT32(ostream& o, string lhs, string rhs, string d
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::LogicalAnd(ostream& o, string lhs, string rhs, string dest) {
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
+    int thisLabel = getNextLabel();
     o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl $0, %eax\n";
     o << "    je .Lend_and_" << thisLabel << "\n";
@@ -425,8 +424,7 @@ void AsmGeneratorX86_64::LogicalAnd(ostream& o, string lhs, string rhs, string d
 }
 
 void AsmGeneratorX86_64::LogicalOr(ostream& o, string lhs, string rhs, string dest) {
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
+    int thisLabel = getNextLabel();
     o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl $0, %eax\n";
     o << "    jne .Lend_or_" << thisLabel << "\n";

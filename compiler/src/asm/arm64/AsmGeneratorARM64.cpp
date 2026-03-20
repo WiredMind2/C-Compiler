@@ -120,8 +120,7 @@ void AsmGeneratorARM64::gen_control_flow(ostream& o, BasicBlock* bb) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::LogicalAnd(ostream& o, string lhs, string rhs, string dest) {
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
+    int thisLabel = getNextLabel();
     o << "    cmp " << lhs << ", #0\n";
     o << "    b.eq .Lend_and_" << thisLabel << "\n";
     o << "    cmp " << rhs << ", #0\n";
@@ -133,8 +132,7 @@ void AsmGeneratorARM64::LogicalAnd(ostream& o, string lhs, string rhs, string de
     o << ".Ldone_and_" << thisLabel << ":\n";
 }
 void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string dest) {
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
+    int thisLabel = getNextLabel();
     o << "    cmp " << lhs << ", #0\n";
     o << "    b.ne .Lend_or_" << thisLabel << "\n";
     o << "    cmp " << rhs << ", #0\n";

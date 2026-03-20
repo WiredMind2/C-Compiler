@@ -105,5 +105,8 @@ public:
 
 protected:
     CFG* cfg;
-    explicit AsmGenerator(CFG* cfg) : cfg(cfg) {}
+    int labelCount;
+    explicit AsmGenerator(CFG* cfg) : cfg(cfg), labelCount(0) {}
+
+    int getNextLabel() { return labelCount++; }
 };
