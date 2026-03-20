@@ -5,6 +5,7 @@
 #include <iostream>
 
 enum class IRType {
+    INT8,    ///< (C char)
     INT32,   ///< 32-bit signed integer  (C int)
     INT64,   ///< 64-bit signed integer  (C long)
     FLOAT32, ///< 32-bit float           (C float)

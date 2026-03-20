@@ -92,4 +92,5 @@ struct RegParam : Param {
 
     ParamKind kind() const override { return ParamKind::Reg; }
     string to_string() const override { return reg_name(reg) + ":" + irtype_name(type); }
+
 };
