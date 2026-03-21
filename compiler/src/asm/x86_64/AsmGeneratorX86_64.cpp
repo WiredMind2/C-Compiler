@@ -338,13 +338,17 @@ void AsmGeneratorX86_64::CmpLtINT32(ostream& o, string lhs, string rhs, string d
 }
 
 void AsmGeneratorX86_64::CmpLtFLOAT64(ostream& o, string lhs, string rhs, string dest) {
-    o << "    movsd " << lhs << ", %xmm0\n";
-    o << "    ucomisd " << rhs << ", %xmm0\n";
-    o << "    setl %al\n";
+    if (lhs != "%xmm0") {
+        o << "    movsd " << lhs << ", %xmm0\n";
+    }
+    o << "    comisd " << rhs << ", %xmm0\n";
+    o << "    setb %al\n";
     o << "    setnp %cl\n";
     o << "    andb %cl, %al\n";
     o << "    movzbl %al, %eax\n";
-    o << "    movl %eax, " << dest << "\n";
+    if (dest != "%eax") {
+        o << "    movl %eax, " << dest << "\n";
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -402,6 +406,19 @@ void AsmGeneratorX86_64::CmpGeINT32(ostream& o, string lhs, string rhs, string d
     o << "    movzbl %al, %eax\n";
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
+
+void AsmGeneratorX86_64::CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) {
+    if (lhs != "%xmm0") {
+        o << "    movsd " << lhs << ", %xmm0\n";
+    }
+    o << "    comisd " << rhs << ", %xmm0\n";
+    o << "    setae %al\n";
+    o << "    movzbl %al, %eax\n";
+    if (dest != "%eax") {
+        o << "    movl %eax, " << dest << "\n";
+    }
+}
+
 
 // ---------------------------------------------------------------------------
 // Logical Operations

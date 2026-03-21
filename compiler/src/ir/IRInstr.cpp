@@ -355,6 +355,10 @@ void CmpGeInstr::accept(AsmGenerator& g, ostream& o) {
             g.CmpGeINT32(o, lhs_register, rhs_register, dest_register);
             break;
         }
+        case IRType::FLOAT64: {
+            g.CmpGeFLOAT64(o, lhs_register, rhs_register, dest_register);
+            break;
+        }
         default: {
             throw std::runtime_error("Type not supported for cmp ge");
         }

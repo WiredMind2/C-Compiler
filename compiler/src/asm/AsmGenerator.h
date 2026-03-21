@@ -80,6 +80,8 @@ public:
     virtual void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
+
     virtual void LogicalAnd(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void LogicalOr(ostream& o, string lhs, string rhs, string dest) = 0;

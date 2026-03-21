@@ -37,10 +37,6 @@ void BasicBlock::add_IRInstr(IRInstr* instr) {
 }
 
 IRType BasicBlock::operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs) {
-    if (lhs.type == rhs.type) {
-        return lhs.type;
-    }
-
     const bool isDouble = lhs.type == IRType::FLOAT64 || rhs.type == IRType::FLOAT64;
     if (isDouble) {
         return IRType::FLOAT64;

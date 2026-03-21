@@ -32,9 +32,26 @@ public:
     /** Like emit_binop but the result is always INT32 (comparisons). */
     template<class CmpInstr>
     StackParam emit_cmp_binop(const StackParam& lhs, const StackParam& rhs) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs.name, lhs.type));
-        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs.name, rhs.type));
-        add_IRInstr(new CmpInstr(this, Reg::W0, Reg::W0, Reg::W1, lhs.type));
+        Reg lhs_register = Reg::W0;
+        Reg rhs_register = Reg::W1;
+
+        add_IRInstr(new LoadStackInstr(this, lhs_register, lhs.name, lhs.type));
+        add_IRInstr(new LoadStackInstr(this, rhs_register, rhs.name, rhs.type));
+
+        IRType target_operation_type = operation_type_from_operand_types(lhs, rhs);
+
+        if (lhs.type != target_operation_type) {
+            generate_conversion_instruction(lhs_register, lhs.type, Reg::W2, target_operation_type);
+            lhs_register = Reg::W2;
+        }
+
+        if (rhs.type != target_operation_type) {
+            generate_conversion_instruction(rhs_register, rhs.type, Reg::W3, target_operation_type);
+            rhs_register = Reg::W3;
+        }
+
+
+        add_IRInstr(new CmpInstr(this, lhs_register, lhs_register, rhs_register, target_operation_type));
         string tmp = create_new_tempvar(IRType::INT32);
         add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, IRType::INT32));
         return StackParam(tmp, IRType::INT32);

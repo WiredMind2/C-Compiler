@@ -371,6 +371,12 @@ void AsmGeneratorARM64::CmpGeINT32(ostream& o, string lhs, string rhs, string de
     o << "    cset " << dest << ", ge\n";
 }
 
+
+void AsmGeneratorARM64::CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) {
+    o << "    fcmp " << lhs << ", " << rhs << "\n";
+    o << "    cset " << dest << ", ge\n";
+}
+
 // ---------------------------------------------------------------------------
 // Type Conversion
 // ---------------------------------------------------------------------------

@@ -79,6 +79,7 @@ public:
     void CmpGtFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
 
     void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) override;
+    void CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
 
     //---------------------------------------------------------------------------
     // Logical Operations
