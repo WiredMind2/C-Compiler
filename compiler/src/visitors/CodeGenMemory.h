@@ -23,3 +23,6 @@ antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declara
 antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext *ctx);
 antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext *ctx);
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx);
+
+antlrcpp::Any visitAssignement(CodeGenVisitor* visitor, ifccParser::AssignementContext *ctx);
+antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext *ctx);

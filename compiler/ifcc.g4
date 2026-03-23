@@ -4,16 +4,25 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | break_stmt | continue_stmt | var_decl | declaration_list | var_decl_with_init ;
+statement : ((expr | return_stmt ) ';') 
+    | scope 
+    | function_definition 
+    | function_declaration 
+    | condition 
+    | while_loop 
+    | for_loop 
+    | break_stmt 
+    | continue_stmt 
+    | declaration 
+    ;
 
 return_stmt: RETURN expr ;
 
 type_specifier : 'int' | 'double' ;
 
-var_decl : type_specifier VAR ';' ;
-declaration_list : type_specifier VAR (',' VAR)* ';' ;
-var_decl_with_init : type_specifier VAR '=' expr ';' ;
-
+declaration : type_specifier? declaration_list ;
+declaration_list : assignement (',' assignement)* ';' ;
+assignement : VAR ('=' expr)? ;
 
 param : 'int' VAR ;
 param_list : param (',' param)* ;

@@ -1,10 +1,10 @@
 #include "CodeGenMemory.h"
+
 #include "CodeGenVisitor.h"
 
-antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx)
-{
+antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext* ctx) {
     int64_t val = stol(ctx->CONST()->getText());
-    BasicBlock *bb = visitor->getCFG()->current_bb;
+    BasicBlock* bb = visitor->getCFG()->current_bb;
 
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
     string tmp = bb->create_new_tempvar(IRType::INT32);
@@ -12,10 +12,9 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
     return StackParam(tmp, IRType::INT32);
 }
 
-antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext *ctx)
-{
+antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext* ctx) {
     double val = stod(ctx->DOUBLE_CONST()->getText());
-    BasicBlock *bb = visitor->getCFG()->current_bb;
+    BasicBlock* bb = visitor->getCFG()->current_bb;
 
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::FLOAT64, val));
     string tmp = bb->create_new_tempvar(IRType::FLOAT64);
@@ -23,24 +22,20 @@ antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_c
     return StackParam(tmp, IRType::FLOAT64);
 }
 
-antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
-{
+antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext* ctx) {
     string name = ctx->VAR()->getText();
     IRType t = visitor->getCFG()->current_bb->get_var_type(name);
     return StackParam(name, t);
 }
 
-antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext *ctx)
-{
+antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext* ctx) {
     // Handle multiple variable declarations: int x, y, z;
     IRType type = irtype_from_string(ctx->type_specifier()->getText());
-    for (auto varNode : ctx->VAR())
-        visitor->getCFG()->current_bb->add_var_to_symbol_table(varNode->getText(), type);
+    for (auto varNode : ctx->VAR()) visitor->getCFG()->current_bb->add_var_to_symbol_table(varNode->getText(), type);
     return 0;
 }
 
-antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext *ctx)
-{
+antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext* ctx) {
     // Handle single variable declaration: int x;
     string var = ctx->VAR()->getText();
     IRType type = irtype_from_string(ctx->type_specifier()->getText());
@@ -48,8 +43,7 @@ antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext
     return 0;
 }
 
-antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext *ctx)
-{
+antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext* ctx) {
     // Handle declaration with initialization: int x = expr;
     string var = ctx->VAR()->getText();
     IRType type = irtype_from_string(ctx->type_specifier()->getText());
@@ -62,8 +56,7 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
     return StackParam(var, type);
 }
 
-antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
-{
+antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext* ctx) {
     string var = ctx->VAR()->getText();
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
     auto* bb = visitor->getCFG()->current_bb;
@@ -71,4 +64,12 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
     bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
     return StackParam(var, type);
+}
+
+antlrcpp::Any visitAssignement(CodeGenVisitor* visitor, ifccParser::AssignementContext* ctx) {
+    // TODO
+}
+
+antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext* ctx) {
+    // TODO
 }

@@ -68,6 +68,16 @@ antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx
     return ::visitAssignment(this, ctx);
 }
 
+antlrcpp::Any CodeGenVisitor::visitAssignement(ifccParser::AssignementContext *ctx)
+{
+    return ::visitAssignement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
+{
+    return ::visitDeclaration(this, ctx);
+}
+
 // Arithmetic expression handlers
 antlrcpp::Any CodeGenVisitor::visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx)
 {

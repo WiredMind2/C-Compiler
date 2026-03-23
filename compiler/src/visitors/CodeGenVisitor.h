@@ -38,6 +38,9 @@ public:
     virtual antlrcpp::Any visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx) override;
     virtual antlrcpp::Any visitAssignment(ifccParser::AssignmentContext *ctx) override;
 
+    virtual antlrcpp::Any visitAssignement(ifccParser::AssignementContext *ctx) override;
+    virtual antlrcpp::Any visitDeclaration(ifccParser::DeclarationContext *ctx) override;
+
     // Arithmetic expression handlers
     virtual antlrcpp::Any visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx) override;
     virtual antlrcpp::Any visitAddition(ifccParser::AdditionContext *ctx) override;
