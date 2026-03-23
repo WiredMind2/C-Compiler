@@ -4,7 +4,7 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | break_stmt | continue_stmt | var_decl | declaration_list | var_decl_with_init ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | var_decl | declaration_list | var_decl_with_init ;
 
 return_stmt: RETURN expr ;
 
@@ -24,6 +24,9 @@ condition : 'if' '(' expr ')' scope ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
+case_block : 'case' CONST ':' statement* ;
+default_block : 'default' ':' statement* ;
 break_stmt : 'break' ';' ;
 continue_stmt : 'continue' ';' ;
 
