@@ -56,17 +56,16 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
     visitor->getCFG()->current_bb->add_var_to_symbol_table(var, variable_type);
 
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->expr()));
-    Reg src_register = Reg::W0;
 
     auto* bb = visitor->getCFG()->current_bb;
 
     if (src.type != variable_type) {
-        bb->add_IRInstr(new LoadStackInstr(bb, src_register, src.name, src.type));
-        bb->generate_conversion_instruction(src_register, src.type, Reg::W1, variable_type);
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
+        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, variable_type);
         bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, variable_type));
     } else {
-        bb->add_IRInstr(new LoadStackInstr(bb, src_register, src.name, variable_type));
-        bb->add_IRInstr(new StoreStackInstr(bb, var, src_register, variable_type));
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, variable_type));
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, variable_type));
     }
     return StackParam(var, variable_type);
 }
@@ -75,6 +74,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 {
     string var = ctx->VAR()->getText();
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
+
     auto* bb = visitor->getCFG()->current_bb;
     IRType type = bb->get_var_type(var);
 
