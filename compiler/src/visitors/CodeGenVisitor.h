@@ -33,13 +33,8 @@ public:
 
     virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 
-    virtual antlrcpp::Any visitDeclaration_list(ifccParser::Declaration_listContext *ctx) override;
-    virtual antlrcpp::Any visitVar_decl(ifccParser::Var_declContext *ctx) override;
-    virtual antlrcpp::Any visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx) override;
-    virtual antlrcpp::Any visitAssignment(ifccParser::AssignmentContext *ctx) override;
-
-    virtual antlrcpp::Any visitAssignement(ifccParser::AssignementContext *ctx) override;
     virtual antlrcpp::Any visitDeclaration(ifccParser::DeclarationContext *ctx) override;
+    virtual antlrcpp::Any visitAssignment(ifccParser::AssignmentContext *ctx) override;
 
     // Arithmetic expression handlers
     virtual antlrcpp::Any visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx) override;

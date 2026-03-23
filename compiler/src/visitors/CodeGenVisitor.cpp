@@ -48,34 +48,14 @@ antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
     return ::visitVariable(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDeclaration_list(ifccParser::Declaration_listContext *ctx)
-{
-    return ::visitDeclaration_list(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitVar_decl(ifccParser::Var_declContext *ctx)
-{
-    return ::visitVar_decl(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx)
-{
-    return ::visitVar_decl_with_init(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
-{
-    return ::visitAssignment(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitAssignement(ifccParser::AssignementContext *ctx)
-{
-    return ::visitAssignement(this, ctx);
-}
-
 antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
 {
     return ::visitDeclaration(this, ctx);
+}
+
+
+antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx) {
+    return ::visitAssignment(this, ctx);
 }
 
 // Arithmetic expression handlers
@@ -297,29 +277,29 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
 {
     CFG* cfg = this->cfg;
     BasicBlock* currentBB = cfg->current_bb;
-    
+
     // Create blocks for then-branch, else-branch (optional), and merge point
     BasicBlock* thenBB = new BasicBlock(cfg, cfg->new_BB_name());
     BasicBlock* elseBB = nullptr;
     BasicBlock* mergeBB = new BasicBlock(cfg, cfg->new_BB_name());
-    
+
     // If there's an else clause, create else block
     if (ctx->else_block()) {
         elseBB = new BasicBlock(cfg, cfg->new_BB_name());
     }
-    
+
     // Add the new blocks to CFG
     cfg->add_bb(thenBB);
     if (elseBB) cfg->add_bb(elseBB);
     cfg->add_bb(mergeBB);
-    
+
     // Generate code for the condition expression
     // Visit the expression which should leave result in a register
     StackParam condResult("!tmp0", IRType::INT32);
     if (ctx->expr()) {
         condResult = std::any_cast<StackParam>(this->visit(ctx->expr()));
     }
-    
+
     // Set up the control flow from current block
     // The condition result determines which branch to take
     currentBB->test_var_name = condResult.name;
@@ -333,7 +313,7 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         currentBB->exit_true = thenBB;
         currentBB->exit_false = mergeBB;
     }
-    
+
     // Now generate code for the then-branch
     cfg->current_bb = thenBB;
     if (ctx->scope()) {
@@ -347,7 +327,7 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         (lastThenBB->instrs.empty() || dynamic_cast<RetInstr*>(lastThenBB->instrs.back()) == nullptr)) {
         lastThenBB->exit_true = mergeBB;
     }
-    
+
     // If there's an else clause
     if (elseBB && ctx->else_block()) {
         cfg->current_bb = elseBB;
@@ -366,10 +346,10 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
             lastElseBB->exit_true = mergeBB;
         }
     }
-    
+
     // Continue from merge block - this is where code continues after the if-else
     cfg->current_bb = mergeBB;
-    
+
     return 0;
 }
 

@@ -28,48 +28,33 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
     return StackParam(name, t);
 }
 
-antlrcpp::Any visitDeclaration_list(CodeGenVisitor* visitor, ifccParser::Declaration_listContext* ctx) {
-    // Handle multiple variable declarations: int x, y, z;
-    IRType type = irtype_from_string(ctx->type_specifier()->getText());
-    for (auto varNode : ctx->VAR()) visitor->getCFG()->current_bb->add_var_to_symbol_table(varNode->getText(), type);
-    return 0;
-}
-
-antlrcpp::Any visitVar_decl(CodeGenVisitor* visitor, ifccParser::Var_declContext* ctx) {
-    // Handle single variable declaration: int x;
-    string var = ctx->VAR()->getText();
-    IRType type = irtype_from_string(ctx->type_specifier()->getText());
-    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
-    return 0;
-}
-
-antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext* ctx) {
-    // Handle declaration with initialization: int x = expr;
-    string var = ctx->VAR()->getText();
-    IRType type = irtype_from_string(ctx->type_specifier()->getText());
-    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
-
-    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->expr()));
-    auto* bb = visitor->getCFG()->current_bb;
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
-    return StackParam(var, type);
-}
-
-antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext* ctx) {
-    string var = ctx->VAR()->getText();
-    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
-    auto* bb = visitor->getCFG()->current_bb;
-    IRType type = bb->get_var_type(var);
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
-    return StackParam(var, type);
-}
-
-antlrcpp::Any visitAssignement(CodeGenVisitor* visitor, ifccParser::AssignementContext* ctx) {
-    // TODO
-}
-
 antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext* ctx) {
-    // TODO
+    IRType type = irtype_from_string(ctx->type_specifier()->getText());
+    auto* bb = visitor->getCFG()->current_bb;
+    for (auto assignement_ctx : ctx->declaration_instance()) {
+        string var = assignement_ctx->VAR()->getText();
+
+        bb->add_var_to_symbol_table(var, type);
+
+        if (assignement_ctx->expr()) {
+            StackParam src = std::any_cast<StackParam>(visitor->visit(assignement_ctx->expr()));
+            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+            bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
+        }
+    }
+    return nullptr;
 }
+
+antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx) {
+    auto* bb = visitor->getCFG()->current_bb;
+    string var = ctx->VAR()->getText();
+    IRType varType = bb->get_var_type(var);
+
+    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, varType));
+    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, varType));
+
+    return new StackParam(var, varType);
+}
+
+

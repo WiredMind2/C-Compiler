@@ -8,6 +8,13 @@ using namespace std;
 
 AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
 
+namespace {
+string macho_symbol(const string& name) {
+    if (name.empty() || name[0] == '_' || name[0] == '.') return name;
+    return "_" + name;
+}
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -53,11 +60,11 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::gen_asm(ostream& o) {
-    // Generate .globl for all functions
-    for (auto bb : cfg->getBBs()) {
-        o << ".globl _" << bb->label << "\n";
+    // Export only real function symbols (not internal BB labels).
+    for (auto& fn : cfg->get_functions()) {
+        o << ".globl " << macho_symbol(fn.label) << "\n";
     }
-    cfg->gen_asm_prologue(o);
+
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
         gen_asm_bb(o, bb, isFirstBB);
@@ -67,11 +74,30 @@ void AsmGeneratorARM64::gen_asm(ostream& o) {
 
 void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
     cfg->current_bb = bb;
-    if (!isFirstBB)
+
+    auto* sig = cfg->get_function(bb->label);
+    bool isFunctionEntry = (sig != nullptr);
+
+    if (isFunctionEntry) {
+        int stackSpace = cfg->calculateRequiredStackSpace();
+        o << macho_symbol(bb->label) << ":\n";
+        o << "    stp fp, lr, [sp, #-16]!\n";
+        o << "    mov fp, sp\n";
+        o << "    sub sp, sp, #" << stackSpace << "\n";
+    } else if (!isFirstBB) {
         o << bb->label << ":\n";
+    }
+
     for (auto instr : bb->instrs)
         cfg->gen_asm_instr(o, instr);
-    gen_control_flow(o, bb);
+
+    bool hasReturn = false;
+    if (!bb->instrs.empty() && dynamic_cast<RetInstr*>(bb->instrs.back()) != nullptr) {
+        hasReturn = true;
+    }
+
+    if (!hasReturn)
+        gen_control_flow(o, bb);
 }
 
 void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
@@ -84,10 +110,9 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
 
 void AsmGeneratorARM64::gen_prologue(ostream& o) {
     int stackSpace = cfg->calculateRequiredStackSpace();
-    // Get the function name from the first basic block's label
     string funcName = "_main";
-    if (!cfg->getBBs().empty()) {
-        funcName = "_" + cfg->getBBs()[0]->label;
+    if (!cfg->get_functions().empty()) {
+        funcName = macho_symbol(cfg->get_functions()[0].label);
     }
     // Skip .globl here since it's generated in gen_asm for all functions
     o << funcName << ":\n";
@@ -155,11 +180,13 @@ void AsmGeneratorARM64::Call(ostream& o, string funcLabel, vector<string> args, 
         if (args[i] != dst)
             o << "    mov " << dst << ", " << args[i] << "\n";
     }
-    o << "    bl " << funcLabel << "\n";
+    o << "    bl " << macho_symbol(funcLabel) << "\n";
     if (dest != "w0")
         o << "    mov " << dest << ", w0\n";
 }
 void AsmGeneratorARM64::Ret(ostream& o) {
+    o << "    mov sp, fp\n";
+    o << "    ldp fp, lr, [sp], #16\n";
     o << "    ret\n";
 }
 
