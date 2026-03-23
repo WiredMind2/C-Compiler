@@ -30,6 +30,10 @@ for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
 
 scope : '{' statement* '}' ;
 
+lvalue:
+    VAR
+    | expr ;
+
 expr : sequential ;
 
 sequential : compoundAssignment # sequentialExprRef
@@ -37,7 +41,7 @@ sequential : compoundAssignment # sequentialExprRef
     ;
 
 compoundAssignment : logicalOR # compoundAssignmentRef
-    | VAR '=' compoundAssignment # Assignment
+    | lvalue '=' compoundAssignment # Assignment
     ;
 
 logicalOR : logicalAND # logicalORRef
