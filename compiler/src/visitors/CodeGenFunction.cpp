@@ -15,7 +15,7 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
             paramNames.push_back(param->VAR()->getText());
         }
     }
@@ -33,6 +33,18 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
         visitor->visit(ctx->scope());
 
     visitor->getCFG()->getStackBBs().pop_back();
+
+    // Record how much stack space this function's locals need
+    CFG::FunctionSignature* sig = visitor->getCFG()->get_function(func_name);
+    if (sig) {
+        int usedBytes = -(visitor->getCFG()->getNextFreeSymbolIndex());
+        int aligned = usedBytes;
+        if (aligned % 16 != 0)
+            aligned = ((aligned / 16) + 1) * 16;
+        if (aligned < 16) aligned = 16;
+        sig->stackSize = aligned;
+    }
+
     visitor->getCFG()->current_bb = formerBB;
 
     return 0;
@@ -77,20 +89,12 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         }
     }
 
-    // Check call arity and argument types against declaration/definition.
+    // Check call arity against declaration/definition.
     int expectedArgs = static_cast<int>(funcInfo->paramTypes.size());
     int actualArgs = static_cast<int>(ctx->expr().size());
     if (actualArgs > expectedArgs) {
         std::cerr << "Error: too many arguments in call to '" << func_name << "'. Expected " << expectedArgs << ", got " << actualArgs << "." << std::endl;
         exit(1);
-    }
-    for (int i = 0; i < actualArgs; i++) {
-        StackParam arg = std::any_cast<StackParam>(visitor->visit(ctx->expr(i)));
-        if (arg.type != funcInfo->paramTypes[i]) {
-            std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
-                      << irtype_name(funcInfo->paramTypes[i]) << ", got " << irtype_name(arg.type) << "." << std::endl;
-            exit(1);
-        }
     }
 
     auto* bb = visitor->getCFG()->current_bb;
@@ -100,11 +104,17 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         Reg::ARG3, Reg::ARG4, Reg::ARG5
     };
 
-    // Evaluate each argument, load into ARGn register.
+    // Evaluate each argument once, type-check, then load into ARGn register.
     auto args = ctx->expr();
     std::vector<Reg> usedArgRegs;
     for (int i = 0; i < static_cast<int>(args.size()) && i < 6; i++) {
         StackParam argVar = std::any_cast<StackParam>(visitor->visit(args[i]));
+        if (i < expectedArgs && argVar.type != funcInfo->paramTypes[i]) {
+            std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
+                      << irtype_name(funcInfo->paramTypes[i]) << ", got " << irtype_name(argVar.type) << "." << std::endl;
+            exit(1);
+        }
+        bb = visitor->getCFG()->current_bb;
         bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
         usedArgRegs.push_back(argRegs[i]);
     }

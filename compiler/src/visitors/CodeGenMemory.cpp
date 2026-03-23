@@ -23,7 +23,36 @@ antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_c
     return StackParam(tmp, IRType::FLOAT64);
 }
 
-antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
+antlrcpp::Any visitChar_constant(CodeGenVisitor* visitor, ifccParser::Char_constantContext *ctx)
+{
+    // Parse character literal: 'x' or '\n', '\t', '\\', '\'' etc.
+    std::string text = ctx->CHAR_CONST()->getText();
+    // text includes the surrounding quotes, e.g. "'A'" or "'\n'"
+    int64_t val = 0;
+    if (text.size() >= 3 && text[1] == '\\') {
+        // Escape sequence
+        switch (text[2]) {
+            case 'n':  val = '\n'; break;
+            case 't':  val = '\t'; break;
+            case 'r':  val = '\r'; break;
+            case '0':  val = '\0'; break;
+            case '\\': val = '\\'; break;
+            case '\'': val = '\''; break;
+            case '"':  val = '"';  break;
+            default:   val = text[2]; break;
+        }
+    } else if (text.size() >= 3) {
+        val = (unsigned char)text[1];
+    }
+
+    BasicBlock *bb = visitor->getCFG()->current_bb;
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
+    string tmp = bb->create_new_tempvar(IRType::INT32);
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
+    return StackParam(tmp, IRType::INT32);
+}
+
+
 {
     string name = ctx->VAR()->getText();
     IRType t = visitor->getCFG()->current_bb->get_var_type(name);

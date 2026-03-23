@@ -4,10 +4,30 @@
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {
+    // First pass: pre-declare all function signatures so forward calls work
+    for (auto stmt : ctx->statement()) {
+        if (auto* funcDef = dynamic_cast<ifccParser::Function_definitionContext*>(
+                stmt->children[0])) {
+            std::string func_name = funcDef->VAR()->getText();
+            if (!cfg->get_function(func_name)) {
+                std::vector<IRType> paramTypes;
+                std::vector<std::string> paramNames;
+                if (funcDef->param_list()) {
+                    for (auto param : funcDef->param_list()->param()) {
+                        paramTypes.push_back(irtype_from_string(
+                            param->type_specifier()->getText()));
+                        paramNames.push_back(param->VAR()->getText());
+                    }
+                }
+                cfg->add_function(func_name, IRType::INT32, paramTypes, paramNames);
+            }
+        }
+    }
+    // Second pass: generate code for all statements
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
-    std::cerr << "BBs: " << cfg->getBBs().size() << std::endl; for(auto bb : cfg->getBBs()) { std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl; } return "0";
+    return "0";
 }
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
@@ -41,6 +61,10 @@ antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
 
 antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantContext* ctx) {
     return ::visitDouble_constant(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitChar_constant(ifccParser::Char_constantContext* ctx) {
+    return ::visitChar_constant(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)

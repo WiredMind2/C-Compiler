@@ -131,6 +131,7 @@ public:
         vector<string>   paramNames;
         BasicBlock*      entryBB = nullptr;
         vector<BasicBlock*> bbs;  // Basic blocks for this function
+        int              stackSize = 0; // bytes needed below %rbp (set after body is compiled)
     };
 
     void               add_function(string name, IRType returnType,
