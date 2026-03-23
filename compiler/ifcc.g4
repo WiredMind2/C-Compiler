@@ -8,19 +8,19 @@ statement : ((expr | return_stmt ) ';') | scope | function_definition | function
 
 return_stmt: RETURN expr ;
 
-type_specifier : 'int' | 'double' ;
+type_specifier : 'void' | 'int' | 'double' ;
 
 var_decl : type_specifier VAR ';' ;
 declaration_list : type_specifier VAR (',' VAR)* ';' ;
 var_decl_with_init : type_specifier VAR '=' expr ';' ;
 
 
-param : 'int' VAR ;
+param : type_specifier VAR ;
 param_list : param (',' param)* ;
 
-function_declaration : 'int' VAR '(' param_list? ')' ';' ;
-function_definition  : 'int' VAR '(' param_list? ')' scope;
-condition : 'if' '(' expr ')' scope ('else' else_block )? ;
+function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
+function_definition  : type_specifier VAR '(' param_list? ')' scope;
+condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;

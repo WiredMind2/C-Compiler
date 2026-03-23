@@ -326,9 +326,9 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
     
     // Now generate code for the then-branch
     cfg->current_bb = thenBB;
-    if (ctx->scope()) {
+    if (ctx->statement()) {
         // Visit the scope (the if-body)
-        this->visit(ctx->scope());
+        this->visit(ctx->statement());
     }
     // Get the last BB after visiting the then scope (may differ from thenBB if there are nested ifs)
     BasicBlock* lastThenBB = cfg->current_bb;

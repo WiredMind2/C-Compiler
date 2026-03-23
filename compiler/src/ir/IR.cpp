@@ -15,7 +15,7 @@ using namespace std;
 // ============================================================
 
 BasicBlock::BasicBlock(CFG* cfg, string entry_label, bool is_loop)
-    : cfg(cfg), label(entry_label) {
+    : cfg(cfg), label(entry_label), functionName(cfg->getCurrentFunction()) {
     exit_true  = nullptr;
     exit_false = nullptr;
     this->is_loop = is_loop;
@@ -74,8 +74,8 @@ int BasicBlock::get_var_index(string name) {
             }
         }
         // Also check BBs in the current function
-        if (!cfg->getCurrentFunction().empty()) {
-            auto* sig = cfg->get_function(cfg->getCurrentFunction());
+        string funcName = functionName; if (funcName.empty() && !cfg->getCurrentFunction().empty()) funcName = cfg->getCurrentFunction(); if (!funcName.empty()) {
+            auto* sig = cfg->get_function(funcName);
             if (sig) {
                 for (auto bb : sig->bbs) {
                     if (bb != this && bb->get_var_index_or_none(name) != INT_MIN) {
@@ -103,8 +103,8 @@ IRType BasicBlock::get_var_type(string name) {
             }
         }
         // Also check BBs in the current function
-        if (!cfg->getCurrentFunction().empty()) {
-            auto* sig = cfg->get_function(cfg->getCurrentFunction());
+        string funcName = functionName; if (funcName.empty() && !cfg->getCurrentFunction().empty()) funcName = cfg->getCurrentFunction(); if (!funcName.empty()) {
+            auto* sig = cfg->get_function(funcName);
             if (sig) {
                 for (auto bb : sig->bbs) {
                     if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
@@ -156,8 +156,8 @@ CFG::CFG(TargetArch arch) {
 void CFG::add_bb(BasicBlock* bb) {
     bbs.push_back(bb);
     // Also add to current function's bbs if we have a current function
-    if (!currentFunctionName.empty()) {
-        FunctionSignature* sig = get_function(currentFunctionName);
+    string funcName = (current_bb && !current_bb->functionName.empty()) ? current_bb->functionName : currentFunctionName; if (funcName.empty()) funcName = currentFunctionName; if (!funcName.empty()) {
+        FunctionSignature* sig = get_function(funcName);
         if (sig) sig->bbs.push_back(bb);
     }
 }
@@ -200,8 +200,8 @@ BasicBlock* CFG::findBBByVariable(const string& var) {
         if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
 
     // Then search in the current function's BBs
-    if (!currentFunctionName.empty()) {
-        FunctionSignature* sig = get_function(currentFunctionName);
+    string funcName = (current_bb && !current_bb->functionName.empty()) ? current_bb->functionName : currentFunctionName; if (funcName.empty()) funcName = currentFunctionName; if (!funcName.empty()) {
+        FunctionSignature* sig = get_function(funcName);
         if (sig) {
             for (auto bb : sig->bbs)
                 if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
