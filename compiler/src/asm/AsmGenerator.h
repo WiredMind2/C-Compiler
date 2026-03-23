@@ -80,6 +80,8 @@ public:
     virtual void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) = 0;
+    virtual void CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
+
     virtual void LogicalAnd(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void LogicalOr(ostream& o, string lhs, string rhs, string dest) = 0;
@@ -87,6 +89,9 @@ public:
     virtual void Call(ostream& o, string funcLabel, vector<string> args, string dest) = 0;
 
     virtual void FToI(ostream& o, string src, string dest) = 0;
+    virtual void I32ToF64(ostream& o, string src, string dest) = 0;
+    virtual void I8ToI32(ostream& o, string src, string dest) = 0;
+
     virtual void Ret(ostream& o) = 0;
 
     //---------------- Helper Methods ----------------

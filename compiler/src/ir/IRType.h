@@ -15,6 +15,7 @@ enum class IRType {
 
 inline std::string irtype_name(IRType t) {
     switch (t) {
+        case IRType::INT8:    return "i8";
         case IRType::INT32:   return "i32";
         case IRType::INT64:   return "i64";
         case IRType::FLOAT32: return "f32";
@@ -25,6 +26,7 @@ inline std::string irtype_name(IRType t) {
 
 inline int irtype_size(IRType t) {
     switch (t) {
+        case IRType::INT8:    return 1;
         case IRType::INT32:   return 4;
         case IRType::INT64:   return 8;
         case IRType::FLOAT32: return 4;

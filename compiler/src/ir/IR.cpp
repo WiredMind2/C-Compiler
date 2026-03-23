@@ -36,6 +36,49 @@ void BasicBlock::add_IRInstr(IRInstr* instr) {
     instrs.push_back(instr);
 }
 
+IRType BasicBlock::operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs) {
+    const bool isDouble = lhs.type == IRType::FLOAT64 || rhs.type == IRType::FLOAT64;
+    if (isDouble) {
+        return IRType::FLOAT64;
+    }
+
+    const bool isFloat = lhs.type == IRType::FLOAT32 || rhs.type == IRType::FLOAT32;
+    if (isFloat) {
+        return IRType::FLOAT32;
+    }
+
+    const bool isInt = lhs.type == IRType::INT32 || rhs.type == IRType::INT32;
+    if (isInt) {
+        return IRType::INT32;
+    }
+
+    const bool isChar = lhs.type == IRType::INT8 || rhs.type == IRType::INT8;
+    if (isChar) {
+        return IRType::INT32; // integer promotion
+    }
+
+    // fallback
+    throw std::runtime_error("Unkown operand types");
+}
+
+void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type) {
+    // No conversion needed if types are the same
+    if (initial_type == dest_type) {
+        return;
+    }
+
+    // Add the appropriate conversion instruction based on source and target types
+    if (initial_type == IRType::INT32 && dest_type == IRType::FLOAT64) {
+        add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT32) {
+        add_IRInstr(new F64ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT8 && dest_type == IRType::INT32) {
+        add_IRInstr(new I8ToI32Instr(this, dest_register, initial_register));
+    } else {
+        throw runtime_error("No conversion found");
+    }
+}
+
 // ============================================================
 //  Symbol table
 // ============================================================

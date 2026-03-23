@@ -16,7 +16,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     auto* bb = cfg->current_bb;
     if (var.type == IRType::FLOAT64) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, IRType::FLOAT64));
-        bb->add_IRInstr(new FToIInstr(bb, Reg::RET, Reg::W0));
+        bb->add_IRInstr(new F64ToI32Instr(bb, Reg::RET, Reg::W0));
     } else {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
     }
