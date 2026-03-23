@@ -52,14 +52,23 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 {
     // Handle declaration with initialization: int x = expr;
     string var = ctx->VAR()->getText();
-    IRType type = irtype_from_string(ctx->type_specifier()->getText());
-    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
+    IRType variable_type = irtype_from_string(ctx->type_specifier()->getText());
+    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, variable_type);
 
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->expr()));
+    Reg src_register = Reg::W0;
+
     auto* bb = visitor->getCFG()->current_bb;
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
-    return StackParam(var, type);
+
+    if (src.type != variable_type) {
+        bb->add_IRInstr(new LoadStackInstr(bb, src_register, src.name, src.type));
+        bb->generate_conversion_instruction(src_register, src.type, Reg::W1, variable_type);
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, variable_type));
+    } else {
+        bb->add_IRInstr(new LoadStackInstr(bb, src_register, src.name, variable_type));
+        bb->add_IRInstr(new StoreStackInstr(bb, var, src_register, variable_type));
+    }
+    return StackParam(var, variable_type);
 }
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
@@ -68,7 +77,15 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
     auto* bb = visitor->getCFG()->current_bb;
     IRType type = bb->get_var_type(var);
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
+
+    if (src.type != type) {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, type);
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, type));
+    } else {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
+    }
+
     return StackParam(var, type);
 }

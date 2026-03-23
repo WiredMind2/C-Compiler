@@ -112,6 +112,8 @@ public:
     }
     void reset_symbol_index();
 
+    void generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type);
+
     BasicBlock* exit_true;
     BasicBlock* exit_false;
     string      label;
@@ -129,7 +131,6 @@ protected:
     // Return the desired operation type from the types of the operands
     // e.g. FLOAT32 + INT32 returns FLOAT32
     IRType operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs);
-    void generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type);
 
 };
 
