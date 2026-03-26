@@ -10,6 +10,7 @@ void LdConstInstr::accept(AsmGenerator& g, ostream& o) {
     string dest_register = g.reg_to_asm(dest);
 
     switch (type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.ldConstInstrINT32(o, val, dest_register);
             break;
@@ -31,6 +32,7 @@ void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     switch (src.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.CopyRegINT32(o, src_register, dest_register);
             break;
@@ -49,6 +51,10 @@ void StoreStackInstr::accept(AsmGenerator& g, ostream& o) {
     string variable_name = g.var_to_asm(dest.name);
 
     switch (type) {
+        case IRType::INT8: {
+            g.StoreStackInstrINT8(o, src_register_string, variable_name);
+            break;
+        }
         case IRType::INT32: {
             g.StoreStackInstrINT32(o, src_register_string, variable_name);
             break;
@@ -67,6 +73,10 @@ void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) {
     string variable_name = src.name;
 
     switch (type) {
+        case IRType::INT8: {
+            g.LoadStackInstrINT8(o, variable_name, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.LoadStackInstrINT32(o, variable_name, dest_register);
             break;
@@ -89,6 +99,8 @@ void AddInstr       ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+
+        case IRType::INT8:
         case IRType::INT32: {
             g.AddINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -111,6 +123,7 @@ void SubInstr::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.SubINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -133,6 +146,7 @@ void MulInstr       ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.MulINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -155,6 +169,7 @@ void DivInstr       ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.DivINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -177,6 +192,7 @@ void ModInstr::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.ModINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -190,6 +206,7 @@ void BitNotInstr    ::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     switch (type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.BitNot(o, src_register, dest_register);
             break;
@@ -208,6 +225,7 @@ void BitAndInstr    ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.BitAnd(o, lhs_register, rhs_register, dest_register);
             break;
@@ -226,6 +244,7 @@ void BitOrInstr::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.BitOr(o, lhs_register, rhs_register, dest_register);
             break;
@@ -244,6 +263,7 @@ void BitXorInstr    ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.BitXor(o, lhs_register, rhs_register, dest_register);
             break;
@@ -262,6 +282,7 @@ void CmpEqInstr     ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.CmpEqINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -285,6 +306,7 @@ void CmpLtInstr::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.CmpLtINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -307,6 +329,7 @@ void CmpLeInstr     ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.CmpLeINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -329,6 +352,7 @@ void CmpGtInstr     ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.CmpGtINT32(o, lhs_register, rhs_register, dest_register);
             break;
@@ -351,12 +375,9 @@ void CmpGeInstr::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.CmpGeINT32(o, lhs_register, rhs_register, dest_register);
-            break;
-        }
-        case IRType::FLOAT64: {
-            g.CmpGeFLOAT64(o, lhs_register, rhs_register, dest_register);
             break;
         }
         default: {
@@ -373,6 +394,7 @@ void LogicalAndInstr::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.LogicalAnd(o, lhs_register, rhs_register, dest_register);
             break;
@@ -391,6 +413,7 @@ void LogicalOrInstr ::accept(AsmGenerator& g, ostream& o) {
     string rhs_register = g.reg_to_asm(rhs);
     string dest_register = g.reg_to_asm(dest);
     switch (lhs.type) {
+        case IRType::INT8:
         case IRType::INT32: {
             g.LogicalOr(o, lhs_register, rhs_register, dest_register);
             break;
@@ -408,25 +431,15 @@ void CallInstr::accept(AsmGenerator& g, ostream& o) {
     string dest_register = g.reg_to_asm(dest);
     g.Call(o, funcLabel, arg_registers, dest_register);
 }
-void F64ToI32Instr::accept(AsmGenerator& g, ostream& o) {
-    string src_register = g.reg_to_asm(src);
-    string dest_register = g.reg_to_asm(dest);
-    g.FToI(o, src_register, dest_register);
-}
 void FToIInstr::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     g.FToI(o, src_register, dest_register);
 }
-void I32ToF64Instr::accept(AsmGenerator& g, ostream& o) {
+void IToFInstr::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
-    g.I32ToF64(o, src_register, dest_register);
-}
-void I8ToI32Instr::accept(AsmGenerator& g, ostream& o) {
-    string src_register = g.reg_to_asm(src);
-    string dest_register = g.reg_to_asm(dest);
-    g.I8ToI32(o, src_register, dest_register);
+    g.IToF(o, src_register, dest_register);
 }
 void RetInstr::accept(AsmGenerator& g, ostream& o) {
     g.Ret(o);

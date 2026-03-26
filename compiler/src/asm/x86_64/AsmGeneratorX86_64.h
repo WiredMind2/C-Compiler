@@ -22,6 +22,7 @@ public:
     //---------------------------------------------------------------------------
     // Load Constants
     //---------------------------------------------------------------------------
+    void ldConstInstrINT8(ostream& o, ConstParam constant, string dest) override;
     void ldConstInstrINT32(ostream& o, ConstParam reg_src, string reg_dest) override;
     void ldConstInstrINT64(ostream& o, ConstParam reg_src, string reg_dest) override;
     void ldConstInstrFLOAT64(ostream& o, double reg_src, string reg_dest) override;
@@ -29,14 +30,17 @@ public:
     //---------------------------------------------------------------------------
     // Register Copy
     //---------------------------------------------------------------------------
+    void CopyRegINT8(ostream& o, string src, string dest) override;
     void CopyRegINT32(ostream& o, string src, string dest) override;
     void CopyRegFLOAT64(ostream& o, string src, string dest) override;
 
     //---------------------------------------------------------------------------
     // Stack Operations (Store/Load)
     //---------------------------------------------------------------------------
+    void StoreStackInstrINT8(ostream& o, string src, string dest) override;
     void StoreStackInstrINT32(ostream& o, string src, string dest) override;
     void StoreStackInstrFLOAT64(ostream& o, string src, string dest) override;
+    void LoadStackInstrINT8(ostream& o, string src, string dest) override;
     void LoadStackInstrINT32(ostream& o, string src, string dest) override;
     void LoadStackInstrFLOAT64(ostream& o, string src, string dest) override;
 
@@ -48,6 +52,7 @@ public:
 
     void SubINT32(ostream& o, string lhs, string rhs, string dest) override;
     void SubFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+
     void MulINT32(ostream& o, string lhs, string rhs, string dest) override;
     void MulFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
 
@@ -79,7 +84,6 @@ public:
     void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) override;
 
     void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
 
     //---------------------------------------------------------------------------
     // Logical Operations
@@ -91,14 +95,13 @@ public:
     // Function Call / Return
     //---------------------------------------------------------------------------
     void Call(ostream& o, string funcLabel, vector<string> args, string dest) override;
-    void Ret(ostream& o) override;
 
     //---------------------------------------------------------------------------
     // Type Conversion
     //---------------------------------------------------------------------------
     void FToI(ostream& o, string src, string dest) override;
-    void I32ToF64(ostream& o, string src, string dest) override;
-    void I8ToI32(ostream& o, string src, string dest) override;
+    void IToF(ostream& o, string src, string dest) override;
+    void Ret(ostream& o) override;
 
     //---------------------------------------------------------------------------
     // Helpers

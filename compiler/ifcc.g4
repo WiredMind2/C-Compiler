@@ -8,19 +8,19 @@ statement : ((expr | return_stmt ) ';') | scope | function_definition | function
 
 return_stmt: RETURN expr ;
 
-type_specifier : 'void' | 'int' | 'double' ;
+type_specifier : 'int' | 'double' | 'char' ;
 
 var_decl : type_specifier VAR ';' ;
 declaration_list : type_specifier VAR (',' VAR)* ';' ;
 var_decl_with_init : type_specifier VAR '=' expr ';' ;
 
 
-param : type_specifier VAR ;
+param : 'int' VAR ;
 param_list : param (',' param)* ;
 
-function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
-function_definition  : type_specifier VAR '(' param_list? ')' scope;
-condition : 'if' '(' expr ')' statement ('else' else_block )? ;
+function_declaration : 'int' VAR '(' param_list? ')' ';' ;
+function_definition  : 'int' VAR '(' param_list? ')' scope;
+condition : 'if' '(' expr ')' scope ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
@@ -97,6 +97,7 @@ primitive
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant
+    | CHAR_CONST                 # char_constant
     ;
 
 
@@ -104,6 +105,7 @@ function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
 CONST : '-'?[0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
+CHAR_CONST : '\'' [a-zA-Z0-9] '\'' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

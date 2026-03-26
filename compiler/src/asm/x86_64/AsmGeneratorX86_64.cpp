@@ -6,6 +6,20 @@
 
 using namespace std;
 
+namespace {
+string reg32_to_reg8(const string& reg32) {
+    if (reg32 == "%eax") return "%al";
+    if (reg32 == "%ecx") return "%cl";
+    if (reg32 == "%edx") return "%dl";
+    if (reg32 == "%ebx") return "%bl";
+    if (reg32 == "%edi") return "%dil";
+    if (reg32 == "%esi") return "%sil";
+    if (reg32 == "%r8d") return "%r8b";
+    if (reg32 == "%r9d") return "%r9b";
+    throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
+}
+}
+
 AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 
 // ---------------------------------------------------------------------------
@@ -135,6 +149,9 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 // Load Constants
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::ldConstInstrINT8(ostream& o, ConstParam constant, string dest) {
+    o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::ldConstInstrINT32(ostream& o, ConstParam constant, string dest) {
     o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
 }
@@ -150,7 +167,11 @@ void AsmGeneratorX86_64::ldConstInstrFLOAT64(ostream& o, double constant, string
 // ---------------------------------------------------------------------------
 // Register Copy
 // ---------------------------------------------------------------------------
-
+void AsmGeneratorX86_64::CopyRegINT8(ostream& o, string src, string dest) {
+    if (src != dest) {
+        o << "    movl " << src << ", " << dest << "\n";
+    }
+}
 void AsmGeneratorX86_64::CopyRegINT32(ostream& o, string src, string dest) {
     if (src != dest) {
         o << "    movl " << src << ", " << dest << "\n";
@@ -165,6 +186,9 @@ void AsmGeneratorX86_64::CopyRegFLOAT64(ostream& o, string src, string dest) {
 // ---------------------------------------------------------------------------
 // Stack Operations (Store)
 // ---------------------------------------------------------------------------
+void AsmGeneratorX86_64::StoreStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    movb " << reg32_to_reg8(src) << ", " << dest << "\n";
+}
 
 void AsmGeneratorX86_64::StoreStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << src << ", " << dest << "\n";
@@ -177,6 +201,9 @@ void AsmGeneratorX86_64::StoreStackInstrFLOAT64(ostream& o, string src, string d
 // ---------------------------------------------------------------------------
 // Stack Operations (Load)
 // ---------------------------------------------------------------------------
+void AsmGeneratorX86_64::LoadStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    movsbl " << var_to_asm(src) << ", " << dest << "\n";
+}
 
 void AsmGeneratorX86_64::LoadStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << var_to_asm(src) << ", " << dest << "\n";
@@ -204,7 +231,6 @@ void AsmGeneratorX86_64::AddFLOAT64(ostream& o, string lhs, string rhs, string d
 // ---------------------------------------------------------------------------
 // Subtraction
 // ---------------------------------------------------------------------------
-
 void AsmGeneratorX86_64::SubINT32(ostream& o, string lhs, string rhs, string dest) {
     if (dest != lhs) {
         o << "    movl " << lhs << ", " << dest << "\n";
@@ -221,7 +247,6 @@ void AsmGeneratorX86_64::SubFLOAT64(ostream& o, string lhs, string rhs, string d
 // ---------------------------------------------------------------------------
 // Multiplication
 // ---------------------------------------------------------------------------
-
 void AsmGeneratorX86_64::MulINT32(ostream& o, string lhs, string rhs, string dest) {
     if (dest != lhs)
         o << "    movl " << lhs << ", " << dest << "\n";
@@ -237,7 +262,6 @@ void AsmGeneratorX86_64::MulFLOAT64(ostream& o, string lhs, string rhs, string d
 // ---------------------------------------------------------------------------
 // Division
 // ---------------------------------------------------------------------------
-
 void AsmGeneratorX86_64::DivINT32(ostream& o, string lhs, string rhs, string dest) {
     if (lhs != "%eax")
         o << "    movl " << lhs << ", %eax\n";
@@ -256,6 +280,7 @@ void AsmGeneratorX86_64::DivFLOAT64(ostream& o, string lhs, string rhs, string d
 // ---------------------------------------------------------------------------
 // Modulo
 // ---------------------------------------------------------------------------
+
 
 void AsmGeneratorX86_64::ModINT32(ostream& o, string lhs, string rhs, string dest) {
     if (lhs != "%eax") {
@@ -338,17 +363,13 @@ void AsmGeneratorX86_64::CmpLtINT32(ostream& o, string lhs, string rhs, string d
 }
 
 void AsmGeneratorX86_64::CmpLtFLOAT64(ostream& o, string lhs, string rhs, string dest) {
-    if (lhs != "%xmm0") {
-        o << "    movsd " << lhs << ", %xmm0\n";
-    }
-    o << "    comisd " << rhs << ", %xmm0\n";
-    o << "    setb %al\n";
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    ucomisd " << rhs << ", %xmm0\n";
+    o << "    setl %al\n";
     o << "    setnp %cl\n";
     o << "    andb %cl, %al\n";
     o << "    movzbl %al, %eax\n";
-    if (dest != "%eax") {
-        o << "    movl %eax, " << dest << "\n";
-    }
+    o << "    movl %eax, " << dest << "\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -407,19 +428,6 @@ void AsmGeneratorX86_64::CmpGeINT32(ostream& o, string lhs, string rhs, string d
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) {
-    if (lhs != "%xmm0") {
-        o << "    movsd " << lhs << ", %xmm0\n";
-    }
-    o << "    comisd " << rhs << ", %xmm0\n";
-    o << "    setae %al\n";
-    o << "    movzbl %al, %eax\n";
-    if (dest != "%eax") {
-        o << "    movl %eax, " << dest << "\n";
-    }
-}
-
-
 // ---------------------------------------------------------------------------
 // Logical Operations
 // ---------------------------------------------------------------------------
@@ -465,14 +473,9 @@ void AsmGeneratorX86_64::FToI(ostream& o, string src, string dest) {
     o << "    cvttsd2sil " << src << ", " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::I32ToF64(ostream& o, string src, string dest) {
-    // cvtsi2sdl: convert int32 to double (low)
+void AsmGeneratorX86_64::IToF(ostream& o, string src, string dest) {
+    // cvtsi2sdl: convert 32-bit int (src GPR) to double (dest XMM)
     o << "    cvtsi2sdl " << src << ", " << dest << "\n";
-}
-
-void AsmGeneratorX86_64::I8ToI32(ostream& o, string src, string dest) {
-    // movsbl: move with sign extension from byte to doubleword
-    o << "    movsbl " << src << ", " << dest << "\n";
 }
 
 // ---------------------------------------------------------------------------

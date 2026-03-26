@@ -16,7 +16,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     auto* bb = cfg->current_bb;
     if (var.type == IRType::FLOAT64) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, IRType::FLOAT64));
-        bb->add_IRInstr(new F64ToI32Instr(bb, Reg::RET, Reg::W0));
+        bb->add_IRInstr(new FToIInstr(bb, Reg::RET, Reg::W0));
     } else {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
     }
@@ -41,6 +41,10 @@ antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
 
 antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantContext* ctx) {
     return ::visitDouble_constant(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitChar_constant(ifccParser::Char_constantContext* ctx) {
+    return ::visitChar_constant(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
@@ -326,9 +330,9 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
     
     // Now generate code for the then-branch
     cfg->current_bb = thenBB;
-    if (ctx->statement()) {
+    if (ctx->scope()) {
         // Visit the scope (the if-body)
-        this->visit(ctx->statement());
+        this->visit(ctx->scope());
     }
     // Get the last BB after visiting the then scope (may differ from thenBB if there are nested ifs)
     BasicBlock* lastThenBB = cfg->current_bb;

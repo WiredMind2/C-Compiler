@@ -37,7 +37,7 @@ inline int irtype_size(IRType t) {
 
 inline IRType irtype_from_string(const std::string& str) {
     if (str == "int")    return IRType::INT32;
-    if (str == "char")   return IRType::INT32;
+    if (str == "char")   return IRType::INT8;
     if (str == "double") return IRType::FLOAT64;
     if (str == "long")   return IRType::INT64;
     if (str == "float")  return IRType::FLOAT32;

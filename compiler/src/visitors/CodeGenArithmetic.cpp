@@ -6,6 +6,10 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
 {
     StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
     StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
+    if (left.type != right.type) {
+        std::cerr << "type not identical. Not supported right now" << std::endl;
+        exit(1);
+    }
     return visitor->getCFG()->current_bb->emit_binop<AddInstr>(left, right);
 }
 
@@ -13,6 +17,10 @@ antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::Substractio
 {
     StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
     StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
+    if (left.type != right.type) {
+        std::cerr << "type not identical. Not supported right now" << std::endl;
+        exit(1);
+    }
     return visitor->getCFG()->current_bb->emit_binop<SubInstr>(left, right);
 }
 
@@ -20,6 +28,10 @@ antlrcpp::Any visitMultiplication(CodeGenVisitor* visitor, ifccParser::Multiplic
 {
     StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
     StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
+    if (left.type != right.type) {
+        std::cerr << "type not identical. Not supported right now" << std::endl;
+        exit(1);
+    }
     return visitor->getCFG()->current_bb->emit_binop<MulInstr>(left, right);
 }
 
@@ -27,6 +39,10 @@ antlrcpp::Any visitDivision(CodeGenVisitor* visitor, ifccParser::DivisionContext
 {
     StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
     StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
+    if (left.type != right.type) {
+        std::cerr << "type not identical. Not supported right now" << std::endl;
+        exit(1);
+    }
     return visitor->getCFG()->current_bb->emit_binop<DivInstr>(left, right);
 }
 

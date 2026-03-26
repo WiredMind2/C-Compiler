@@ -35,16 +35,20 @@ public:
 
     //---------------- Visitor methods (one per IRInstr subclass) ----------------
 
+    virtual void ldConstInstrINT8(std::ostream& o, ConstParam src, std::string dest) = 0;
     virtual void ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) = 0;
     virtual void ldConstInstrINT64(std::ostream& o, ConstParam src, std::string dest) = 0;
     virtual void ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) = 0;
 
+    virtual void CopyRegINT8(std::ostream& o, std::string src, std::string dest) = 0;
     virtual void CopyRegINT32(std::ostream& o, std::string src, std::string dest) = 0;
     virtual void CopyRegFLOAT64(std::ostream& o, std::string src, std::string dest) = 0;
 
+    virtual void StoreStackInstrINT8(ostream& o, string src, string dest) = 0;
     virtual void StoreStackInstrINT32(ostream& o, string src, string dest) = 0;
     virtual void StoreStackInstrFLOAT64(ostream& o, string src, string dest) = 0;
 
+    virtual void LoadStackInstrINT8(ostream& o, string src, string dest) = 0;
     virtual void LoadStackInstrINT32(ostream& o, string src, string dest) = 0;
     virtual void LoadStackInstrFLOAT64(ostream& o, string src, string dest) = 0;
 
@@ -80,8 +84,6 @@ public:
     virtual void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) = 0;
-    virtual void CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) = 0;
-
     virtual void LogicalAnd(ostream& o, string lhs, string rhs, string dest) = 0;
 
     virtual void LogicalOr(ostream& o, string lhs, string rhs, string dest) = 0;
@@ -89,9 +91,7 @@ public:
     virtual void Call(ostream& o, string funcLabel, vector<string> args, string dest) = 0;
 
     virtual void FToI(ostream& o, string src, string dest) = 0;
-    virtual void I32ToF64(ostream& o, string src, string dest) = 0;
-    virtual void I8ToI32(ostream& o, string src, string dest) = 0;
-
+    virtual void IToF(ostream& o, string src, string dest) = 0;
     virtual void Ret(ostream& o) = 0;
 
     //---------------- Helper Methods ----------------

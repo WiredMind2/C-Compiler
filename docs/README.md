@@ -4,12 +4,12 @@ A C compiler built with **ANTLR4** and **C++17** that compiles a subset of the C
 
 ## Contributors
 
-- Elise BACHET
 - Clément DUPIC
 - Clément GRENNERAT
 - Clément JACQUIER
 - Léo MARNAS
 - William MICHAUD
+- Elise BACHET
 
 ## Quick Start
 
