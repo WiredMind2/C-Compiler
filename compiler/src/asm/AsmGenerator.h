@@ -95,6 +95,7 @@ public:
     virtual void FToI(ostream& o, string src, string dest) = 0;
     virtual void I32ToF64(ostream& o, string src, string dest) = 0;
     virtual void I8ToI32(ostream& o, string src, string dest) = 0;
+    virtual void I32ToI8(ostream& o, string src, string dest) = 0;
 
     virtual void Ret(ostream& o) = 0;
 

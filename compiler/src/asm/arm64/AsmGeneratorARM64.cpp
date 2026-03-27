@@ -408,3 +408,8 @@ void AsmGeneratorARM64::I8ToI32(ostream& o, string src, string dest) {
     // sxtb: sign extend byte to 32-bit
     o << "    sxtb " << dest << ", " << src << "\n";
 }
+
+void AsmGeneratorARM64::I32ToI8(ostream& o, string src, string dest) {
+    // Truncate int32 to int8: sxtb sign-extends the low byte back to 32-bit
+    o << "    sxtb " << dest << ", " << src << "\n";
+}

@@ -500,6 +500,13 @@ void AsmGeneratorX86_64::I8ToI32(ostream& o, string src, string dest) {
     o << "    movsbl " << reg32_to_reg8(src) << ", " << dest << "\n";
 }
 
+void AsmGeneratorX86_64::I32ToI8(ostream& o, string src, string dest) {
+    // Truncate int32 to int8: keep low byte and sign-extend back to 32-bit
+    if (src != dest)
+        o << "    movl " << src << ", " << dest << "\n";
+    o << "    movsbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
+}
+
 // ---------------------------------------------------------------------------
 // Function Call / Return
 // ---------------------------------------------------------------------------
