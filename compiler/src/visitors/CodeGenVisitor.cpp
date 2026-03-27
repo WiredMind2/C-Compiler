@@ -16,7 +16,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
 
     // when returning something, as opposed to "return ;"
     if (!ctx->expr().empty()) {
-        StackParam var = std::any_cast<StackParam>(this->visit(ctx->expr()[0]));
+        StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()[0]));
 
         const string current_function_name = cfg->getCurrentFunction();
         CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
@@ -330,7 +330,7 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
     // Visit the expression which should leave result in a register
     StackParam condResult("!tmp0", IRType::INT32);
     if (ctx->expr()) {
-        condResult = std::any_cast<StackParam>(this->visit(ctx->expr()));
+        condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
     }
     
     // Set up the control flow from current block
@@ -409,7 +409,7 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
     cfg->current_bb = condBB;
     StackParam condResult("!tmp0", IRType::INT32);
     if (ctx->expr()) {
-        condResult = std::any_cast<StackParam>(this->visit(ctx->expr()));
+        condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
     }
 
     // Condition result determines whether to enter body or exit
@@ -510,7 +510,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     // condition
     cfg->current_bb = condBB;
     if (condExpr != nullptr) {
-        StackParam condResult = std::any_cast<StackParam>(this->visit(condExpr));
+        StackParam condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(condExpr));
         // Get the last block after visiting condition (may have changed due to short-circuit booleans)
         BasicBlock* condEndBB = cfg->current_bb;
         condEndBB->test_var_name = condResult.name;

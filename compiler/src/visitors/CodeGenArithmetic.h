@@ -3,6 +3,7 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include <string>
+#include "utils.h"
 
 /**
  * CodeGenArithmetic - Handles arithmetic operations for code generation

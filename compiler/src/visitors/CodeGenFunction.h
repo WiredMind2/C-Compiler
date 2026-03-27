@@ -3,6 +3,7 @@
 #include <string>
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
+#include "utils.h"
 
 
 /********** CodeGenFunction - Handles function definitions and calls for code generation **********/

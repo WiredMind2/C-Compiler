@@ -3,6 +3,7 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include <string>
+#include "utils.h"
 
 /**
  * CodeGenLogical - Handles logical operations for code generation

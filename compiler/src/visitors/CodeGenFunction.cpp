@@ -86,7 +86,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         exit(1);
     }
     for (int i = 0; i < actualArgs; i++) {
-        StackParam arg = std::any_cast<StackParam>(visitor->visit(ctx->expr(i)));
+        StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(i)));
         if (arg.type != function_signature->paramTypes[i]) {
             std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
                       << irtype_name(function_signature->paramTypes[i]) << ", got " << irtype_name(arg.type) << "." << std::endl;
@@ -105,7 +105,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     auto args = ctx->expr();
     std::vector<Reg> usedArgRegs;
     for (int i = 0; i < static_cast<int>(args.size()) && i < 6; i++) {
-        StackParam argVar = std::any_cast<StackParam>(visitor->visit(args[i]));
+        StackParam argVar = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(args[i]));
         bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
         usedArgRegs.push_back(argRegs[i]);
     }
@@ -118,7 +118,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     function_signature = visitor->getCFG()->get_function(func_name);
 
     if (function_signature->returnType == IRType::VOID) {
-        return nullptr;
+        return {};
     }
 
     // Result stored in RET, then saved to a temp stack slot.
@@ -153,7 +153,7 @@ int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_n
                 return 0;
             }
 
-            StackParam arg = std::any_cast<StackParam>(visitor->visit(ctx->expr(0)));
+            StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(0)));
             return arg.type == IRType::INT32;
         }
 
