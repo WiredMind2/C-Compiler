@@ -167,6 +167,9 @@ void AsmGeneratorARM64::Ret(ostream& o) {
 // Load Constants
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::ldConstInstrINT8(std::ostream& o, ConstParam src, std::string dest) {
+    o << "    mov " << dest << ", #" << src.raw_int() << "\n";
+}
 void AsmGeneratorARM64::ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) {
     int64_t val = src.raw_int();
     uint32_t uval = static_cast<uint32_t>(val & 0xFFFFFFFF);
@@ -207,6 +210,10 @@ void AsmGeneratorARM64::ldConstInstrFLOAT64(std::ostream& o, double src, std::st
 // Register Copy
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::CopyRegINT8(ostream& o, string src, string dest) {
+    if (src != dest)
+        o << "    mov " << dest << ", " << src << "\n";
+}
 void AsmGeneratorARM64::CopyRegINT32(ostream& o, string src, string dest) {
     if (src != dest)
         o << "    mov " << dest << ", " << src << "\n";
@@ -220,6 +227,9 @@ void AsmGeneratorARM64::CopyRegFLOAT64(ostream& o, string src, string dest) {
 // Stack Operations (Load)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::LoadStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    ldrsb " << dest << ", " << var_to_asm(src) << "\n";
+}
 void AsmGeneratorARM64::LoadStackInstrINT32(ostream& o, string src, string dest) {
     o << "    ldr " << dest << ", " << var_to_asm(src) << "\n";
 }
@@ -312,6 +322,9 @@ void AsmGeneratorARM64::CmpGtFLOAT64(ostream& o, string lhs, string rhs, string 
 // Stack Operations (Store)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::StoreStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    strb " << src << ", " << dest << "\n";
+}
 void AsmGeneratorARM64::StoreStackInstrINT32(ostream& o, string src, string dest) {
     o << "    str " << src << ", " << dest << "\n";
 }

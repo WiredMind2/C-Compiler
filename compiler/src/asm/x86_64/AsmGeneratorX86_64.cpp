@@ -135,6 +135,9 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 // Load Constants
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::ldConstInstrINT8(ostream& o, ConstParam constant, string dest) {
+    o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::ldConstInstrINT32(ostream& o, ConstParam constant, string dest) {
     o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
 }
@@ -151,6 +154,22 @@ void AsmGeneratorX86_64::ldConstInstrFLOAT64(ostream& o, double constant, string
 // Register Copy
 // ---------------------------------------------------------------------------
 
+static string reg32_to_reg8(const string& reg32) {
+    if (reg32 == "%eax") return "%al";
+    if (reg32 == "%ecx") return "%cl";
+    if (reg32 == "%edx") return "%dl";
+    if (reg32 == "%ebx") return "%bl";
+    if (reg32 == "%edi") return "%dil";
+    if (reg32 == "%esi") return "%sil";
+    if (reg32 == "%r8d") return "%r8b";
+    if (reg32 == "%r9d") return "%r9b";
+    throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
+}
+
+void AsmGeneratorX86_64::CopyRegINT8(ostream& o, string src, string dest) {
+    if (src != dest)
+        o << "    movl " << src << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::CopyRegINT32(ostream& o, string src, string dest) {
     if (src != dest) {
         o << "    movl " << src << ", " << dest << "\n";
@@ -166,6 +185,9 @@ void AsmGeneratorX86_64::CopyRegFLOAT64(ostream& o, string src, string dest) {
 // Stack Operations (Store)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::StoreStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    movb " << reg32_to_reg8(src) << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::StoreStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << src << ", " << dest << "\n";
 }
@@ -178,6 +200,9 @@ void AsmGeneratorX86_64::StoreStackInstrFLOAT64(ostream& o, string src, string d
 // Stack Operations (Load)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::LoadStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    movsbl " << var_to_asm(src) << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::LoadStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << var_to_asm(src) << ", " << dest << "\n";
 }
@@ -471,8 +496,8 @@ void AsmGeneratorX86_64::I32ToF64(ostream& o, string src, string dest) {
 }
 
 void AsmGeneratorX86_64::I8ToI32(ostream& o, string src, string dest) {
-    // movsbl: move with sign extension from byte to doubleword
-    o << "    movsbl " << src << ", " << dest << "\n";
+    // movsbl: sign-extend byte to doubleword; source must be an 8-bit register
+    o << "    movsbl " << reg32_to_reg8(src) << ", " << dest << "\n";
 }
 
 // ---------------------------------------------------------------------------

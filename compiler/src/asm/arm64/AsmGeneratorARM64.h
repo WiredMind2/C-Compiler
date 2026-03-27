@@ -22,6 +22,7 @@ public:
     //---------------------------------------------------------------------------
     // Load Constants
     //---------------------------------------------------------------------------
+    void ldConstInstrINT8(std::ostream& o, ConstParam src, std::string dest) override;
     void ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) override;
     void ldConstInstrINT64(std::ostream& o, ConstParam src, std::string dest) override;
     void ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) override;
@@ -29,14 +30,17 @@ public:
     //---------------------------------------------------------------------------
     // Register Copy
     //---------------------------------------------------------------------------
+    void CopyRegINT8(ostream& o, string src, string dest) override;
     void CopyRegINT32(ostream& o, string src, string dest) override;
     void CopyRegFLOAT64(ostream& o, string src, string dest) override;
 
     //---------------------------------------------------------------------------
     // Stack Operations (Store/Load)
     //---------------------------------------------------------------------------
+    void StoreStackInstrINT8(ostream& o, string src, string dest) override;
     void StoreStackInstrINT32(ostream& o, string src, string dest) override;
     void StoreStackInstrFLOAT64(ostream& o, string src, string dest) override;
+    void LoadStackInstrINT8(ostream& o, string src, string dest) override;
     void LoadStackInstrINT32(ostream& o, string src, string dest) override;
     void LoadStackInstrFLOAT64(ostream& o, string src, string dest) override;
 
