@@ -10,6 +10,10 @@ void LdConstInstr::accept(AsmGenerator& g, ostream& o) {
     string dest_register = g.reg_to_asm(dest);
 
     switch (type) {
+        case IRType::INT8: {
+            g.ldConstInstrINT8(o, val, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.ldConstInstrINT32(o, val, dest_register);
             break;
@@ -31,6 +35,10 @@ void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     switch (src.type) {
+        case IRType::INT8: {
+            g.CopyRegINT8(o, src_register, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.CopyRegINT32(o, src_register, dest_register);
             break;
@@ -49,6 +57,10 @@ void StoreStackInstr::accept(AsmGenerator& g, ostream& o) {
     string variable_name = g.var_to_asm(dest.name);
 
     switch (type) {
+        case IRType::INT8: {
+            g.StoreStackInstrINT8(o, src_register_string, variable_name);
+            break;
+        }
         case IRType::INT32: {
             g.StoreStackInstrINT32(o, src_register_string, variable_name);
             break;
@@ -67,6 +79,10 @@ void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) {
     string variable_name = src.name;
 
     switch (type) {
+        case IRType::INT8: {
+            g.LoadStackInstrINT8(o, variable_name, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.LoadStackInstrINT32(o, variable_name, dest_register);
             break;
