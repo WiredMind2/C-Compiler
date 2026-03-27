@@ -85,7 +85,7 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
     // Only generate prologue for function entry blocks
     if (isFunctionEntry) {
         // Generate prologue for this function entry block
-        int stackSpace = cfg->calculateRequiredStackSpace();
+        int stackSpace = bb->calculateRequiredStackSpace();
         o << bb->label << ":\n";
         o << "    pushq %rbp\n";
         o << "    movq %rsp, %rbp\n";
