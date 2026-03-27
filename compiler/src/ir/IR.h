@@ -188,7 +188,7 @@ public:
 
 protected:
     int                 nextBBnumber = 0;
-    int                 nextFreeSymbolIndex = -4;
+    int                 nextFreeSymbolIndex = -8;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
     string              currentFunctionName;  // Track current function being processed
