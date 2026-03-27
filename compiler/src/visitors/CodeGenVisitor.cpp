@@ -12,15 +12,38 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
-    StackParam var = std::any_cast<StackParam>(this->visit(ctx->expr()));
     auto* bb = cfg->current_bb;
-    if (var.type == IRType::FLOAT64) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, IRType::FLOAT64));
-        bb->add_IRInstr(new F64ToI32Instr(bb, Reg::RET, Reg::W0));
-    } else {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+
+    // when returning something, as opposed to "return ;"
+    if (!ctx->expr().empty()) {
+        StackParam var = std::any_cast<StackParam>(this->visit(ctx->expr()[0]));
+
+        const string current_function_name = cfg->getCurrentFunction();
+        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
+        const IRType current_function_return_type = current_function_signature->returnType;
+
+        if (var.type != current_function_return_type) {
+            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
+            bb->generate_conversion_instruction(Reg::W0, var.type, Reg::W1, current_function_return_type);
+            bb->add_IRInstr(new CopyRegInstr(bb, Reg::RET, Reg::W1, current_function_return_type));
+        } else {
+            bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+        }
+        bb->add_IRInstr(new RetInstr(bb, var.type));
     }
-    bb->add_IRInstr(new RetInstr(bb, var.type));
+    // empty return
+    else {
+        const string current_function_name = cfg->getCurrentFunction();
+        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
+        const IRType current_function_return_type = current_function_signature->returnType;
+
+        if (current_function_return_type != IRType::VOID) {
+            std::cerr << "Cannot return no value for a non void returning function" << std::endl;
+            exit(1);
+        }
+        bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
+    }
+
     return nullptr;
 }
 
