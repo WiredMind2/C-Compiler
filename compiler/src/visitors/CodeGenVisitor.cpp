@@ -15,8 +15,8 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     auto* bb = cfg->current_bb;
 
     // when returning something, as opposed to "return ;"
-    if (!ctx->expr().empty()) {
-        StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()[0]));
+    if (ctx->expr() != nullptr) {
+        StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
         const string current_function_name = cfg->getCurrentFunction();
         CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
