@@ -166,28 +166,7 @@ int BasicBlock::calculateRequiredStackSpace() {
     assert(cfg && "BasicBlock has no parent CFG; use CFG::calculateRequiredStackSpace instead");
 
     string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
-    if (!funcName.empty()) {
-        // if we're in a function, we look for the
-        CFG::FunctionSignature* sig = cfg->get_function(funcName);
-        if (sig) {
-            int minIndex = 0;
-            for (auto* bb : sig->bbs) {
-                for (const auto& entry : bb->SymbolIndex) {
-                    if (entry.second < minIndex) {
-                        minIndex = entry.second;
-                    }
-                }
-            }
-            int usedSpace = -minIndex;
-            int aligned = usedSpace;
-            if (aligned % 16 != 0)
-                aligned = ((aligned / 16) + 1) * 16;
-            if (aligned < 16) aligned = 16;
-            return aligned;
-        }
-    }
-
-    return cfg->calculateRequiredStackSpace();
+    return cfg->calculateRequiredStackSpace(funcName);
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {
@@ -248,7 +227,31 @@ string CFG::new_BB_name() {
     return "BB" + to_string(nextBBnumber++);
 }
 
-int CFG::calculateRequiredStackSpace() {
+int CFG::calculateRequiredStackSpace(const string& funcName) {
+    if (!funcName.empty()) {
+        FunctionSignature* sig = get_function(funcName);
+        if (sig) {
+            if (sig->cachedStackSpace != -1) {
+                return sig->cachedStackSpace;
+            }
+            int minIndex = 0;
+            for (auto* bb : sig->bbs) {
+                for (const auto& entry : bb->SymbolIndex) {
+                    if (entry.second < minIndex) {
+                        minIndex = entry.second;
+                    }
+                }
+            }
+            int usedSpace = -minIndex;
+            int aligned = usedSpace;
+            if (aligned % 16 != 0)
+                aligned = ((aligned / 16) + 1) * 16;
+            if (aligned < 16) aligned = 16;
+            sig->cachedStackSpace = aligned;
+            return aligned;
+        }
+    }
+
     int usedSpace = -nextFreeSymbolIndex;
     int aligned   = usedSpace;
     if (aligned % 16 != 0)
