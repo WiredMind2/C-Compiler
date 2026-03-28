@@ -86,7 +86,8 @@ public:
 
     virtual void LogicalOr(ostream& o, string lhs, string rhs, string dest) = 0;
 
-    virtual void Call(ostream& o, string funcLabel, vector<string> args, string dest) = 0;
+    virtual void CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) = 0;
+    virtual void CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) = 0;
 
     virtual void FToI(ostream& o, string src, string dest) = 0;
     virtual void I32ToF64(ostream& o, string src, string dest) = 0;

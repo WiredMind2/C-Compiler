@@ -406,7 +406,12 @@ void CallInstr::accept(AsmGenerator& g, ostream& o) {
         arg_registers.push_back(g.reg_to_asm(arg));
     }
     string dest_register = g.reg_to_asm(dest);
-    g.Call(o, funcLabel, arg_registers, dest_register);
+
+    if (dest.type == IRType::FLOAT64) {
+        g.CallWithFLOAT64Return(o, funcLabel, arg_registers, dest_register);
+    } else {
+        g.CallWithINT32Return(o, funcLabel, arg_registers, dest_register);
+    }
 }
 void F64ToI32Instr::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);

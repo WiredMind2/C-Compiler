@@ -8,6 +8,7 @@
 
 antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext *ctx)
 {
+    IRType return_type = irtype_from_string(ctx->type_specifier()->getText());
     std::string func_name = ctx->VAR()->getText();
 
     std::vector<IRType> paramTypes;
@@ -24,7 +25,7 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     BasicBlock* formerBB = visitor->getCFG()->current_bb;
 
     BasicBlock* entryBB = visitor->getCFG()->create_function_entry(
-        func_name, IRType::INT32, paramTypes, paramNames);
+        func_name, return_type, paramTypes, paramNames);
 
     // Push the entry BB onto the scope stack
     visitor->getCFG()->getStackBBs().push_back(entryBB);
@@ -60,17 +61,17 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {
     std::string func_name = ctx->VAR()->getText();
 
-    auto funcInfo = visitor->getCFG()->get_function(func_name);
+    auto function_signature = visitor->getCFG()->get_function(func_name);
 
     // Handle standard library functions when not previously declared.
-    if (funcInfo == nullptr) {
+    if (function_signature == nullptr) {
         if (isFunctionStandardLibrary(visitor, func_name, ctx)) {
             visitor->getCFG()->add_function(
                 func_name,
                 IRType::INT32,
                 std::vector<IRType>(ctx->expr().size(), IRType::INT32),
                 std::vector<std::string>());
-            funcInfo = visitor->getCFG()->get_function(func_name);
+            function_signature = visitor->getCFG()->get_function(func_name);
         } else {
             std::cerr << "Error: call to undeclared function '" << func_name << "'." << std::endl;
             exit(1);
@@ -78,17 +79,17 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     }
 
     // Check call arity and argument types against declaration/definition.
-    int expectedArgs = static_cast<int>(funcInfo->paramTypes.size());
+    int expectedArgs = static_cast<int>(function_signature->paramTypes.size());
     int actualArgs = static_cast<int>(ctx->expr().size());
     if (actualArgs > expectedArgs) {
         std::cerr << "Error: too many arguments in call to '" << func_name << "'. Expected " << expectedArgs << ", got " << actualArgs << "." << std::endl;
         exit(1);
     }
     for (int i = 0; i < actualArgs; i++) {
-        StackParam arg = std::any_cast<StackParam>(visitor->visit(ctx->expr(i)));
-        if (arg.type != funcInfo->paramTypes[i]) {
+        StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(i)));
+        if (arg.type != function_signature->paramTypes[i]) {
             std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
-                      << irtype_name(funcInfo->paramTypes[i]) << ", got " << irtype_name(arg.type) << "." << std::endl;
+                      << irtype_name(function_signature->paramTypes[i]) << ", got " << irtype_name(arg.type) << "." << std::endl;
             exit(1);
         }
     }
@@ -104,17 +105,27 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     auto args = ctx->expr();
     std::vector<Reg> usedArgRegs;
     for (int i = 0; i < static_cast<int>(args.size()) && i < 6; i++) {
-        StackParam argVar = std::any_cast<StackParam>(visitor->visit(args[i]));
+        StackParam argVar = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(args[i]));
         bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
         usedArgRegs.push_back(argRegs[i]);
     }
 
-    // Result stored in RET, then saved to a temp stack slot.
-    std::string resultTmp = bb->create_new_tempvar(IRType::INT32);
+    // Generate the call instruction
     bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs));
-    bb->add_IRInstr(new StoreStackInstr(bb, resultTmp, Reg::RET));
 
-    return StackParam(resultTmp, IRType::INT32);
+    // Get the signature again (maybe it was added above because it is a standard library function)
+    func_name = ctx->VAR()->getText();
+    function_signature = visitor->getCFG()->get_function(func_name);
+
+    if (function_signature->returnType == IRType::VOID) {
+        return {};
+    }
+
+    // Result stored in RET, then saved to a temp stack slot.
+    std::string resultTmp = bb->create_new_tempvar(function_signature->returnType);
+    bb->add_IRInstr(new StoreStackInstr(bb, resultTmp, Reg::RET, function_signature->returnType));
+
+    return StackParam(resultTmp, function_signature->returnType);
 }
 
 
@@ -142,7 +153,7 @@ int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_n
                 return 0;
             }
 
-            StackParam arg = std::any_cast<StackParam>(visitor->visit(ctx->expr(0)));
+            StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(0)));
             return arg.type == IRType::INT32;
         }
 

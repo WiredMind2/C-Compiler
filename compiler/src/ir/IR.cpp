@@ -22,7 +22,7 @@ BasicBlock::BasicBlock(CFG* cfg, string entry_label, bool is_loop)
 }
 
 void BasicBlock::reset_symbol_index() {
-    cfg->setNextFreeSymbolIndex(-4);
+    cfg->setNextFreeSymbolIndex(-8);
 }
 
 void BasicBlock::gen_asm(ostream& o) {
@@ -181,7 +181,7 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
-    nextFreeSymbolIndex = -4;
+    nextFreeSymbolIndex = -8;
     current_bb   = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
 
