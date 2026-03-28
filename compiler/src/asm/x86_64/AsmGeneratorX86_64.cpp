@@ -216,13 +216,13 @@ void AsmGeneratorX86_64::StoreStackInstrFLOAT64(ostream& o, string src, string d
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::LoadStackInstrINT8(ostream& o, string src, string dest) {
-    o << "    movsbl " << src << ", " << dest << "\n";
+    o << "    movsbl " << var_to_asm(src) << ", " << dest << "\n";
 }
 void AsmGeneratorX86_64::LoadStackInstrINT32(ostream& o, string src, string dest) {
-    o << "    movl " << src << ", " << dest << "\n";
+    o << "    movl " << var_to_asm(src) << ", " << dest << "\n";
 }
 void AsmGeneratorX86_64::LoadStackInstrFLOAT64(ostream& o, string src, string dest) {
-    o << "    movsd " << src << ", " << dest << "\n";
+    o << "    movsd " << var_to_asm(src) << ", " << dest << "\n";
 }
 
 // ---------------------------------------------------------------------------

@@ -592,22 +592,24 @@ antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx
 {
     (void)ctx;
 
-    // Find nearest enclosing loop block and jump to its break target.
+    // Find nearest enclosing loop OR switch block and jump to its break target.
     BasicBlock* currentBB = cfg->current_bb;
     BasicBlock* targetBB = nullptr;
     std::vector<BasicBlock*> bbStack = cfg->getStackBBs();
     for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
         BasicBlock* bb = *it;
-        if (bb->is_loop) {
+        if (bb->loop_break_target != nullptr) {
             targetBB = bb->loop_break_target;
             break;
         }
     }
 
     if (targetBB) {
-        currentBB->exit_true = targetBB;
+        currentBB->exit_true  = targetBB;
+        currentBB->exit_false = nullptr;
+        currentBB->test_var_name = "";
     } else {
-        std::cerr << "Error: 'break' statement not within a loop." << std::endl;
+        std::cerr << "Error: 'break' statement not within a loop or switch." << std::endl;
         exit(1);
     }
     return nullptr;
@@ -636,4 +638,134 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
         exit(1);
     }
     return nullptr;
+}
+
+antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx)
+{
+    CFG* cfg = this->cfg;
+    StackParam switchExpr = std::any_cast<StackParam>(this->visit(ctx->expr()));
+
+    if (switchExpr.type != IRType::INT32 && switchExpr.type != IRType::INT64) {
+        std::cerr << "Error: switch expression must be of integer type." << std::endl;
+        exit(1);
+    }
+
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    cfg->add_bb(afterBB);
+
+    int nCases = static_cast<int>(ctx->case_block().size());
+    bool hasDefault = (ctx->default_block() != nullptr);
+
+    std::vector<int> caseValues;
+    for (auto caseBlockCtx : ctx->case_block()) {
+        int caseValue = std::stoi(caseBlockCtx->CONST()->getText());
+        if (std::find(caseValues.begin(), caseValues.end(), caseValue) != caseValues.end()) {
+            std::cerr << "Error: duplicate case value " << caseValue
+                      << " in switch statement." << std::endl;
+            exit(1);
+        }
+        caseValues.push_back(caseValue);
+    }
+
+    BasicBlock* scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
+    scopeBB->functionName = cfg->current_bb->functionName;
+    scopeBB->loop_break_target = afterBB;
+    cfg->add_bb(scopeBB);
+
+    std::vector<BasicBlock*> caseBBs;
+    for (int i = 0; i < nCases; i++) {
+        BasicBlock* bb = new BasicBlock(cfg, cfg->new_BB_name());
+        bb->functionName = scopeBB->functionName;
+        bb->loop_break_target = afterBB;
+        cfg->add_bb(bb);
+        caseBBs.push_back(bb);
+    }
+
+    BasicBlock* defaultBB = nullptr;
+    if (hasDefault) {
+        defaultBB = new BasicBlock(cfg, cfg->new_BB_name());
+        defaultBB->functionName = scopeBB->functionName;
+        defaultBB->loop_break_target = afterBB;
+        cfg->add_bb(defaultBB);
+    }
+
+    BasicBlock* dispatchBB = cfg->current_bb;
+
+    for (int i = 0; i < nCases; i++) {
+        dispatchBB->add_IRInstr(
+            new LdConstInstr(dispatchBB, Reg::W1, switchExpr.type,
+                             static_cast<int64_t>(caseValues[i])));
+        dispatchBB->add_IRInstr(
+            new LoadStackInstr(dispatchBB, Reg::W0, switchExpr.name, switchExpr.type));
+        dispatchBB->add_IRInstr(
+            new CmpEqInstr(dispatchBB, Reg::W0, Reg::W0, Reg::W1, switchExpr.type));
+
+        std::string cmpTmp = dispatchBB->create_new_tempvar(IRType::INT32);
+        dispatchBB->add_IRInstr(
+            new StoreStackInstr(dispatchBB, cmpTmp, Reg::W0, IRType::INT32));
+
+        dispatchBB->test_var_name = cmpTmp;
+        dispatchBB->exit_true     = caseBBs[i];
+
+        if (i < nCases - 1) {
+            BasicBlock* nextDispatch = new BasicBlock(cfg, cfg->new_BB_name());
+            cfg->add_bb(nextDispatch);
+            dispatchBB->exit_false = nextDispatch;
+            dispatchBB = nextDispatch;
+        } else {
+            dispatchBB->exit_false = defaultBB ? defaultBB : afterBB;
+        }
+    }
+
+    if (nCases == 0) {
+        dispatchBB->exit_true  = defaultBB ? defaultBB : afterBB;
+        dispatchBB->exit_false = nullptr;
+    }
+
+    cfg->getStackBBs().push_back(scopeBB);
+    cfg->decl_target_bb = scopeBB;
+
+    for (int i = 0; i < nCases; i++) {
+        BasicBlock* fallThrough = (i + 1 < nCases) ? caseBBs[i + 1]
+                                : (hasDefault       ? defaultBB
+                                                    : afterBB);
+        cfg->current_bb = caseBBs[i];
+
+        for (auto stmt : ctx->case_block(i)->statement()) {
+            this->visit(stmt);
+            // After visiting a statement (especially scopes), restore current_bb to the case BB
+            // This ensures that if a scope changed current_bb, we return to the case block
+            cfg->current_bb = caseBBs[i];
+        }
+
+        BasicBlock* lastBB = cfg->current_bb;
+        if (lastBB->exit_true == nullptr &&
+            (lastBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+            lastBB->exit_true = fallThrough;
+        }
+    }
+
+    if (hasDefault) {
+        cfg->current_bb = defaultBB;
+
+        for (auto stmt : ctx->default_block()->statement()) {
+            this->visit(stmt);
+            // After visiting a statement (especially scopes), restore current_bb to the default BB
+            cfg->current_bb = defaultBB;
+        }
+
+        BasicBlock* lastBB = cfg->current_bb;
+        if (lastBB->exit_true == nullptr &&
+            (lastBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+            lastBB->exit_true = afterBB;
+        }
+    }
+
+    cfg->decl_target_bb = nullptr;
+    cfg->getStackBBs().pop_back();
+
+    cfg->current_bb = afterBB;
+    return 0;
 }

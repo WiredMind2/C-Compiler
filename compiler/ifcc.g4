@@ -25,8 +25,8 @@ else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
 switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
-case_block : 'case' CONST ':' statement* ;
-default_block : 'default' ':' statement* ;
+case_block : 'case' CONST ':' (statement* | scope) ;
+default_block : 'default' ':' (statement* | scope) ;
 break_stmt : 'break' ';' ;
 continue_stmt : 'continue' ';' ;
 

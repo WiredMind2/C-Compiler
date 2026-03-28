@@ -93,23 +93,19 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
 // ============================================================
 
 void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
-    // Allow duplicate temp variables (they're local to each BB's computation)
-    // Temp variables start with "!tmp"
+    BasicBlock* target = (cfg && cfg->decl_target_bb) ? cfg->decl_target_bb : this;
+
     if (name.substr(0, 4) != "!tmp") {
-        // Only reject redeclarations within the *same* scope (same BB).
-        // A variable in an outer BB may be shadowed by one in an inner BB.
-        if (SymbolIndex.find(name) != SymbolIndex.end()) {
+        if (target->SymbolIndex.find(name) != target->SymbolIndex.end()) {
             cerr << "Error: Variable " << name
                  << " already defined in the current scope." << endl;
             exit(1);
         }
     }
-    // Allocate at least 4 bytes per variable to keep the stack aligned.
-    // Small types like char (1 byte) are padded to 4; larger types keep their natural size.
     int size = irtype_size(t);
     int alloc = (size < 4) ? 4 : size;
-    SymbolType[name] = t;
-    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    target->SymbolType[name] = t;
+    target->SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
     cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - alloc);
 }
 

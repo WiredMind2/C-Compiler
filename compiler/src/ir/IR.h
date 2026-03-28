@@ -168,6 +168,7 @@ public:
     vector<BasicBlock*>& getStackBBs() { return bbStack; }
 
     BasicBlock* current_bb;
+    BasicBlock* decl_target_bb = nullptr;
 
     struct FunctionSignature {
         string           name, label;
