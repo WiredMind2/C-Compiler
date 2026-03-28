@@ -5,6 +5,7 @@
 #include <iostream>
 
 enum class IRType {
+    VOID,
     INT8,     ///< (C char)
     INT32,    ///< 32-bit signed integer  (C int)
     INT64,    ///< 64-bit signed integer  (C long)
@@ -30,6 +31,7 @@ inline std::string irtype_name(IRType t) {
 
 inline int irtype_size(IRType t) {
     switch (t) {
+        case IRType::VOID:    throw std::runtime_error("Void has no size");
         case IRType::INT8:
             return 1;
         case IRType::INT32:
@@ -45,6 +47,7 @@ inline int irtype_size(IRType t) {
 }
 
 inline IRType irtype_from_string(const std::string& str) {
+    if (str == "void") return IRType::VOID;
     if (str == "char") return IRType::INT8;
 
     if (str == "int") return IRType::INT32;

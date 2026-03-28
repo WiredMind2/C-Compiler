@@ -84,7 +84,7 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
     IRType variable_type = irtype_from_string(ctx->type_specifier()->getText());
     visitor->getCFG()->current_bb->add_var_to_symbol_table(var, variable_type);
 
-    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->expr()));
+    StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr()));
 
     auto* bb = visitor->getCFG()->current_bb;
 
@@ -102,7 +102,7 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
 {
     string var = ctx->VAR()->getText();
-    StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
+    StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->compoundAssignment()));
 
     auto* bb = visitor->getCFG()->current_bb;
     IRType type = bb->get_var_type(var);

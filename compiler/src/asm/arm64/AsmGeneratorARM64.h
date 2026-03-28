@@ -94,7 +94,8 @@ public:
     //---------------------------------------------------------------------------
     // Function Call / Return
     //---------------------------------------------------------------------------
-    void Call(ostream& o, string funcLabel, vector<string> args, string dest) override;
+    void CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) override;
+    void CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) override;
     void Ret(ostream& o) override;
 
     //---------------------------------------------------------------------------

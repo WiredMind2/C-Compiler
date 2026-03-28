@@ -19,6 +19,7 @@ class CFG;
 // ============================================================
 
 class BasicBlock {
+    friend class CFG;
 public:
     BasicBlock(CFG* cfg, string entry_label, bool is_loop = false);
     void gen_asm(ostream& o);
@@ -151,7 +152,7 @@ public:
     void gen_asm_epilogue(ostream& o);
     void gen_control_flow(ostream& o, BasicBlock* bb);
 
-    int  calculateRequiredStackSpace();
+    int  calculateRequiredStackSpace(const string& funcName = "");
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();
@@ -171,6 +172,7 @@ public:
         vector<string>   paramNames;
         BasicBlock*      entryBB = nullptr;
         vector<BasicBlock*> bbs;  // Basic blocks for this function
+        int              cachedStackSpace = -1; // -1 indicates not computed yet
     };
 
     void               add_function(string name, IRType returnType,
@@ -188,7 +190,7 @@ public:
 
 protected:
     int                 nextBBnumber = 0;
-    int                 nextFreeSymbolIndex = -4;
+    int                 nextFreeSymbolIndex = -8;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
     string              currentFunctionName;  // Track current function being processed

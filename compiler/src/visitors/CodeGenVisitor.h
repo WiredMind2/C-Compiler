@@ -3,6 +3,7 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include "../ir/IR.h"
+#include "utils.h"
 #include "CodeGenArithmetic.h"
 #include "CodeGenBitwise.h"
 #include "CodeGenComparison.h"

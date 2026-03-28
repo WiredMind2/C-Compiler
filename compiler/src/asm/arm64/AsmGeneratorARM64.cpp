@@ -148,7 +148,7 @@ void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string des
 // Function Call / Return
 // ---------------------------------------------------------------------------
 
-void AsmGeneratorARM64::Call(ostream& o, string funcLabel, vector<string> args, string dest) {
+void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
     int numArgs = (int) args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
         string dst = "w" + to_string(i);
@@ -159,6 +159,20 @@ void AsmGeneratorARM64::Call(ostream& o, string funcLabel, vector<string> args, 
     if (dest != "w0")
         o << "    mov " << dest << ", w0\n";
 }
+
+void AsmGeneratorARM64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
+    int numArgs = (int) args.size();
+    for (int i = 0; i < numArgs && i < 6; i++) {
+        string dst = "w" + to_string(i);
+        if (args[i] != dst)
+            o << "    mov " << dst << ", " << args[i] << "\n";
+    }
+    o << "    bl " << funcLabel << "\n";
+    if (dest != "v0") {
+        o << "    mov " << dest << ", v0\n";
+    }
+}
+
 void AsmGeneratorARM64::Ret(ostream& o) {
     o << "    ret\n";
 }

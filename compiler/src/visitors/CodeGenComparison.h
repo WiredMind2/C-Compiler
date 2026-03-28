@@ -2,6 +2,7 @@
 
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
+#include "utils.h"
 
 /**
  * CodeGenComparison - Handles comparison operations for code generation

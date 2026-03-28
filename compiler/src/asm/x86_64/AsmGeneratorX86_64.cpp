@@ -85,7 +85,7 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
     // Only generate prologue for function entry blocks
     if (isFunctionEntry) {
         // Generate prologue for this function entry block
-        int stackSpace = cfg->calculateRequiredStackSpace();
+        int stackSpace = bb->calculateRequiredStackSpace();
         o << bb->label << ":\n";
         o << "    pushq %rbp\n";
         o << "    movq %rsp, %rbp\n";
@@ -526,15 +526,28 @@ void AsmGeneratorX86_64::I32ToI8(ostream& o, string src, string dest) {
 // Function Call / Return
 // ---------------------------------------------------------------------------
 
-void AsmGeneratorX86_64::Call(ostream& o, string funcLabel, vector<string> args, string dest) {
+void AsmGeneratorX86_64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
     static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
     for (int i = 0; i < args.size() && i < 6; i++) {
         string r32 = args[i];
         o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
     }
     o << "    call " << funcLabel << "\n";
-    if (dest != "%eax")
+    if (dest != "%eax") {
         o << "    movl %eax, " << dest << "\n";
+    }
+}
+
+void AsmGeneratorX86_64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
+    static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+    for (int i = 0; i < args.size() && i < 6; i++) {
+        string r32 = args[i];
+        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+    }
+    o << "    call " << funcLabel << "\n";
+    if (dest != "%xmm0") {
+        o << "    movsd %xmm0, " << dest << "\n";
+    }
 }
 
 void AsmGeneratorX86_64::Ret(ostream& o) {

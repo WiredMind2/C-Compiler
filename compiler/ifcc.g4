@@ -6,7 +6,7 @@ prog : statement* ;
 
 statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | break_stmt | continue_stmt | var_decl | declaration_list | var_decl_with_init ;
 
-return_stmt: RETURN expr ;
+return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 

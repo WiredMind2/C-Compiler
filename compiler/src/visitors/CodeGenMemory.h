@@ -2,6 +2,7 @@
 
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
+#include "utils.h"
 
 /**
  * CodeGenMemory - Handles memory and variable operations for code generation
