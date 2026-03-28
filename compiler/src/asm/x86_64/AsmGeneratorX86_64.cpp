@@ -12,6 +12,7 @@ AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 // Helpers
 // ---------------------------------------------------------------------------
 
+// convert a IR register into a machine register.
 string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
     // For FLOAT64, map working registers to XMM registers
     if (p.type == IRType::FLOAT64) {
@@ -93,12 +94,17 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
 
         // Copy parameters from ABI registers to stack slots (System V ABI)
         // Parameters are stored at positive offsets: 16(%rbp), 24(%rbp), ...
-        static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        static const string integer_arg_register[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        static const string double_arg_register[] = {"%xmm0", "%xmm1", "%xmm2", "%xmm3","%xmm4", "%xmm5"};
         if (sig) {
             int numParams = (int)sig->paramNames.size();
             for (int i = 0; i < numParams && i < 6; i++) {
                 int offset = 16 + i * 8;
-                o << "    movq " << argRegs64[i] << ", " << offset << "(%rbp)\n";
+                if (sig->paramTypes[i] == IRType::INT32) {
+                    o << "    movq " << integer_arg_register[i] << ", " << offset << "(%rbp)\n";
+                } else if (sig->paramTypes[i] == IRType::FLOAT64) {
+                    o << "    movsd " << double_arg_register[i] << ", " << offset << "(%rbp)\n";
+                }
             }
         }
     } else {
@@ -527,11 +533,19 @@ void AsmGeneratorX86_64::I32ToI8(ostream& o, string src, string dest) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
-    static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+    // we need to extend the 32 bits integer stored in %edi, %esi, ... into 64 bits as this is the ABI standard
+    static const string integer_argument_register[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+
+    int index_in_interger_argument_register = 0;
     for (int i = 0; i < args.size() && i < 6; i++) {
-        string r32 = args[i];
-        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+        // if the parameter is NOT a double one
+        if (!args[i].starts_with("%x")) {
+            // we generate the instruction to extend %edi, %esi, ... into %rdi, %rsi
+            o << "    movslq " << args[i] << ", " << integer_argument_register[index_in_interger_argument_register] << "\n";
+            index_in_interger_argument_register++;
+        }
     }
+
     o << "    call " << funcLabel << "\n";
     if (dest != "%eax") {
         o << "    movl %eax, " << dest << "\n";

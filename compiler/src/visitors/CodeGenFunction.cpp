@@ -16,7 +16,8 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            IRType type = irtype_from_string(param->type_specifier()->getText());
+            paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
     }
@@ -49,7 +50,8 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            IRType type = irtype_from_string(ctx->type_specifier()->getText());
+            paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
     }
