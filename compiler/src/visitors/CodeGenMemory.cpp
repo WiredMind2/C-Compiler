@@ -53,11 +53,14 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
         auto* bb = visitor->getCFG()->current_bb;
         if (decl->CONST()) {
             int numElements = std::stoi(decl->CONST()->getText());
-            int totalSize = numElements * 4; // Assume 4 bytes for int
+            int elemSize = irtype_size(baseType);
+            int totalSize = numElements * elemSize;
             int offset = bb->allocate_bytes_on_symbol_table(totalSize);
             // Register the array base as a symbol at the reserved offset (no extra allocation)
             bb->add_param_to_symbol_table(var, IRType::POINTER, offset);
             bb->set_is_array(var, true);
+            // Record element type for correct indexing/scaling
+            visitor->getCFG()->set_array_element_type(var, baseType);
         } else {
             bb->add_var_to_symbol_table(var, type);
         }
@@ -120,7 +123,10 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
                     // Multiply index by size (assuming 4 for now)
                     // We do INT32 multiplication, the result in W1.
-                    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+                    // Determine element size for scaling
+                    int elemSize = irtype_size(IRType::INT32);
+                    if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+                    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
                     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
                     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
@@ -146,7 +152,9 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                     
                     string addrTmp = bb->create_new_tempvar(IRType::POINTER);
                     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
-                    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+                    int elemSize = irtype_size(IRType::INT32);
+                    if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+                    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
                     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
                     
                     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
@@ -157,10 +165,11 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 
                 // If parenthesis e.g. *(p+1), prim is parenthesis, which falls back to its rvalue evaluation
                 StackParam rvalue = std::any_cast<StackParam>(visitor->visit(prim));
-                // The rvalue is stored in a temporary variable.
-                // We return the memory address of this temporary variable so that
-                // upstream dereferences (the '* lvalue' case) correctly load this rvalue
-                // before doing their LoadPointerInstr.
+                // If the rvalue already holds a pointer, treat it as the address directly.
+                if (rvalue.type == IRType::POINTER) {
+                    return rvalue;
+                }
+                // For non-pointer rvalues, fall back to taking the address of the temporary
                 string addrTmp = bb->create_new_tempvar(IRType::POINTER);
                 bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, rvalue.name));
                 bb->add_IRInstr(new StoreStackInstr(bb, addrTmp, Reg::W0, IRType::POINTER));
@@ -216,7 +225,10 @@ antlrcpp::Any visitDereference(CodeGenVisitor* visitor, ifccParser::DereferenceC
 antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfContext *ctx) {
     auto* bb = visitor->getCFG()->current_bb;
     ifccParser::PrimitiveExprRefContext* primRefCtx = dynamic_cast<ifccParser::PrimitiveExprRefContext*>(ctx->unary());
-    if (!primRefCtx) return StackParam("", IRType::INT32);
+    if (!primRefCtx) {
+        cerr << "error: unsupported form for '&' operator" << endl;
+        exit(1);
+    }
     
     ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(primRefCtx->primitive());
     if (varCtx) {
@@ -234,7 +246,9 @@ antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfConte
         
         string tmp1 = bb->create_new_tempvar(IRType::POINTER);
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
-        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+        int elemSize = irtype_size(IRType::INT32);
+        if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
         bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
         
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
@@ -243,7 +257,8 @@ antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfConte
         return StackParam(tmp1, IRType::POINTER);
     }
 
-    return StackParam("", IRType::INT32);
+    cerr << "error: unsupported form for '&' operator" << endl;
+    exit(1);
 }
 
 antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_subscriptContext *ctx) {
@@ -254,8 +269,9 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
     // address = base + index * size
     string tmp1 = bb->create_new_tempvar(IRType::POINTER);
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
-    // Multiply index by size (assuming 4 for now)
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+    int elemSize = irtype_size(IRType::INT32);
+    if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
     
     // Add to base

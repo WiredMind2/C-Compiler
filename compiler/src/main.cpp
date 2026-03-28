@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstring>
 
 #include "antlr4-runtime.h"
 #include "generated/ifccLexer.h"
@@ -21,20 +22,23 @@ TargetArch DEFAULT_ARCH = TargetArch::ARM64;
 TargetArch DEFAULT_ARCH = TargetArch::X86_64;
 #endif
 
-int main(int argn, const char **argv) {
+int main(int argc, char** argv) {
     stringstream in;
     TargetArch arch = DEFAULT_ARCH;
     const char *filename = nullptr;
+    bool dump_ir = false;
 
-    for (int i = 1; i < argn; i++) {
+    for (int i = 1; i < argc; i++) {
         string arg = argv[i];
-        if (arg == "--arch" && i + 1 < argn) {
+        if (arg == "--arch" && i + 1 < argc) {
             string archStr = argv[++i];
             if (archStr == "arm") {
                 arch = TargetArch::ARM64;
             } else if (archStr == "x86") {
                 arch = TargetArch::X86_64;
             }
+        } else if (arg == "--dump-ir") {
+            dump_ir = true;
         } else if (filename == nullptr) {
             filename = argv[i];
         }
@@ -75,11 +79,12 @@ int main(int argn, const char **argv) {
     optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
     optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
     optimizer.runOptimizations(cfg);
-
-    // Dump symbol table and IR instructions for debugging
-    cfg->dump_symbol_table(std::cerr);
-    cfg->dump_instructions(std::cerr);
-
+    // If the user passed --dump-ir, enable IR-as-assembly comments and dump
+    if (dump_ir) {
+        cfg->set_emit_ir_comments(true);
+        cfg->dump_symbol_table(std::cerr);
+        cfg->dump_instructions(std::cerr);
+    }
     cfg->gen_asm(cout);
 
     return 0;

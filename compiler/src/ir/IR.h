@@ -103,6 +103,7 @@ protected:
     map<string, IRType> SymbolType;
     map<string, int>    SymbolIndex;
     map<string, bool>   isArrayMap;
+    map<string, IRType> arrayElementType;
 
     friend class CFG;
 };
@@ -125,9 +126,17 @@ public:
     void dump_symbol_table(std::ostream &o);
     void dump_instructions(std::ostream &o);
 
+    // Control whether IR is emitted as assembly comments
+    void set_emit_ir_comments(bool enabled);
+    bool get_emit_ir_comments() const;
+
     string create_new_tempvar(IRType t);
 
     int  calculateRequiredStackSpace();
+
+    // Array element type helpers
+    void set_array_element_type(const string& name, IRType t) { entry_bb->arrayElementType[name] = t; }
+    IRType get_array_element_type(const string& name) const;
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();

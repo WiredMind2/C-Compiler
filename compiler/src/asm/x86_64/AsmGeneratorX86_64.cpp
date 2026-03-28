@@ -155,8 +155,13 @@ void AsmGeneratorX86_64::visit(ostream& o, CopyRegInstr& instr) {
     if (instr.type == IRType::INT32) {
         if (src != dest) o << "    movl " << src << ", " << dest << "\n";
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        // CopyRegInstr is a bitwise copy. Do not implicitly sign-extend.
         if (instr.src.type == IRType::INT32) {
-            o << "    movslq " << src << ", " << dest << "\n";
+            // Zero-extend the 32-bit source into the 64-bit destination by
+            // emitting a 32-bit move into the destination's 32-bit alias.
+            RegParam dest32(instr.dest.reg, IRType::INT32);
+            if (reg_to_asm(instr.src) != reg_to_asm(dest32))
+                o << "    movl " << reg_to_asm(instr.src) << ", " << reg_to_asm(dest32) << "\n";
         } else if (src != dest) {
             o << "    movq " << src << ", " << dest << "\n";
         }

@@ -9,6 +9,9 @@
 
 using namespace std;
 
+// Global toggle for emitting IR as assembly comments
+bool g_emit_ir_as_asm_comments = false;
+
 // ============================================================
 //  BasicBlock
 // ============================================================
@@ -150,9 +153,10 @@ void CFG::dump_instructions(std::ostream &o) {
 }
 
 void CFG::gen_asm_instr(ostream &o, IRInstr *instr) {
-    // Also print IR comments to stderr for easier debugging
-    cerr << ";   " << instr->to_string() << endl;
-    o << ";   " << instr->to_string() << "\n";
+    if (g_emit_ir_as_asm_comments) {
+        cerr << ";   " << instr->to_string() << endl;
+        o << ";   " << instr->to_string() << "\n";
+    }
     asmGenerator->gen_asm_instr(o, instr);
 }
 
@@ -177,10 +181,8 @@ string CFG::create_new_tempvar(IRType t) {
 }
 
 int CFG::calculateRequiredStackSpace() {
-    int space = 0;
-    for (BasicBlock *bb: getBBs())
-        space += bb->calculateRequiredStackSpace();
-    return space;
+    // Use entry_bb as the single source of truth for frame layout
+    return entry_bb->calculateRequiredStackSpace();
 }
 
 BasicBlock *CFG::findBBByVariable(const string &var) {
@@ -188,6 +190,21 @@ BasicBlock *CFG::findBBByVariable(const string &var) {
         if (bb->SymbolIndex.find(var) != bb->SymbolIndex.end()) return bb;
     }
     return nullptr;
+}
+
+IRType CFG::get_array_element_type(const string &name) const {
+    if (entry_bb && entry_bb->arrayElementType.find(name) != entry_bb->arrayElementType.end())
+        return entry_bb->arrayElementType.at(name);
+    // Fallback to INT32 if unknown
+    return IRType::INT32;
+}
+
+void CFG::set_emit_ir_comments(bool enabled) {
+    g_emit_ir_as_asm_comments = enabled;
+}
+
+bool CFG::get_emit_ir_comments() const {
+    return g_emit_ir_as_asm_comments;
 }
 
 void CFG::add_function(string name, IRType returnType,
