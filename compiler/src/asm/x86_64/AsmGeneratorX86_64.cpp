@@ -132,11 +132,27 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+static string reg32_to_reg8(const string& reg32) {
+    if (reg32 == "%eax") return "%al";
+    if (reg32 == "%ecx") return "%cl";
+    if (reg32 == "%edx") return "%dl";
+    if (reg32 == "%ebx") return "%bl";
+    if (reg32 == "%edi") return "%dil";
+    if (reg32 == "%esi") return "%sil";
+    if (reg32 == "%r8d") return "%r8b";
+    if (reg32 == "%r9d") return "%r9b";
+    throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
+}
+
+// ---------------------------------------------------------------------------
 // Load Constants
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::ldConstInstrINT8(ostream& o, ConstParam constant, string dest) {
-    o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
+    o << "    movb $" << constant.raw_int() << ", " << reg32_to_reg8(dest) << "\n";
 }
 void AsmGeneratorX86_64::ldConstInstrINT32(ostream& o, ConstParam constant, string dest) {
     o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
@@ -154,21 +170,9 @@ void AsmGeneratorX86_64::ldConstInstrFLOAT64(ostream& o, double constant, string
 // Register Copy
 // ---------------------------------------------------------------------------
 
-static string reg32_to_reg8(const string& reg32) {
-    if (reg32 == "%eax") return "%al";
-    if (reg32 == "%ecx") return "%cl";
-    if (reg32 == "%edx") return "%dl";
-    if (reg32 == "%ebx") return "%bl";
-    if (reg32 == "%edi") return "%dil";
-    if (reg32 == "%esi") return "%sil";
-    if (reg32 == "%r8d") return "%r8b";
-    if (reg32 == "%r9d") return "%r9b";
-    throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
-}
-
 void AsmGeneratorX86_64::CopyRegINT8(ostream& o, string src, string dest) {
     if (src != dest)
-        o << "    movl " << src << ", " << dest << "\n";
+        o << "    movb " << reg32_to_reg8(src) << ", " << reg32_to_reg8(dest) << "\n";
 }
 void AsmGeneratorX86_64::CopyRegINT32(ostream& o, string src, string dest) {
     if (src != dest) {

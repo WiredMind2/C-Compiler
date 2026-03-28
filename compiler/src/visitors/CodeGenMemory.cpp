@@ -25,7 +25,25 @@ antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_c
 
 antlrcpp::Any visitChar_constant(CodeGenVisitor* visitor, ifccParser::Char_constantContext *ctx)
 {
-    int8_t val = static_cast<int8_t>(ctx->CHAR_CONST()->getText()[1]);
+    string text = ctx->CHAR_CONST()->getText(); // e.g. 'a' or '\n'
+    int8_t val;
+    if (text[1] == '\\') {
+        switch (text[2]) {
+            case 'n':  val = '\n'; break;
+            case 't':  val = '\t'; break;
+            case 'r':  val = '\r'; break;
+            case '0':  val = '\0'; break;
+            case '\\': val = '\\'; break;
+            case '\'': val = '\''; break;
+            case 'a':  val = '\a'; break;
+            case 'b':  val = '\b'; break;
+            case 'f':  val = '\f'; break;
+            case 'v':  val = '\v'; break;
+            default:   val = static_cast<int8_t>(text[2]); break;
+        }
+    } else {
+        val = static_cast<int8_t>(text[1]);
+    }
     BasicBlock *bb = visitor->getCFG()->current_bb;
 
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT8, static_cast<int64_t>(val)));
