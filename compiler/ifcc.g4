@@ -4,26 +4,27 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop
-    | var_decl_list | var_decl_with_init ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | break_stmt | continue_stmt | var_decl_list | var_decl_with_init ;
 
-return_stmt: RETURN expr ;
+return_stmt: RETURN expr? ;
 
-type_specifier : 'int' | 'double' ;
+type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
 declarator : '*'* VAR ('[' CONST ']')? ;
 var_decl_list : type_specifier declarator (',' declarator)* ';' ;
 var_decl_with_init : type_specifier declarator '=' expr ';' ;
 
-param : 'int' VAR ;
+param : type_specifier VAR ;
 param_list : param (',' param)* ;
 
-function_declaration : 'int' VAR '(' param_list? ')' ';' ;
-function_definition  : 'int' VAR '(' param_list? ')' scope;
-condition : 'if' '(' expr ')' scope ('else' else_block )? ;
+function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
+function_definition  : type_specifier VAR '(' param_list? ')' scope;
+condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+break_stmt : 'break' ';' ;
+continue_stmt : 'continue' ';' ;
 
 scope : '{' statement* '}' ;
 
@@ -100,6 +101,7 @@ primitive
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant
+    | CHAR_CONST                 # char_constant
     ;
 
 
@@ -107,6 +109,7 @@ function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
 CONST : '-'?[0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
+CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

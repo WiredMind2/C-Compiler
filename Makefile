@@ -7,9 +7,15 @@ test-arm-%:
 test-x86-%:
 	python3 ifcc-test.py --arch x86 testfiles/$*_*
 
-# Usage: `make test-xx` where `xx` is the suite number (e.g. `01`, `02`, etc.)
+# Usage:
+#   make test-09              -> run all tests matching testfiles/09_*
+#   make test-09_break_continue -> run tests in testfiles/09_break_continue exactly
 test-%:
-	python3 ifcc-test.py testfiles/$*_*
+	@if [ -d testfiles/$* ]; then \
+		python3 ifcc-test.py testfiles/$*; \
+	else \
+		python3 ifcc-test.py testfiles/$*_*; \
+	fi
 
 
 # Renumber tests in all test directories

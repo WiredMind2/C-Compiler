@@ -50,6 +50,8 @@ bool LoadConstantToRegisterPass::tryOptimizePattern(BasicBlock* bb, size_t i) {
     if (load->src.name != store->dest.name) return false;
     // The load destination must be the same register as ldconst destination
     if (load->dest.reg != ldc->dest.reg) return false;
+    // Types must match — a cross-type load requires a conversion instruction
+    if (load->type != ldc->type) return false;
 
     // Make sure <tmp> is not used anywhere after i+2
     const std::string& tmp = store->dest.name;

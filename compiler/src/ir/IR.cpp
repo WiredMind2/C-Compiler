@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <cassert>
 
 #include "../asm/arm64/AsmGeneratorARM64.h"
 #include "../asm/x86_64/AsmGeneratorX86_64.h"
@@ -16,12 +17,15 @@ bool g_emit_ir_as_asm_comments = false;
 //  BasicBlock
 // ============================================================
 
-BasicBlock::BasicBlock(CFG *cfg, string entry_label)
-    : cfg(cfg), label(entry_label) {
+BasicBlock::BasicBlock(CFG* cfg, string entry_label, bool is_loop)
+    : cfg(cfg), label(entry_label), functionName(cfg ? cfg->getCurrentFunction() : string()) {
     exit_true = nullptr;
     exit_false = nullptr;
-    nextFreeSymbolIndex = -4;
-    endsWithReturn = false;
+    this->is_loop = is_loop;
+}
+
+void BasicBlock::reset_symbol_index() {
+    if (cfg) cfg->setNextFreeSymbolIndex(-8);
 }
 
 void BasicBlock::gen_asm(ostream &o) {
@@ -35,76 +39,121 @@ void BasicBlock::add_IRInstr(IRInstr *instr) {
     instrs.push_back(instr);
 }
 
+IRType BasicBlock::operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs) {
+    const bool isDouble = lhs.type == IRType::FLOAT64 || rhs.type == IRType::FLOAT64;
+    if (isDouble) return IRType::FLOAT64;
+    const bool isFloat = lhs.type == IRType::FLOAT32 || rhs.type == IRType::FLOAT32;
+    if (isFloat) return IRType::FLOAT32;
+    const bool isInt = lhs.type == IRType::INT32 || rhs.type == IRType::INT32;
+    if (isInt) return IRType::INT32;
+    const bool isChar = lhs.type == IRType::INT8 || rhs.type == IRType::INT8;
+    if (isChar) return IRType::INT32; // integer promotion
+    throw std::runtime_error("Unknown operand types");
+}
+
+void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type) {
+    if (initial_type == dest_type) return;
+    if (initial_type == IRType::INT32 && dest_type == IRType::FLOAT64) {
+        add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT32) {
+        add_IRInstr(new F64ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT8) {
+        add_IRInstr(new F64ToI32Instr(this, initial_register, initial_register));
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT32 && dest_type == IRType::INT8) {
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT8 && dest_type == IRType::INT32) {
+        add_IRInstr(new I8ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT8 && dest_type == IRType::FLOAT64) {
+        add_IRInstr(new I8ToI32Instr(this, initial_register, initial_register));
+        add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
+    } else {
+        throw runtime_error("No conversion found");
+    }
+}
+
 // ============================================================
 //  Symbol table
 // ============================================================
 
 void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
-    if (cfg->findBBByVariable(name) != nullptr) {
-        cerr << "Error: Variable " << name
-                << " already defined in a former or current scope." << endl;
-        exit(1);
+    if (name.substr(0,4) != "!tmp") {
+        if (cfg && cfg->findBBByVariable(name) != nullptr) {
+            cerr << "Error: Variable " << name << " already defined in a former or current scope." << endl;
+            exit(1);
+        }
     }
+    int size = irtype_size(t);
+    int alloc = (size < 4) ? 4 : size;
     SymbolType[name] = t;
-    nextFreeSymbolIndex -= irtype_size(t);
-    // Align to 8 bytes if it's an 8 byte type for better safety
-    if (irtype_size(t) == 8 && (nextFreeSymbolIndex % 8) != 0) {
-        nextFreeSymbolIndex &= ~7; 
-    }
-    SymbolIndex[name] = nextFreeSymbolIndex;
+    SymbolIndex[name] = cfg ? cfg->getNextFreeSymbolIndex() : -alloc;
+    if (cfg) cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - alloc);
 }
 
 int BasicBlock::allocate_bytes_on_symbol_table(int size) {
-    nextFreeSymbolIndex -= size;
-    // If the allocation size is a multiple of 8, keep 8-byte alignment
-    if ((size % 8) == 0 && (nextFreeSymbolIndex % 8) != 0) {
-        nextFreeSymbolIndex &= ~7;
-    }
-    int index = nextFreeSymbolIndex;
-    return index;
+    int idx = cfg ? cfg->getNextFreeSymbolIndex() - size : -size;
+    if (cfg) cfg->setNextFreeSymbolIndex(idx);
+    return idx;
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {
-    return cfg->create_new_tempvar(t);
+    return cfg ? cfg->create_new_tempvar(t) : string("!tmp0");
 }
 
 int BasicBlock::get_var_index(string name) {
-    if (SymbolIndex.find(name) != SymbolIndex.end()) {
-        return SymbolIndex[name];
-    }
-    if (cfg->entry_bb && cfg->entry_bb != this) {
-        return cfg->entry_bb->get_var_index(name);
+    if (SymbolIndex.find(name) != SymbolIndex.end()) return SymbolIndex[name];
+    if (cfg) {
+        for (auto bb : cfg->getStackBBs()) {
+            if (bb != this && bb->get_var_index_or_none(name) != INT_MIN)
+                return bb->get_var_index_or_none(name);
+        }
+        string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
+        if (!funcName.empty()) {
+            auto* sig = cfg->get_function(funcName);
+            if (sig) {
+                for (auto bb : sig->bbs) {
+                    if (bb != this && bb->get_var_index_or_none(name) != INT_MIN)
+                        return bb->get_var_index_or_none(name);
+                }
+            }
+        }
     }
     cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
     exit(1);
 }
 
 IRType BasicBlock::get_var_type(string name) {
-    if (SymbolType.find(name) != SymbolType.end()) {
-        return SymbolType[name];
+    if (SymbolType.find(name) != SymbolType.end()) return SymbolType[name];
+    if (cfg) {
+        for (auto bb : cfg->getStackBBs()) {
+            if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end())
+                return bb->SymbolType[name];
+        }
+        string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
+        if (!funcName.empty()) {
+            auto* sig = cfg->get_function(funcName);
+            if (sig) {
+                for (auto bb : sig->bbs) {
+                    if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end())
+                        return bb->SymbolType[name];
+                }
+            }
+        }
     }
-    if (cfg->entry_bb && cfg->entry_bb != this) {
-        return cfg->entry_bb->get_var_type(name);
-    }
-    return IRType::INT32;
+    cerr << "Error: Symbol " << name << " not found in symbol table (type lookup)." << endl;
+    exit(1);
 }
 
 int BasicBlock::calculateRequiredStackSpace() {
-    int usedSpace = -nextFreeSymbolIndex;
-    int aligned = usedSpace;
-    if (aligned % 16 != 0)
-        aligned = ((aligned / 16) + 1) * 16;
-    if (aligned < 16) aligned = 16;
-    return aligned;
+    assert(cfg && "BasicBlock has no parent CFG; use CFG::calculateRequiredStackSpace instead");
+    string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
+    return cfg->calculateRequiredStackSpace(funcName);
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {
-    SymbolType[name] = type;
-    nextFreeSymbolIndex -= irtype_size(type);
-    if (irtype_size(type) == 8 && (nextFreeSymbolIndex % 8) != 0) {
-        nextFreeSymbolIndex &= ~7;
-    }
-    SymbolIndex[name] = nextFreeSymbolIndex;
+    SymbolType[name]  = type;
+    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(type));
 }
 
 // ============================================================
@@ -113,7 +162,8 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
-    current_bb = new BasicBlock(this, new_BB_name());
+    nextFreeSymbolIndex = -8;
+    current_bb   = new BasicBlock(this, new_BB_name());
     entry_bb = current_bb;
     add_bb(current_bb);
     nextTempVarNumber = 0;
@@ -128,13 +178,17 @@ CFG::CFG(TargetArch arch) {
     }
 }
 
-void CFG::add_bb(BasicBlock *bb) { bbs.push_back(bb); }
+void CFG::add_bb(BasicBlock* bb) {
+    bbs.push_back(bb);
+    if (!currentFunctionName.empty()) {
+        FunctionSignature* sig = get_function(currentFunctionName);
+        if (sig) sig->bbs.push_back(bb);
+    }
+}
 
 void CFG::gen_asm(ostream &o) { asmGenerator->gen_asm(o); }
 
-void CFG::gen_control_flow(ostream &o, BasicBlock *bb) {
-    asmGenerator->gen_control_flow(o, bb);
-}
+void CFG::gen_control_flow(ostream &o, BasicBlock *bb) { asmGenerator->gen_control_flow(o, bb); }
 
 void CFG::dump_symbol_table(std::ostream &o) {
     o << "Symbol table (entry BB):\n";
@@ -156,25 +210,15 @@ void CFG::dump_instructions(std::ostream &o) {
 
 void CFG::gen_asm_instr(ostream &o, IRInstr *instr) {
     if (g_emit_ir_as_asm_comments) {
-        // Emit IR as assembly comments only (avoid duplicating to stderr)
         o << ";   " << instr->to_string() << "\n";
     }
     asmGenerator->gen_asm_instr(o, instr);
 }
 
-void CFG::gen_asm_prologue(ostream &o) {
-    cout << ";   Prologue:" << endl;
-    asmGenerator->gen_prologue(o);
-}
+void CFG::gen_asm_prologue(ostream& o) { asmGenerator->gen_prologue(o); }
+void CFG::gen_asm_epilogue(ostream& o) { asmGenerator->gen_epilogue(o); }
 
-void CFG::gen_asm_epilogue(ostream &o) {
-    cout << ";   Epilogue:" << endl;
-    asmGenerator->gen_epilogue(o);
-}
-
-string CFG::new_BB_name() {
-    return "BB" + to_string(nextBBnumber++);
-}
+string CFG::new_BB_name() { return "BB" + to_string(nextBBnumber++); }
 
 string CFG::create_new_tempvar(IRType t) {
     string name = "!tmp" + to_string(nextTempVarNumber++);
@@ -182,14 +226,43 @@ string CFG::create_new_tempvar(IRType t) {
     return name;
 }
 
-int CFG::calculateRequiredStackSpace() {
-    // Use entry_bb as the single source of truth for frame layout
-    return entry_bb->calculateRequiredStackSpace();
+int CFG::calculateRequiredStackSpace(const string& funcName) {
+    if (!funcName.empty()) {
+        FunctionSignature* sig = get_function(funcName);
+        if (sig) {
+            if (sig->cachedStackSpace != -1) return sig->cachedStackSpace;
+            int minIndex = 0;
+            for (auto* bb : sig->bbs) {
+                for (const auto& entry : bb->SymbolIndex) {
+                    if (entry.second < minIndex) minIndex = entry.second;
+                }
+            }
+            int usedSpace = -minIndex;
+            int aligned = usedSpace;
+            if (aligned % 16 != 0) aligned = ((aligned / 16) + 1) * 16;
+            if (aligned < 16) aligned = 16;
+            sig->cachedStackSpace = aligned;
+            return aligned;
+        }
+    }
+    int usedSpace = -nextFreeSymbolIndex;
+    int aligned   = usedSpace;
+    if (aligned % 16 != 0) aligned = ((aligned / 16) + 1) * 16;
+    if (aligned < 16) aligned = 16;
+    return aligned;
 }
 
-BasicBlock *CFG::findBBByVariable(const string &var) {
-    for (auto bb: getBBs()) {
-        if (bb->SymbolIndex.find(var) != bb->SymbolIndex.end()) return bb;
+BasicBlock* CFG::findBBByVariable(const string& var) {
+    for (auto bb : getStackBBs())
+        if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
+    string funcName = (current_bb && !current_bb->functionName.empty()) ? current_bb->functionName : currentFunctionName;
+    if (funcName.empty()) funcName = currentFunctionName;
+    if (!funcName.empty()) {
+        FunctionSignature* sig = get_function(funcName);
+        if (sig) {
+            for (auto bb : sig->bbs)
+                if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
+        }
     }
     return nullptr;
 }
@@ -197,7 +270,6 @@ BasicBlock *CFG::findBBByVariable(const string &var) {
 IRType CFG::get_array_element_type(const string &name) const {
     if (entry_bb && entry_bb->arrayElementType.find(name) != entry_bb->arrayElementType.end())
         return entry_bb->arrayElementType.at(name);
-    // Fallback to INT32 if unknown
     return IRType::INT32;
 }
 
@@ -206,13 +278,8 @@ bool CFG::has_array_element_type(const string &name) const {
     return entry_bb->arrayElementType.find(name) != entry_bb->arrayElementType.end();
 }
 
-void CFG::set_emit_ir_comments(bool enabled) {
-    g_emit_ir_as_asm_comments = enabled;
-}
-
-bool CFG::get_emit_ir_comments() const {
-    return g_emit_ir_as_asm_comments;
-}
+void CFG::set_emit_ir_comments(bool enabled) { g_emit_ir_as_asm_comments = enabled; }
+bool CFG::get_emit_ir_comments() const { return g_emit_ir_as_asm_comments; }
 
 void CFG::add_function(string name, IRType returnType,
                        vector<IRType> paramTypes, vector<string> paramNames) {
@@ -231,9 +298,11 @@ CFG::FunctionSignature *CFG::get_function(string name) {
     return (it != functionIndex.end()) ? &functions[it->second] : nullptr;
 }
 
-BasicBlock *CFG::create_function_entry(string name, IRType returnType,
-                                        vector<IRType> paramTypes, vector<string> paramNames) {
+BasicBlock* CFG::create_function_entry(string name, IRType returnType,
+                                       vector<IRType> paramTypes, vector<string> paramNames) {
+    currentFunctionName = name;
     add_function(name, returnType, paramTypes, paramNames);
+    FunctionSignature* sig = get_function(name);
 
     BasicBlock *entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();
@@ -246,6 +315,13 @@ BasicBlock *CFG::create_function_entry(string name, IRType returnType,
 
     current_bb = entryBB;
     entry_bb = current_bb;
-    add_bb(entryBB);
+
+    // Add to data structures
+    if (sig) {
+        sig->bbs.push_back(entryBB);
+        sig->entryBB = entryBB;
+    }
+    bbs.push_back(entryBB);
+
     return entryBB;
 }

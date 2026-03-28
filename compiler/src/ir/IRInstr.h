@@ -403,6 +403,36 @@ struct CallInstr : IRInstr {
 };
 
 /** dest(INT32) = (int32_t) src(FLOAT64) — truncation toward zero */
+struct F64ToI32Instr : IRInstr {
+    RegParam dest; // INT32
+    RegParam src;  // FLOAT64
+
+    F64ToI32Instr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::INT32), dest(d, IRType::INT32), src(s, IRType::FLOAT64) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "ftoi " + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest(FLOAT64) = (double) src(INT32) — integer to double conversion */
+struct I32ToF64Instr : IRInstr {
+    RegParam dest; // FLOAT64
+    RegParam src;  // INT32
+
+    I32ToF64Instr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::FLOAT64), dest(d, IRType::FLOAT64), src(s, IRType::INT32) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "i32_to_f64 " + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest(INT32) = (int32_t) src(FLOAT64) — float to int conversion (existing but missing struct) */
 struct FToIInstr : IRInstr {
     RegParam dest; // INT32
     RegParam src;  // FLOAT64
@@ -413,7 +443,37 @@ struct FToIInstr : IRInstr {
     void accept(AsmGenerator& g, ostream &o) override;
 
     [[nodiscard]] string to_string() const override {
-        return "ftoi " + dest.to_string() + ", " + src.to_string();
+        return "f_to_i " + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest(INT32) = (int32_t) src(INT8) — int8 to int32 conversion (sign extension) */
+struct I8ToI32Instr : IRInstr {
+    RegParam dest; // INT32
+    RegParam src;  // INT8
+
+    I8ToI32Instr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::INT32), dest(d, IRType::INT32), src(s, IRType::INT8) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "i8_to_i32 " + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest(INT8) = (int8_t) src(INT32) — int32 to int8 conversion (truncation) */
+struct I32ToI8Instr : IRInstr {
+    RegParam dest; // INT8
+    RegParam src;  // INT32
+
+    I32ToI8Instr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::INT8), dest(d, IRType::INT8), src(s, IRType::INT32) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "i32_to_i8 " + dest.to_string() + ", " + src.to_string();
     }
 };
 

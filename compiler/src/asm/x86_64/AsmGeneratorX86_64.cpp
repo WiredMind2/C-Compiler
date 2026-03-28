@@ -1,5 +1,6 @@
 #include "AsmGeneratorX86_64.h"
 #include "../../ir/IR.h"
+#include "../../ir/IRInstr.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -12,7 +13,6 @@ AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 // ---------------------------------------------------------------------------
 
 string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
-    // For FLOAT64, map working registers to XMM registers
     if (p.type == IRType::FLOAT64) {
         switch (p.reg) {
             case Reg::W0:  case Reg::RET:  return "%xmm0";
@@ -27,7 +27,6 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
             case Reg::ARG5:                return "%xmm5";
         }
     }
-    // x86-64 GPR mappings
     bool is64 = (p.type == IRType::INT64 || p.type == IRType::POINTER);
     switch (p.reg) {
         case Reg::W0:   case Reg::RET:
@@ -61,17 +60,36 @@ string AsmGeneratorX86_64::var_to_asm(const string& varName) {
     return to_string(index) + "(%rbp)";
 }
 
+// Small helper: map 32-bit register name to its low byte name
+static string reg32_to_reg8(const string& reg32) {
+    if (reg32 == "%eax")  return "%al";
+    if (reg32 == "%ecx")  return "%cl";
+    if (reg32 == "%edx")  return "%dl";
+    if (reg32 == "%ebx")  return "%bl";
+    if (reg32 == "%edi")  return "%dil";
+    if (reg32 == "%esi")  return "%sil";
+    if (reg32 == "%ebp")  return "%bpl";
+    if (reg32 == "%esp")  return "%spl";
+    if (reg32 == "%r8d")  return "%r8b";
+    if (reg32 == "%r9d")  return "%r9b";
+    if (reg32 == "%r10d") return "%r10b";
+    if (reg32 == "%r11d") return "%r11b";
+    if (reg32 == "%r12d") return "%r12b";
+    if (reg32 == "%r13d") return "%r13b";
+    if (reg32 == "%r14d") return "%r14b";
+    if (reg32 == "%r15d") return "%r15b";
+    throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
+}
+
 // ---------------------------------------------------------------------------
-// gen_asm / gen_asm_bb / gen_asm_instr
+// Main generation functions
 // ---------------------------------------------------------------------------
 
-void AsmGeneratorX86_64::gen_asm(ostream& o) {
-    // Generate .globl for all functions
+void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
     for (auto bb : cfg->getBBs()) {
         o << ".globl " << bb->label << "\n";
     }
 
-    // Generate assembly for all basic blocks
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
         gen_asm_bb(o, bb, isFirstBB);
@@ -79,21 +97,20 @@ void AsmGeneratorX86_64::gen_asm(ostream& o) {
     }
 }
 
-void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
-    // Set current_bb for this BB so var_to_asm can find variable indices
+void AsmGeneratorX86_64::gen_asm_bb(std::ostream& o, BasicBlock* bb, bool /*isFirstBB*/) {
     cfg->current_bb = bb;
-
     auto* sig = cfg->get_function(bb->label);
-    if (sig) {
-        int stackSpace = cfg->calculateRequiredStackSpace();
+    bool isFunctionEntry = (sig != nullptr);
+
+    if (isFunctionEntry) {
+        int stackSpace = bb->calculateRequiredStackSpace();
         o << bb->label << ":\n";
         o << "    pushq %rbp\n";
         o << "    movq %rsp, %rbp\n";
         o << "    subq $" << stackSpace << ", %rsp\n";
 
-        // Copy parameters from ABI registers to stack slots (System V ABI)
         static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
-        int numParams = (int)sig->paramNames.size();
+        int numParams = (sig) ? (int)sig->paramNames.size() : 0;
         for (int i = 0; i < numParams && i < 6; i++) {
             int offset = bb->get_var_index(sig->paramNames[i]);
             o << "    movq " << argRegs64[i] << ", " << offset << "(%rbp)\n";
@@ -102,81 +119,74 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
         o << bb->label << ":\n";
     }
 
-    // Generate instructions
     for (auto instr : bb->instrs) {
         gen_asm_instr(o, instr);
     }
 
-    gen_control_flow(o, bb);
-}
-
-void AsmGeneratorX86_64::gen_control_flow(ostream& o, BasicBlock* bb) {
-    if (bb->exit_true == nullptr) {
-        o << "    # Jump to return (inlined epilogue)\n";
-        o << "    leave\n";
-        o << "    ret\n";
-    } else if (bb->exit_false == nullptr) {
-        o << "    jmp " << bb->exit_true->label << "\n";
-    } else {
-        string testVar = bb->test_var_name;
-        int offset = bb->get_var_index(testVar);
-        o << "    movl " << offset << "(%rbp), %eax\n";
-        o << "    cmpl $0, %eax\n";
-        o << "    jne " << bb->exit_true->label << "\n";
-        o << "    jmp " << bb->exit_false->label << "\n";
+    // If the last instruction wasn't a return, emit control flow
+    bool hasReturn = false;
+    if (!bb->instrs.empty()) {
+        IRInstr* last = bb->instrs.back();
+        if (dynamic_cast<RetInstr*>(last) != nullptr) hasReturn = true;
     }
+    if (!hasReturn) gen_control_flow(o, bb);
 }
 
-void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
+void AsmGeneratorX86_64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
     instr->accept(*this, o);
 }
 
 // ---------------------------------------------------------------------------
-// Visitor implementations  (INT32 only for now)
+// Visitor wrappers: delegate to typed helpers
 // ---------------------------------------------------------------------------
 
-void AsmGeneratorX86_64::visit(ostream& o, LdConstInstr& instr) {
-    if (instr.type == IRType::INT32) {
-        o << "    movl $" << instr.val.raw_int() << ", " << reg_to_asm(instr.dest) << "\n";
+void AsmGeneratorX86_64::visit(std::ostream& o, LdConstInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::INT8) {
+        ldConstInstrINT8(o, instr.val, dest);
+    } else if (instr.type == IRType::INT32) {
+        ldConstInstrINT32(o, instr.val, dest);
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-        o << "    movq $" << instr.val.raw_int() << ", " << reg_to_asm(instr.dest) << "\n";
+        ldConstInstrINT64(o, instr.val, dest);
     } else if (instr.type == IRType::FLOAT64) {
-        // Load 64-bit IEEE bit pattern via a scratch GPR, then transfer to XMM
-        uint64_t bits = std::bit_cast<uint64_t>(instr.val.as_f64());
-        string xmm = reg_to_asm(instr.dest); // e.g. %xmm0
-        o << "    movabsq $" << bits << ", %rax\n";
-        o << "    movq %rax, " << xmm << "\n";
+        ldConstInstrFLOAT64(o, instr.val.as_f64(), dest);
+    } else {
+        throw std::runtime_error("Unsupported LdConstInstr type in x86_64 backend");
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, CopyRegInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, CopyRegInstr& instr) {
     string src  = reg_to_asm(instr.src);
     string dest = reg_to_asm(instr.dest);
-    if (instr.type == IRType::INT32) {
-        if (src != dest) o << "    movl " << src << ", " << dest << "\n";
+    if (instr.type == IRType::INT8) {
+        CopyRegINT8(o, src, dest);
+    } else if (instr.type == IRType::INT32) {
+        CopyRegINT32(o, src, dest);
+    } else if (instr.type == IRType::FLOAT64) {
+        CopyRegFLOAT64(o, src, dest);
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-        // CopyRegInstr is a bitwise copy. Do not implicitly sign-extend.
+        // 64-bit copy: if source was produced as INT32, the register contains
+        // a zero-extended value if movl was used earlier; prefer movq otherwise.
         if (instr.src.type == IRType::INT32) {
-            // Zero-extend the 32-bit source into the 64-bit destination by
-            // emitting a 32-bit move into the destination's 32-bit alias.
+            // Write 32-bit alias into dest to zero-extend
             RegParam dest32(instr.dest.reg, IRType::INT32);
-            if (reg_to_asm(instr.src) != reg_to_asm(dest32))
-                o << "    movl " << reg_to_asm(instr.src) << ", " << reg_to_asm(dest32) << "\n";
+            string dest32asm = reg_to_asm(dest32);
+            if (reg_to_asm(instr.src) != dest32asm)
+                o << "    movl " << reg_to_asm(instr.src) << ", " << dest32asm << "\n";
         } else if (src != dest) {
             o << "    movq " << src << ", " << dest << "\n";
         }
-    } else if (instr.type == IRType::FLOAT64) {
-        if (src != dest) o << "    movsd " << src << ", " << dest << "\n";
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, StoreStackInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, StoreStackInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << reg_to_asm(instr.src)
           << ", "        << var_to_asm(instr.dest.name) << "\n";
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         string src = reg_to_asm(instr.src);
         if (instr.src.type == IRType::INT32) {
+            // movl into mem will zero-extend in GPR; but to store 64-bit, move via rax
             o << "    movslq " << src << ", %rax\n";
             o << "    movq %rax, " << var_to_asm(instr.dest.name) << "\n";
         } else {
@@ -188,7 +198,7 @@ void AsmGeneratorX86_64::visit(ostream& o, StoreStackInstr& instr) {
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, LoadStackInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, LoadStackInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << var_to_asm(instr.src.name)
           << ", "        << reg_to_asm(instr.dest) << "\n";
@@ -206,12 +216,12 @@ void AsmGeneratorX86_64::visit(ostream& o, LoadStackInstr& instr) {
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, AddressOfSymbolInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, AddressOfSymbolInstr& instr) {
     o << "    leaq " << var_to_asm(instr.src.name)
       << ", " << reg_to_asm(instr.dest) << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, LoadPointerInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, LoadPointerInstr& instr) {
     if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         o << "    movq (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else if (instr.type == IRType::FLOAT64) {
@@ -221,7 +231,7 @@ void AsmGeneratorX86_64::visit(ostream& o, LoadPointerInstr& instr) {
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, StorePointerInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, StorePointerInstr& instr) {
     if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         o << "    movq " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else if (instr.type == IRType::FLOAT64) {
@@ -231,51 +241,44 @@ void AsmGeneratorX86_64::visit(ostream& o, StorePointerInstr& instr) {
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, AddInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, AddInstr& instr) {
     string lhs  = reg_to_asm(instr.lhs);
     string rhs  = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT64) {
-        if (dest != lhs)
-            o << "    movq " << lhs << ", " << dest << "\n";
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
         o << "    addq " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::POINTER) {
-        // Pointer addition: assume both operands are already in pointer-sized
-        // registers (index should be scaled earlier). Just perform a 64-bit add.
-        if (dest != lhs)
-            o << "    movq " << lhs << ", " << dest << "\n";
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
         o << "    addq " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::INT32) {
-        if (dest != lhs)
-            o << "    movl " << lhs << ", " << dest << "\n";
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
         o << "    addl " << rhs << ", " << dest << "\n";
-    }else if (instr.type == IRType::FLOAT64) {
+    } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << lhs << ", %xmm0\n";
         o << "    addsd " << rhs << ", %xmm0\n";
         o << "    movsd %xmm0, " << dest << "\n";
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, SubInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, SubInstr& instr) {
     string lhs  = reg_to_asm(instr.lhs);
     string rhs  = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-        if (dest != lhs)
-            o << "    movq " << lhs << ", " << dest << "\n";
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
         o << "    subq " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::INT32) {
-        if (dest != lhs)
-            o << "    movl " << lhs << ", " << dest << "\n";
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
         o << "    subl " << rhs << ", " << dest << "\n";
-    }else if (instr.type == IRType::FLOAT64) {
+    } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << lhs << ", %xmm0\n";
         o << "    subsd " << rhs << ", %xmm0\n";
         o << "    movsd %xmm0, " << dest << "\n";
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, MulInstr& instr) {
+void AsmGeneratorX86_64::visit(std::ostream& o, MulInstr& instr) {
     string lhs  = reg_to_asm(instr.lhs);
     string rhs  = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
@@ -294,149 +297,319 @@ void AsmGeneratorX86_64::visit(ostream& o, MulInstr& instr) {
     }
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, DivInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (instr.type == IRType::INT32) {
-        if (lhs != "%eax")
-            o << "    movl " << lhs << ", %eax\n";
-        o << "    cltd\n";
-        o << "    idivl " << rhs << "\n";
-        if (dest != "%eax")
-            o << "    movl %eax, " << dest << "\n";
-    }else if (instr.type == IRType::FLOAT64){
-        o << "    movsd " << lhs << ", %xmm0\n";
-        o << "    divsd " << rhs << ", %xmm0\n";
-        o << "    movsd %xmm0, " << dest << "\n";
-    }
+void AsmGeneratorX86_64::visit(std::ostream& o, DivInstr& instr) {
+    std::string lhs = reg_to_asm(instr.lhs);
+    std::string rhs = reg_to_asm(instr.rhs);
+    std::string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::FLOAT64)
+        DivFLOAT64(o, lhs, rhs, dest);
+    else
+        DivINT32(o, lhs, rhs, dest);
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, ModInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    // idivl: dividend in %eax, sign-extended into %edx:%eax; remainder in %edx
-    if (lhs != "%eax")
-        o << "    movl " << lhs << ", %eax\n";
+void AsmGeneratorX86_64::visit(std::ostream& o, ModInstr& instr) {
+    std::string lhs = reg_to_asm(instr.lhs);
+    std::string rhs = reg_to_asm(instr.rhs);
+    std::string dest = reg_to_asm(instr.dest);
+    ModINT32(o, lhs, rhs, dest);
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, BitNotInstr& instr) {
+    BitNot(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, BitAndInstr& instr) {
+    BitAnd(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, BitOrInstr& instr) {
+    BitOr(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, BitXorInstr& instr) {
+    BitXor(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, CmpEqInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        CmpEqFLOAT64(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+    else
+        CmpEqINT32(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, CmpLtInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        CmpLtFLOAT64(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+    else
+        CmpLtINT32(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, CmpLeInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        CmpLeFLOAT64(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+    else
+        CmpLeINT32(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, CmpGtInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        CmpGtFLOAT64(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+    else
+        CmpGtINT32(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, CmpGeInstr& instr) {
+    if (instr.type == IRType::FLOAT64)
+        CmpGeFLOAT64(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+    else
+        CmpGeINT32(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, LogicalAndInstr& instr) {
+    LogicalAnd(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, LogicalOrInstr& instr) {
+    LogicalOr(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, CallInstr& instr) {
+    int numArgs = (int) instr.args.size();
+    std::vector<std::string> args;
+    for (int i = 0; i < numArgs; ++i) args.push_back(reg_to_asm(instr.args[i]));
+    if (instr.dest.type == IRType::FLOAT64)
+        CallWithFLOAT64Return(o, instr.funcLabel, args, reg_to_asm(instr.dest));
+    else
+        CallWithINT32Return(o, instr.funcLabel, args, reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, F64ToI32Instr& instr) {
+    FToI(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, I32ToF64Instr& instr) {
+    I32ToF64(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, I8ToI32Instr& instr) {
+    I8ToI32(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, I32ToI8Instr& instr) {
+    I32ToI8(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, FToIInstr& instr) {
+    FToI(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, RetInstr& instr) {
+    Ret(o);
+}
+
+// ---------------------------------------------------------------------------
+// Load constant helpers (typed API)
+// ---------------------------------------------------------------------------
+
+void AsmGeneratorX86_64::ldConstInstrINT8(std::ostream& o, ConstParam constant, const std::string& dest) {
+    o << "    movb $" << constant.raw_int() << ", " << reg32_to_reg8(dest) << "\n";
+}
+void AsmGeneratorX86_64::ldConstInstrINT32(std::ostream& o, ConstParam constant, const std::string& dest) {
+    o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::ldConstInstrINT64(std::ostream& o, ConstParam constant, const std::string& dest) {
+    o << "    movq $" << constant.raw_int() << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::ldConstInstrFLOAT64(std::ostream& o, double constant, const std::string& dest) {
+    uint64_t bits = std::bit_cast<uint64_t>(constant);
+    o << "    movabsq $" << bits << ", %rax\n";
+    o << "    movq %rax, " << dest << "\n";
+}
+
+// ---------------------------------------------------------------------------
+// Typed register-copy / stack / arithmetic APIs used elsewhere
+// ---------------------------------------------------------------------------
+
+void AsmGeneratorX86_64::CopyRegINT8(std::ostream& o, const std::string& src, const std::string& dest) {
+    if (src != dest) o << "    movb " << reg32_to_reg8(src) << ", " << reg32_to_reg8(dest) << "\n";
+}
+void AsmGeneratorX86_64::CopyRegINT32(std::ostream& o, const std::string& src, const std::string& dest) {
+    if (src != dest) o << "    movl " << src << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::CopyRegFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) {
+    if (src != dest) o << "    movsd " << src << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::StoreStackInstrINT8(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movb " << reg32_to_reg8(src) << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::StoreStackInstrINT32(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movl " << src << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::StoreStackInstrFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movsd " << src << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::LoadStackInstrINT8(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movsbl " << var_to_asm(src) << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::LoadStackInstrINT32(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movl " << var_to_asm(src) << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::LoadStackInstrFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movsd " << var_to_asm(src) << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::AddINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+    o << "    addl " << rhs << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::AddFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    addsd " << rhs << ", %xmm0\n";
+    o << "    movsd %xmm0, " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::SubINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+    o << "    subl " << rhs << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::SubFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    subsd " << rhs << ", %xmm0\n";
+    o << "    movsd %xmm0, " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::MulINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+    o << "    imull " << rhs << ", " << dest << "\n";
+}
+void AsmGeneratorX86_64::MulFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movsd " << lhs << ", " << dest << "\n";
+    o << "    mulsd " << rhs << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::DivINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
     o << "    cltd\n";
     o << "    idivl " << rhs << "\n";
-    // remainder is in %edx
-    if (dest != "%edx")
-        o << "    movl %edx, " << dest << "\n";
+    if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
+}
+void AsmGeneratorX86_64::DivFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    divsd " << rhs << ", %xmm0\n";
+    o << "    movsd %xmm0, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, BitNotInstr& instr) {
-    string src  = reg_to_asm(instr.src);
-    string dest = reg_to_asm(instr.dest);
-    if (dest != src)
-        o << "    movl " << src << ", " << dest << "\n";
+void AsmGeneratorX86_64::ModINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
+    o << "    cltd\n";
+    o << "    idivl " << rhs << "\n";
+    if (dest != "%edx") o << "    movl %edx, " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::BitNot(std::ostream& o, const std::string& src, const std::string& dest) {
+    if (dest != src) o << "    movl " << src << ", " << dest << "\n";
     o << "    notl " << dest << "\n";
 }
-
-void AsmGeneratorX86_64::visit(ostream& o, BitAndInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (dest != lhs)
-        o << "    movl " << lhs << ", " << dest << "\n";
+void AsmGeneratorX86_64::BitAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
     o << "    andl " << rhs << ", " << dest << "\n";
 }
-
-void AsmGeneratorX86_64::visit(ostream& o, BitOrInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (dest != lhs)
-        o << "    movl " << lhs << ", " << dest << "\n";
+void AsmGeneratorX86_64::BitOr(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
     o << "    orl " << rhs << ", " << dest << "\n";
 }
-
-void AsmGeneratorX86_64::visit(ostream& o, BitXorInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (dest != lhs)
-        o << "    movl " << lhs << ", " << dest << "\n";
+void AsmGeneratorX86_64::BitXor(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
     o << "    xorl " << rhs << ", " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, CmpEqInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (instr.type == IRType::INT32) {
-        if (rhs != "%ecx") o << "    movl " << rhs << ", %ecx\n";
-        if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
-        o << "    cmpl %ecx, %eax\n";
-        o << "    sete %al\n";
-        o << "    movzbl %al, %eax\n";
-        if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
-    }else if (instr.type == IRType::FLOAT64) {
-        o << "    movsd " << lhs << ", %xmm0\n";
-        o << "    ucomisd " << rhs << ", %xmm0\n";
-        o << "    sete %al\n";
-        o << "    setnp %cl\n";
-        o << "    andb %cl, %al\n";
-        o << "    movzbl %al, %eax\n";
-        o << "    movl %eax, " << dest << "\n";
-    }
+void AsmGeneratorX86_64::CmpEqINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
+    o << "    cmpl " << rhs << ", %eax\n";
+    o << "    sete %al\n";
+    o << "    movzbl %al, %eax\n";
+    if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
+}
+void AsmGeneratorX86_64::CmpEqFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    ucomisd " << rhs << ", %xmm0\n";
+    o << "    sete %al\n";
+    o << "    setnp %cl\n";
+    o << "    andb %cl, %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, CmpLtInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (rhs != "%ecx") o << "    movl " << rhs << ", %ecx\n";
+void AsmGeneratorX86_64::CmpLtINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
-    o << "    cmpl %ecx, %eax\n";
+    o << "    cmpl " << rhs << ", %eax\n";
     o << "    setl %al\n";
     o << "    movzbl %al, %eax\n";
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
+void AsmGeneratorX86_64::CmpLtFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    comisd " << rhs << ", %xmm0\n";
+    o << "    setb %al\n";
+    o << "    setnp %cl\n";
+    o << "    andb %cl, %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << dest << "\n";
+}
 
-void AsmGeneratorX86_64::visit(ostream& o, CmpLeInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (rhs != "%ecx") o << "    movl " << rhs << ", %ecx\n";
+void AsmGeneratorX86_64::CmpLeINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
-    o << "    cmpl %ecx, %eax\n";
+    o << "    cmpl " << rhs << ", %eax\n";
     o << "    setle %al\n";
     o << "    movzbl %al, %eax\n";
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
+void AsmGeneratorX86_64::CmpLeFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    ucomisd " << rhs << ", %xmm0\n";
+    o << "    setle %al\n";
+    o << "    setnp %cl\n";
+    o << "    andb %cl, %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << dest << "\n";
+}
 
-void AsmGeneratorX86_64::visit(ostream& o, CmpGtInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (rhs != "%ecx") o << "    movl " << rhs << ", %ecx\n";
+void AsmGeneratorX86_64::CmpGtINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
-    o << "    cmpl %ecx, %eax\n";
+    o << "    cmpl " << rhs << ", %eax\n";
     o << "    setg %al\n";
     o << "    movzbl %al, %eax\n";
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
+void AsmGeneratorX86_64::CmpGtFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    ucomisd " << rhs << ", %xmm0\n";
+    o << "    setg %al\n";
+    o << "    setnp %cl\n";
+    o << "    andb %cl, %al\n";
+    o << "    movzbl %al, %eax\n";
+    o << "    movl %eax, " << dest << "\n";
+}
 
-void AsmGeneratorX86_64::visit(ostream& o, CmpGeInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    if (rhs != "%ecx") o << "    movl " << rhs << ", %ecx\n";
+void AsmGeneratorX86_64::CmpGeINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
-    o << "    cmpl %ecx, %eax\n";
+    o << "    cmpl " << rhs << ", %eax\n";
     o << "    setge %al\n";
     o << "    movzbl %al, %eax\n";
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
+void AsmGeneratorX86_64::CmpGeFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    if (lhs != "%xmm0") o << "    movsd " << lhs << ", %xmm0\n";
+    o << "    comisd " << rhs << ", %xmm0\n";
+    o << "    setae %al\n";
+    o << "    movzbl %al, %eax\n";
+    if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
+}
 
-void AsmGeneratorX86_64::visit(ostream& o, LogicalAndInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
+void AsmGeneratorX86_64::LogicalAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    int thisLabel = getNextLabel();
     o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl $0, %eax\n";
     o << "    je .Lend_and_" << thisLabel << "\n";
@@ -451,12 +624,8 @@ void AsmGeneratorX86_64::visit(ostream& o, LogicalAndInstr& instr) {
     o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, LogicalOrInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
-    string dest = reg_to_asm(instr.dest);
-    static int labelCount = 0;
-    int thisLabel = labelCount++;
+void AsmGeneratorX86_64::LogicalOr(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    int thisLabel = getNextLabel();
     o << "    movl " << lhs << ", %eax\n";
     o << "    cmpl $0, %eax\n";
     o << "    jne .Lend_or_" << thisLabel << "\n";
@@ -471,47 +640,79 @@ void AsmGeneratorX86_64::visit(ostream& o, LogicalOrInstr& instr) {
     o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, FToIInstr& instr) {
-    // cvttsd2si: convert double (src XMM) to 32-bit int (dest GPR), truncating
-    o << "    cvttsd2sil " << reg_to_asm(instr.src) << ", " << reg_to_asm(instr.dest) << "\n";
+void AsmGeneratorX86_64::FToI(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    cvttsd2sil " << src << ", " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, CallInstr& instr) {
-    static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
-    int numArgs = (int)instr.args.size();
-    for (int i = 0; i < numArgs && i < 6; i++) {
-        string r32 = reg_to_asm(instr.args[i]);
+void AsmGeneratorX86_64::I32ToF64(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    cvtsi2sdl " << src << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::I8ToI32(std::ostream& o, const std::string& src, const std::string& dest) {
+    o << "    movsbl " << reg32_to_reg8(src) << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::I32ToI8(std::ostream& o, const std::string& src, const std::string& dest) {
+    if (src != dest) o << "    movl " << src << ", " << dest << "\n";
+    o << "    movsbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
+    static const std::string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+    for (size_t i = 0; i < args.size() && i < 6; i++) {
+        const std::string& r32 = args[i];
         o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
     }
-    o << "    call " << instr.funcLabel << "\n";
-    string dest = reg_to_asm(instr.dest);
-    if (dest != "%eax")
-        o << "    movl %eax, " << dest << "\n";
+    o << "    call " << funcLabel << "\n";
+    if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::visit(ostream& o, RetInstr& instr) {
+void AsmGeneratorX86_64::CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
+    static const std::string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+    for (size_t i = 0; i < args.size() && i < 6; i++) {
+        const std::string& r32 = args[i];
+        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+    }
+    o << "    call " << funcLabel << "\n";
+    if (dest != "%xmm0") o << "    movsd %xmm0, " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::Ret(std::ostream& o) {
+    o << "    leave\n";
     o << "    ret\n";
 }
 
-// ---------------------------------------------------------------------------
-// Prologue / Epilogue / Control flow
-// ---------------------------------------------------------------------------
-
-void AsmGeneratorX86_64::gen_prologue(ostream& o) {
+void AsmGeneratorX86_64::gen_prologue(std::ostream& o) {
     int stackSpace = cfg->calculateRequiredStackSpace();
-    // Get the function name from the first basic block's label
     string funcName = "main";
-    if (!cfg->getBBs().empty()) {
-        funcName = cfg->getBBs()[0]->label;
-    }
-    // Skip .globl here since it's generated in gen_asm for all functions
+    if (!cfg->getBBs().empty()) funcName = cfg->getBBs()[0]->label;
     o << funcName << ":\n";
     o << "    pushq %rbp\n";
     o << "    movq %rsp, %rbp\n";
     o << "    subq $" << stackSpace << ", %rsp\n";
 }
 
-void AsmGeneratorX86_64::gen_epilogue(ostream& o) {
+void AsmGeneratorX86_64::gen_epilogue(std::ostream& o) {
     o << "    leave\n";
     o << "    ret\n";
+}
+
+void AsmGeneratorX86_64::gen_control_flow(std::ostream& o, BasicBlock* bb) {
+    if (bb->exit_true == nullptr) {
+        gen_epilogue(o);
+    } else if (bb->exit_false == nullptr) {
+        o << "    jmp " << bb->exit_true->label << "\n";
+    } else {
+        if (!bb->test_var_name.empty()) {
+            string test_asm = var_to_asm(bb->test_var_name);
+            o << "    movl " << test_asm << ", %eax\n";
+        } else {
+            cerr << "Internal Error: Conditional branch in " << bb->label
+                 << " has no test_var_name." << endl;
+            exit(1);
+        }
+        o << "    cmpl $0, %eax\n";
+        o << "    je "  << bb->exit_false->label << "\n";
+        o << "    jmp " << bb->exit_true->label << "\n";
+    }
 }

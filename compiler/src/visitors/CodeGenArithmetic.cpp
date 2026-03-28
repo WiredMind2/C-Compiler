@@ -4,8 +4,8 @@
 
 antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext *ctx)
 {
-    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
-    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->additive()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->multiplicative()));
     auto* bb = visitor->getCFG()->current_bb;
 
     // Special case for Pointer arithmetic
@@ -45,8 +45,8 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
 
 antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::SubstractionContext *ctx)
 {
-    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->additive()));
-    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->additive()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->multiplicative()));
     auto* bb = visitor->getCFG()->current_bb;
 
     // Special case for Pointer arithmetic
@@ -73,30 +73,22 @@ antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::Substractio
 
 antlrcpp::Any visitMultiplication(CodeGenVisitor* visitor, ifccParser::MultiplicationContext *ctx)
 {
-    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
-    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
-    if (left.type != right.type) {
-        std::cerr << "type not identical. Not supported right now" << std::endl;
-        exit(1);
-    }
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->multiplicative()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->unary()));
     return visitor->getCFG()->current_bb->emit_binop<MulInstr>(left, right);
 }
 
 antlrcpp::Any visitDivision(CodeGenVisitor* visitor, ifccParser::DivisionContext *ctx)
 {
-    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
-    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
-    if (left.type != right.type) {
-        std::cerr << "type not identical. Not supported right now" << std::endl;
-        exit(1);
-    }
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->multiplicative()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->unary()));
     return visitor->getCFG()->current_bb->emit_binop<DivInstr>(left, right);
 }
 
 antlrcpp::Any visitModulo(CodeGenVisitor* visitor, ifccParser::ModuloContext *ctx)
 {
-    StackParam left  = std::any_cast<StackParam>(visitor->visit(ctx->multiplicative()));
-    StackParam right = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->multiplicative()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->unary()));
     return visitor->getCFG()->current_bb->emit_binop<ModInstr>(left, right);
 }
 
@@ -107,7 +99,7 @@ antlrcpp::Any visitUnaryPlus(CodeGenVisitor* visitor, ifccParser::UnaryPlusConte
 
 antlrcpp::Any visitUnaryMinus(CodeGenVisitor* visitor, ifccParser::UnaryMinusContext *ctx)
 {
-    StackParam value = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
+    StackParam value = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->unary()));
     auto* bb = visitor->getCFG()->current_bb;
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, static_cast<int64_t>(0)));
     string zname = bb->create_new_tempvar(IRType::INT32);

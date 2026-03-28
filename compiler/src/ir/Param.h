@@ -23,12 +23,13 @@ struct Param {
 
 /** A compile-time constant. The IRType lives in the Param base. */
 struct ConstParam : Param {
-    std::variant<int32_t, int64_t, float, double> value;
+    std::variant<int8_t, int32_t, int64_t, float, double> value;
 
     // Integer constructors
     ConstParam(IRType t, int64_t v) : Param(t) {
         switch (t) {
-            case IRType::INT32:   value = static_cast<int32_t>(v); break;
+            case IRType::INT8:   value = static_cast<int8_t>(v);  break;
+            case IRType::INT32:  value = static_cast<int32_t>(v); break;
             case IRType::INT64:
             case IRType::POINTER: value = v;                        break;
             default: throw std::invalid_argument("ConstParam: use float constructor for FLOAT types");
@@ -46,6 +47,7 @@ struct ConstParam : Param {
 
     ParamKind kind() const override { return ParamKind::Const; }
 
+    int8_t  as_i8()  const { return std::get<int8_t>(value); }
     int32_t as_i32() const { return std::get<int32_t>(value); }
     int64_t as_i64() const { return std::get<int64_t>(value); }
     float   as_f32() const { return std::get<float>(value); }
@@ -54,7 +56,8 @@ struct ConstParam : Param {
     /** Return value as int64_t regardless of integer type (useful for code-gen). */
     int64_t raw_int() const {
         switch (type) {
-            case IRType::INT32:   return as_i32();
+            case IRType::INT8:   return as_i8();
+            case IRType::INT32:  return as_i32();
             case IRType::INT64:
             case IRType::POINTER: return as_i64();
             default: throw std::invalid_argument("raw_int() called on float constant");
@@ -63,6 +66,7 @@ struct ConstParam : Param {
 
     string to_string() const override {
         switch (type) {
+            case IRType::INT8:    return std::to_string(as_i8());
             case IRType::INT32:   return std::to_string(as_i32());
             case IRType::INT64:   return std::to_string(as_i64()) + "L";
             case IRType::POINTER: return std::to_string(as_i64());
@@ -95,4 +99,5 @@ struct RegParam : Param {
 
     ParamKind kind() const override { return ParamKind::Reg; }
     string to_string() const override { return reg_name(reg) + ":" + irtype_name(type); }
+
 };

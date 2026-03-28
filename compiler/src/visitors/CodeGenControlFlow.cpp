@@ -28,17 +28,27 @@ antlrcpp::Any visitCondition(CodeGenVisitor* visitor, ifccParser::ConditionConte
 
     // Generate THEN block
     cfg->current_bb = then_bb;
-    visitor->visit(ctx->scope());
-    if (cfg->current_bb != nullptr && !cfg->current_bb->endsWithReturn) {
-        cfg->current_bb->exit_true = merge_bb;
+    visitor->visit(ctx->statement());
+    // If the last block in the then-branch doesn't already end in a return or an unconditional jump,
+    // add a jump to the merge block.
+    if (cfg->current_bb != nullptr) {
+        BasicBlock* lastThen = cfg->current_bb;
+        if (lastThen->exit_true == nullptr &&
+            (lastThen->instrs.empty() || dynamic_cast<RetInstr*>(lastThen->instrs.back()) == nullptr)) {
+            lastThen->exit_true = merge_bb;
+        }
     }
 
     // Generate ELSE block (optional)
     if (else_bb) {
         cfg->current_bb = else_bb;
         visitor->visit(ctx->else_block());
-        if (cfg->current_bb != nullptr && !cfg->current_bb->endsWithReturn) {
-            cfg->current_bb->exit_true = merge_bb;
+        if (cfg->current_bb != nullptr) {
+            BasicBlock* lastElse = cfg->current_bb;
+            if (lastElse->exit_true == nullptr &&
+                (lastElse->instrs.empty() || dynamic_cast<RetInstr*>(lastElse->instrs.back()) == nullptr)) {
+                lastElse->exit_true = merge_bb;
+            }
         }
     }
 
@@ -75,9 +85,14 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     cfg->current_bb = body_bb;
     visitor->visit(ctx->scope());
 
-    // After the body, if we didn't return, jump back to the test
-    if (cfg->current_bb->exit_true == nullptr && cfg->current_bb->exit_false == nullptr) {
-        cfg->current_bb->exit_true = test_bb;
+    // After the body, if the last generated BB didn't already redirect control (return/break/continue),
+    // set it to jump back to the test block.
+    if (cfg->current_bb != nullptr) {
+        BasicBlock* lastBody = cfg->current_bb;
+        if (lastBody->exit_true == nullptr &&
+            (lastBody->instrs.empty() || dynamic_cast<RetInstr*>(lastBody->instrs.back()) == nullptr)) {
+            lastBody->exit_true = test_bb;
+        }
     }
 
     // After the loop, we continue from end_bb

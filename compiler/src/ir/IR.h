@@ -19,22 +19,34 @@ class CFG;
 // ============================================================
 
 class BasicBlock {
+    friend class CFG;
 public:
-    BasicBlock(CFG* cfg, string entry_label);
+    BasicBlock(CFG* cfg, string entry_label, bool is_loop = false);
     void gen_asm(ostream& o);
 
     void add_IRInstr(IRInstr* instr);
 
-
-    /** Emit: load varName into R0, op with R1 loaded from rhs,
-     *  store result into a new temp.  Returns the temp name.
-     *  Template param is the instruction type (AddInstr, SubInstr, …). */
-    /** Like emit_binop but the result is always INT32 (comparisons). */
     template<class CmpInstr>
     StackParam emit_cmp_binop(const StackParam& lhs, const StackParam& rhs) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs.name, lhs.type));
-        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs.name, rhs.type));
-        add_IRInstr(new CmpInstr(this, Reg::W0, Reg::W0, Reg::W1, lhs.type));
+        Reg lhs_register = Reg::W0;
+        Reg rhs_register = Reg::W1;
+
+        add_IRInstr(new LoadStackInstr(this, lhs_register, lhs.name, lhs.type));
+        add_IRInstr(new LoadStackInstr(this, rhs_register, rhs.name, rhs.type));
+
+        IRType target_operation_type = operation_type_from_operand_types(lhs, rhs);
+
+        if (lhs.type != target_operation_type) {
+            generate_conversion_instruction(lhs_register, lhs.type, Reg::W2, target_operation_type);
+            lhs_register = Reg::W2;
+        }
+
+        if (rhs.type != target_operation_type) {
+            generate_conversion_instruction(rhs_register, rhs.type, Reg::W3, target_operation_type);
+            rhs_register = Reg::W3;
+        }
+
+        add_IRInstr(new CmpInstr(this, lhs_register, lhs_register, rhs_register, target_operation_type));
         string tmp = create_new_tempvar(IRType::INT32);
         add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, IRType::INT32));
         return StackParam(tmp, IRType::INT32);
@@ -42,12 +54,28 @@ public:
 
     template<class BinInstr>
     StackParam emit_binop(const StackParam& lhs, const StackParam& rhs) {
-        add_IRInstr(new LoadStackInstr(this, Reg::W0, lhs.name, lhs.type));
-        add_IRInstr(new LoadStackInstr(this, Reg::W1, rhs.name, rhs.type));
-        add_IRInstr(new BinInstr(this, Reg::W0, Reg::W0, Reg::W1, lhs.type));
-        string tmp = create_new_tempvar(lhs.type);
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, lhs.type));
-        return StackParam(tmp, lhs.type);
+        Reg lhs_register = Reg::W0;
+        Reg rhs_register = Reg::W1;
+
+        add_IRInstr(new LoadStackInstr(this, lhs_register, lhs.name, lhs.type));
+        add_IRInstr(new LoadStackInstr(this, rhs_register, rhs.name, rhs.type));
+
+        IRType target_operation_type = operation_type_from_operand_types(lhs, rhs);
+
+        if (lhs.type != target_operation_type) {
+            generate_conversion_instruction(lhs_register, lhs.type, Reg::W2, target_operation_type);
+            lhs_register = Reg::W2;
+        }
+
+        if (rhs.type != target_operation_type) {
+            generate_conversion_instruction(rhs_register, rhs.type, Reg::W3, target_operation_type);
+            rhs_register = Reg::W3;
+        }
+
+        add_IRInstr(new BinInstr(this, lhs_register, lhs_register, rhs_register, target_operation_type));
+        string tmp = create_new_tempvar(target_operation_type);
+        add_IRInstr(new StoreStackInstr(this, tmp, lhs_register, target_operation_type));
+        return StackParam(tmp, target_operation_type);
     }
 
     template<class UnaryInstr>
@@ -83,12 +111,14 @@ public:
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
     }
-    
+
     void set_is_array(const string& name, bool isArr) {
         isArrayMap[name] = isArr;
     }
 
-    void reset_symbol_index() { nextFreeSymbolIndex = 0; }
+    void reset_symbol_index();
+
+    void generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type);
 
     BasicBlock* exit_true;
     BasicBlock* exit_false;
@@ -96,7 +126,10 @@ public:
     CFG*        cfg;
     vector<IRInstr*> instrs;
     string      test_var_name;
-    bool        endsWithReturn;
+    bool        is_loop = false;
+    BasicBlock* loop_continue_target = nullptr;
+    BasicBlock* loop_break_target    = nullptr;
+    string      functionName;
 
 protected:
     int nextFreeSymbolIndex = 0;
@@ -104,6 +137,9 @@ protected:
     map<string, int>    SymbolIndex;
     map<string, bool>   isArrayMap;
     map<string, IRType> arrayElementType;
+
+    // Return the desired operation type from the types of the operands
+    IRType operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs);
 
     friend class CFG;
 };
@@ -132,7 +168,7 @@ public:
 
     string create_new_tempvar(IRType t);
 
-    int  calculateRequiredStackSpace();
+    int  calculateRequiredStackSpace(const string& funcName = "");
 
     // Array element type helpers
     void set_array_element_type(const string& name, IRType t) { entry_bb->arrayElementType[name] = t; }
@@ -141,6 +177,9 @@ public:
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();
+
+    int  getNextFreeSymbolIndex() const { return nextFreeSymbolIndex; }
+    void setNextFreeSymbolIndex(int index) { nextFreeSymbolIndex = index; }
 
     vector<BasicBlock*>& getBBs()      { return bbs; }
     vector<BasicBlock*>& getStackBBs() { return bbStack; }
@@ -153,6 +192,9 @@ public:
         IRType           returnType;
         vector<IRType>   paramTypes;
         vector<string>   paramNames;
+        BasicBlock*      entryBB = nullptr;
+        vector<BasicBlock*> bbs;  // Basic blocks for this function
+        int              cachedStackSpace = -1; // -1 indicates not computed yet
     };
 
     void               add_function(string name, IRType returnType,
@@ -162,13 +204,19 @@ public:
     BasicBlock*        create_function_entry(string name, IRType returnType,
                                              vector<IRType> paramTypes, vector<string> paramNames);
 
+    // Methods for multi-function support
+    void               setCurrentFunction(string name) { currentFunctionName = name; }
+    string             getCurrentFunction() const { return currentFunctionName; }
+
     AsmGenerator* asmGenerator;
 
 protected:
     int                 nextBBnumber = 0;
     int                 nextTempVarNumber = 0;
+    int                 nextFreeSymbolIndex = -8;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
+    string              currentFunctionName;  // Track current function being processed
 
 private:
     vector<FunctionSignature> functions;

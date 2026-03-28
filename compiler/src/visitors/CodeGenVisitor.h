@@ -3,6 +3,7 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include "../ir/IR.h"
+#include "utils.h"
 #include "CodeGenArithmetic.h"
 #include "CodeGenBitwise.h"
 #include "CodeGenComparison.h"
@@ -18,8 +19,10 @@
 
 class CodeGenVisitor : public ifccBaseVisitor {
 public:
-    CodeGenVisitor(TargetArch arch) {
+    CodeGenVisitor(TargetArch arch, bool include_stdio = false, bool include_stdlib = false) {
         cfg = new CFG(arch);
+        this->include_stdio = include_stdio;
+        this->include_stdlib = include_stdlib;
     }
 
     virtual antlrcpp::Any visitProg(ifccParser::ProgContext *ctx) override;
@@ -31,6 +34,7 @@ public:
 
     virtual antlrcpp::Any visitConstant(ifccParser::ConstantContext *ctx) override;
     virtual antlrcpp::Any visitDouble_constant(ifccParser::Double_constantContext *ctx) override;
+    virtual antlrcpp::Any visitChar_constant(ifccParser::Char_constantContext *ctx) override;
 
     virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 
@@ -97,8 +101,21 @@ public:
     // Scope handler
     virtual antlrcpp::Any visitScope(ifccParser::ScopeContext *ctx) override;
 
+    // Statement handler
+    virtual antlrcpp::Any visitStatement(ifccParser::StatementContext *ctx) override;
+
+    // (Duplicates removed)
+    virtual antlrcpp::Any visitFor_loop(ifccParser::For_loopContext *ctx) override;
+    virtual antlrcpp::Any visitBreak_stmt(ifccParser::Break_stmtContext *ctx) override;
+    virtual antlrcpp::Any visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) override;
+
     CFG *getCFG() { return cfg; }
 
 private:
     CFG *cfg;
+    bool include_stdio = false;
+    bool include_stdlib = false;
+public:
+    bool has_stdio() const { return include_stdio; }
+    bool has_stdlib() const { return include_stdlib; }
 };
