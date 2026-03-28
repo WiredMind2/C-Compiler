@@ -553,11 +553,19 @@ void AsmGeneratorX86_64::CallWithINT32Return(ostream& o, string funcLabel, vecto
 }
 
 void AsmGeneratorX86_64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
-    static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+    // Handle mixed integer / float arguments like CallWithINT32Return but
+    // keep FLOAT64 return handling (move %xmm0 to destination).
+    static const string integer_argument_register[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+
+    int index_in_integer_argument_register = 0;
     for (int i = 0; i < args.size() && i < 6; i++) {
-        string r32 = args[i];
-        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+        // If the parameter is NOT an XMM register (i.e. integer), move/sign-extend
+        if (!args[i].starts_with("%x")) {
+            o << "    movslq " << args[i] << ", " << integer_argument_register[index_in_integer_argument_register] << "\n";
+            index_in_integer_argument_register++;
+        }
     }
+
     o << "    call " << funcLabel << "\n";
     if (dest != "%xmm0") {
         o << "    movsd %xmm0, " << dest << "\n";
