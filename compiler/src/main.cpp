@@ -66,7 +66,14 @@ int main(int argn, const char **argv) {
         exit(1);
     }
 
-    CodeGenVisitor v(arch);
+    // Detect simple #include directives in the raw source so we can
+    // enable implicit declarations of standard functions only when
+    // the corresponding header was included.
+    std::string src = in.str();
+    bool include_stdio = (src.find("#include <stdio.h>") != std::string::npos) || (src.find("#include<stdio.h>") != std::string::npos);
+    bool include_stdlib = (src.find("#include <stdlib.h>") != std::string::npos) || (src.find("#include<stdlib.h>") != std::string::npos);
+
+    CodeGenVisitor v(arch, include_stdio, include_stdlib);
     v.visit(tree);
     CFG *cfg = v.getCFG();
 
