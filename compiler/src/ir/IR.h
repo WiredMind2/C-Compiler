@@ -78,7 +78,7 @@ public:
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
     }
-    void reset_symbol_index() { nextFreeSymbolIndex = -4; }
+    void reset_symbol_index() { nextFreeSymbolIndex = 0; }
 
     BasicBlock* exit_true;
     BasicBlock* exit_false;
@@ -86,11 +86,14 @@ public:
     CFG*        cfg;
     vector<IRInstr*> instrs;
     string      test_var_name;
+    bool        endsWithReturn;
 
 protected:
-    int nextFreeSymbolIndex = -4;
+    int nextFreeSymbolIndex = 0;
     map<string, IRType> SymbolType;
     map<string, int>    SymbolIndex;
+
+    friend class CFG;
 };
 
 // ============================================================
@@ -109,6 +112,8 @@ public:
     void gen_asm_epilogue(ostream& o);
     void gen_control_flow(ostream& o, BasicBlock* bb);
 
+    string create_new_tempvar(IRType t);
+
     int  calculateRequiredStackSpace();
 
     BasicBlock* findBBByVariable(const string& var);
@@ -118,6 +123,7 @@ public:
     vector<BasicBlock*>& getStackBBs() { return bbStack; }
 
     BasicBlock* current_bb;
+    BasicBlock* entry_bb;
 
     struct FunctionSignature {
         string           name, label;

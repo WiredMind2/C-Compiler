@@ -39,6 +39,9 @@ public:
     virtual void visit(std::ostream& o, CopyRegInstr&    instr) = 0;
     virtual void visit(std::ostream& o, StoreStackInstr& instr) = 0;
     virtual void visit(std::ostream& o, LoadStackInstr&  instr) = 0;
+    virtual void visit(std::ostream& o, AddressOfSymbolInstr& instr) = 0;
+    virtual void visit(std::ostream& o, LoadPointerInstr& instr) = 0;
+    virtual void visit(std::ostream& o, StorePointerInstr& instr) = 0;
     virtual void visit(std::ostream& o, AddInstr&        instr) = 0;
     virtual void visit(std::ostream& o, SubInstr&        instr) = 0;
     virtual void visit(std::ostream& o, MulInstr&        instr) = 0;

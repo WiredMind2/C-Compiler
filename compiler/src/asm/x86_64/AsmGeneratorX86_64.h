@@ -18,6 +18,9 @@ public:
     void visit(std::ostream& o, CopyRegInstr&    instr) override;
     void visit(std::ostream& o, StoreStackInstr& instr) override;
     void visit(std::ostream& o, LoadStackInstr&  instr) override;
+    void visit(std::ostream& o, AddressOfSymbolInstr& instr) override;
+    void visit(std::ostream& o, LoadPointerInstr& instr) override;
+    void visit(std::ostream& o, StorePointerInstr& instr) override;
     void visit(std::ostream& o, AddInstr&    instr) override;
     void visit(std::ostream& o, SubInstr&    instr) override;
     void visit(std::ostream& o, MulInstr&    instr) override;

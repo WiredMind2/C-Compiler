@@ -2,12 +2,12 @@
 #include "CodeGenArithmetic.h"
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
-{
-    for (auto stmt : ctx->statement()) {
-        this->visit(stmt);
-    }
-    std::cerr << "BBs: " << cfg->getBBs().size() << std::endl; for(auto bb : cfg->getBBs()) { std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl; } return "0";
-}
+  {
+      for (auto stmt : ctx->statement()) {
+          this->visit(stmt);
+      }
+      return "0";
+  }
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
@@ -19,6 +19,10 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     } else {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
     }
+    // Set exit_true to nullptr to indicate this block ends in a return
+    bb->exit_true = nullptr;
+    bb->exit_false = nullptr;
+    bb->endsWithReturn = true;
     return nullptr;
 }
 
@@ -55,16 +59,6 @@ antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_
 {
     return ::visitVar_decl_with_init(this, ctx);
 }
-antlrcpp::Any CodeGenVisitor::visitArray_decl_list(ifccParser::Array_decl_listContext *ctx)
-{
-    return ::visitArray_decl_list(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitArray_decl_with_init(ifccParser::Array_decl_with_initContext *ctx)
-{
-    return ::visitArray_decl_with_init(this, ctx);
-}
-
 antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
 {
     return ::visitAssignment(this, ctx);
@@ -274,4 +268,14 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
         this->visit(stmt);
     }
     return 0;
+}
+
+antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
+{
+    return ::visitCondition(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx)
+{
+    return ::visitWhile_loop(this, ctx);
 }

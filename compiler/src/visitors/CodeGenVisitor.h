@@ -10,6 +10,7 @@
 #include "CodeGenFunction.h"
 #include "CodeGenRelational.h"
 #include "CodeGenLogical.h"
+#include "CodeGenControlFlow.h"
 #include <map>
 #include <string>
 
@@ -35,8 +36,6 @@ public:
 
     virtual antlrcpp::Any visitVar_decl_list(ifccParser::Var_decl_listContext *ctx) override;
     virtual antlrcpp::Any visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx) override;
-    virtual antlrcpp::Any visitArray_decl_list(ifccParser::Array_decl_listContext *ctx) override;
-    virtual antlrcpp::Any visitArray_decl_with_init(ifccParser::Array_decl_with_initContext *ctx) override;
     virtual antlrcpp::Any visitAssignment(ifccParser::AssignmentContext *ctx) override;
 
     // Arithmetic expression handlers
@@ -85,6 +84,10 @@ public:
     virtual antlrcpp::Any visitLogicalORRule(ifccParser::LogicalORRuleContext *ctx) override;
     virtual antlrcpp::Any visitLogicalANDRef(ifccParser::LogicalANDRefContext *ctx) override;
     virtual antlrcpp::Any visitLogicalANDRule(ifccParser::LogicalANDRuleContext *ctx) override;
+
+    // Control flow handlers
+    virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
+    virtual antlrcpp::Any visitWhile_loop(ifccParser::While_loopContext *ctx) override;
 
     // Function handlers
     virtual antlrcpp::Any visitFunction_definition(ifccParser::Function_definitionContext *ctx) override;

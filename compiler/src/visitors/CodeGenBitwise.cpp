@@ -24,6 +24,6 @@ antlrcpp::Any visitBitwiseANDRule(CodeGenVisitor* visitor, ifccParser::BitwiseAN
 
 antlrcpp::Any visitUnaryNot(CodeGenVisitor* visitor, ifccParser::UnaryNotContext *ctx)
 {
-    StackParam value = std::any_cast<StackParam>(visitor->visit(ctx->primitive()));
+    StackParam value = std::any_cast<StackParam>(visitor->visit(ctx->unary()));
     return visitor->getCFG()->current_bb->emit_unop<BitNotInstr>(value);
 }

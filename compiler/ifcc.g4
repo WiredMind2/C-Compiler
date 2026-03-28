@@ -5,18 +5,15 @@ axiom : prog EOF ;
 prog : statement* ;
 
 statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop
-    | var_decl_list | var_decl_with_init | array_decl_list | array_decl_with_init;
+    | var_decl_list | var_decl_with_init ;
 
 return_stmt: RETURN expr ;
 
 type_specifier : 'int' | 'double' ;
 
-var_decl_list : type_specifier VAR (',' VAR)* ';' ;
-var_decl_with_init : type_specifier VAR '=' expr ';' ;
-
-array_decl_list : type_specifier VAR '[' CONST ']' (',' VAR '[' CONST ']')* ';' ;
-array_decl_with_init : type_specifier VAR '[]' '=' '{' expr (',' expr)* '}' ';' ;
-
+declarator : '*'* VAR ('[' CONST ']')? ;
+var_decl_list : type_specifier declarator (',' declarator)* ';' ;
+var_decl_with_init : type_specifier declarator '=' expr ';' ;
 
 param : 'int' VAR ;
 param_list : param (',' param)* ;
@@ -30,9 +27,7 @@ for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
 
 scope : '{' statement* '}' ;
 
-lvalue:
-    VAR
-    | expr ;
+lvalue: primitive ('[' expr ']')? | '*' lvalue ; 
 
 expr : sequential ;
 
@@ -90,11 +85,11 @@ multiplicative
     ;
 
 unary
-    : '-' primitive              # unaryMinus
-    | '+' primitive              # unaryPlus
-    | '!' primitive              # unaryNot
-    | '*' primitive              # dereference
-    | '&' primitive              # addressOf
+    : '-' unary              # unaryMinus
+    | '+' unary              # unaryPlus
+    | '!' unary              # unaryNot
+    | '*' unary              # dereference
+    | '&' unary              # addressOf
     | primitive                  # primitiveExprRef
     ;
 

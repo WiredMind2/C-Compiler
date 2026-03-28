@@ -28,8 +28,9 @@ struct ConstParam : Param {
     // Integer constructors
     ConstParam(IRType t, int64_t v) : Param(t) {
         switch (t) {
-            case IRType::INT32:  value = static_cast<int32_t>(v); break;
-            case IRType::INT64:  value = v;                        break;
+            case IRType::INT32:   value = static_cast<int32_t>(v); break;
+            case IRType::INT64:
+            case IRType::POINTER: value = v;                        break;
             default: throw std::invalid_argument("ConstParam: use float constructor for FLOAT types");
         }
     }
@@ -53,8 +54,9 @@ struct ConstParam : Param {
     /** Return value as int64_t regardless of integer type (useful for code-gen). */
     int64_t raw_int() const {
         switch (type) {
-            case IRType::INT32:  return as_i32();
-            case IRType::INT64:  return as_i64();
+            case IRType::INT32:   return as_i32();
+            case IRType::INT64:
+            case IRType::POINTER: return as_i64();
             default: throw std::invalid_argument("raw_int() called on float constant");
         }
     }

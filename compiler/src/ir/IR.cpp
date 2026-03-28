@@ -18,6 +18,7 @@ BasicBlock::BasicBlock(CFG *cfg, string entry_label)
     exit_true = nullptr;
     exit_false = nullptr;
     nextFreeSymbolIndex = -4;
+    endsWithReturn = false;
 }
 
 void BasicBlock::gen_asm(ostream &o) {
@@ -42,32 +43,46 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
         exit(1);
     }
     SymbolType[name] = t;
-    SymbolIndex[name] = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= irtype_size(t);
+    // Align to 8 bytes if it's an 8 byte type for better safety
+    if (irtype_size(t) == 8 && (nextFreeSymbolIndex % 8) != 0) {
+        nextFreeSymbolIndex &= ~7; 
+    }
+    SymbolIndex[name] = nextFreeSymbolIndex;
 }
 
 int BasicBlock::allocate_bytes_on_symbol_table(int size) {
-    int index = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= size;
+    if (size == 8 && (nextFreeSymbolIndex % 8) != 0) {
+        nextFreeSymbolIndex &= ~7;
+    }
+    int index = nextFreeSymbolIndex;
     return index;
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {
-    string name = "!tmp" + to_string(-nextFreeSymbolIndex);
-    add_var_to_symbol_table(name, t);
-    return name;
+    return cfg->create_new_tempvar(t);
 }
 
 int BasicBlock::get_var_index(string name) {
-    if (SymbolIndex.find(name) == SymbolIndex.end()) {
-        cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
-        exit(1);
+    if (SymbolIndex.find(name) != SymbolIndex.end()) {
+        return SymbolIndex[name];
     }
-    return SymbolIndex[name];
+    if (cfg->entry_bb && cfg->entry_bb != this) {
+        return cfg->entry_bb->get_var_index(name);
+    }
+    cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
+    exit(1);
 }
 
 IRType BasicBlock::get_var_type(string name) {
-    return SymbolType[name];
+    if (SymbolType.find(name) != SymbolType.end()) {
+        return SymbolType[name];
+    }
+    if (cfg->entry_bb && cfg->entry_bb != this) {
+        return cfg->entry_bb->get_var_type(name);
+    }
+    return IRType::INT32;
 }
 
 int BasicBlock::calculateRequiredStackSpace() {
@@ -81,8 +96,11 @@ int BasicBlock::calculateRequiredStackSpace() {
 
 void BasicBlock::allocateVariable(string name, IRType type) {
     SymbolType[name] = type;
-    SymbolIndex[name] = nextFreeSymbolIndex;
     nextFreeSymbolIndex -= irtype_size(type);
+    if (irtype_size(type) == 8 && (nextFreeSymbolIndex % 8) != 0) {
+        nextFreeSymbolIndex &= ~7;
+    }
+    SymbolIndex[name] = nextFreeSymbolIndex;
 }
 
 // ============================================================
@@ -92,6 +110,7 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
     current_bb = new BasicBlock(this, new_BB_name());
+    entry_bb = current_bb;
     add_bb(current_bb);
 
     switch (arch) {
@@ -131,6 +150,12 @@ string CFG::new_BB_name() {
     return "BB" + to_string(nextBBnumber++);
 }
 
+string CFG::create_new_tempvar(IRType t) {
+    string name = "!tmp" + to_string(nextBBnumber++); // Using BB number for uniqueness
+    entry_bb->add_var_to_symbol_table(name, t);
+    return name;
+}
+
 int CFG::calculateRequiredStackSpace() {
     int space = 0;
     for (BasicBlock *bb: getBBs())
@@ -139,10 +164,9 @@ int CFG::calculateRequiredStackSpace() {
 }
 
 BasicBlock *CFG::findBBByVariable(const string &var) {
-    for (auto bb: getStackBBs())
-        if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
-    for (auto bb: getBBs())
-        if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
+    for (auto bb: getBBs()) {
+        if (bb->SymbolIndex.find(var) != bb->SymbolIndex.end()) return bb;
+    }
     return nullptr;
 }
 
@@ -164,9 +188,8 @@ CFG::FunctionSignature *CFG::get_function(string name) {
 }
 
 BasicBlock *CFG::create_function_entry(string name, IRType returnType,
-                                       vector<IRType> paramTypes, vector<string> paramNames) {
+                                        vector<IRType> paramTypes, vector<string> paramNames) {
     add_function(name, returnType, paramTypes, paramNames);
-    bbs.clear();
 
     BasicBlock *entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();
@@ -178,6 +201,7 @@ BasicBlock *CFG::create_function_entry(string name, IRType returnType,
     }
 
     current_bb = entryBB;
+    entry_bb = current_bb;
     add_bb(entryBB);
     return entryBB;
 }

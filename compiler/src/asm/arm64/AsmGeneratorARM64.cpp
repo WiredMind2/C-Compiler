@@ -27,7 +27,7 @@ string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
             case Reg::W3:                                 return "d10";
         }
     }
-    bool is64 = (p.type == IRType::INT64);
+    bool is64 = (p.type == IRType::INT64 || p.type == IRType::POINTER);
     const char* prefix = is64 ? "x" : "w";
     switch (p.reg) {
         case Reg::W0:   case Reg::RET:  case Reg::ARG0: return string(prefix) + "0";
@@ -55,9 +55,11 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
 void AsmGeneratorARM64::gen_asm(ostream& o) {
     // Generate .globl for all functions
     for (auto bb : cfg->getBBs()) {
-        o << ".globl _" << bb->label << "\n";
+        auto* sig = cfg->get_function(bb->label);
+        if (sig) {
+            o << ".globl _" << bb->label << "\n";
+        }
     }
-    cfg->gen_asm_prologue(o);
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
         gen_asm_bb(o, bb, isFirstBB);
@@ -67,8 +69,25 @@ void AsmGeneratorARM64::gen_asm(ostream& o) {
 
 void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
     cfg->current_bb = bb;
-    if (!isFirstBB)
+
+    auto* sig = cfg->get_function(bb->label);
+    if (sig) {
+        int stackSpace = cfg->calculateRequiredStackSpace();
+        o << "_" << bb->label << ":\n";
+        o << "    stp fp, lr, [sp, #-16]!\n";
+        o << "    mov fp, sp\n";
+        o << "    sub sp, sp, #" << stackSpace << "\n";
+
+        int numParams = (int)sig->paramNames.size();
+        for (int i = 0; i < numParams && i < 6; i++) {
+            int offset = bb->get_var_index(sig->paramNames[i]);
+            string reg = "w" + to_string(i); // Simplified for INT32 params
+            o << "    str " << reg << ", [fp, #" << offset << "]\n";
+        }
+    } else {
         o << bb->label << ":\n";
+    }
+
     for (auto instr : bb->instrs)
         cfg->gen_asm_instr(o, instr);
     gen_control_flow(o, bb);
@@ -136,6 +155,35 @@ void AsmGeneratorARM64::visit(ostream& o, StoreStackInstr& instr) {
 void AsmGeneratorARM64::visit(ostream& o, LoadStackInstr& instr) {
     o << "    ldr " << reg_to_asm(instr.dest)
       << ", "      << var_to_asm(instr.src.name) << "\n";
+}
+
+void AsmGeneratorARM64::visit(ostream& o, AddressOfSymbolInstr& instr) {
+    int index = cfg->current_bb->get_var_index(instr.src.name);
+    if (index >= 0) {
+        o << "    add " << reg_to_asm(instr.dest) << ", sp, #" << index << "\n";
+    } else {
+        o << "    sub " << reg_to_asm(instr.dest) << ", sp, #" << (-index) << "\n";
+    }
+}
+
+void AsmGeneratorARM64::visit(ostream& o, LoadPointerInstr& instr) {
+    if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else if (instr.type == IRType::FLOAT64) {
+        o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else {
+        o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    }
+}
+
+void AsmGeneratorARM64::visit(ostream& o, StorePointerInstr& instr) {
+    if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else if (instr.type == IRType::FLOAT64) {
+        o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else {
+        o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    }
 }
 
 void AsmGeneratorARM64::visit(ostream& o, AddInstr& instr) {
@@ -331,7 +379,9 @@ void AsmGeneratorARM64::gen_epilogue(ostream& o) {
 
 void AsmGeneratorARM64::gen_control_flow(ostream& o, BasicBlock* bb) {
     if (bb->exit_true == nullptr) {
-        gen_epilogue(o);
+        o << "    mov sp, fp\n";
+        o << "    ldp fp, lr, [sp], #16\n";
+        o << "    ret\n";
     } else if (bb->exit_false == nullptr) {
         o << "    b " << bb->exit_true->label << "\n";
     } else {

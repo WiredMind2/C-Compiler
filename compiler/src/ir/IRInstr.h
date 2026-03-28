@@ -95,6 +95,52 @@ struct LoadStackInstr : IRInstr {
     }
 };
 
+/** Get address of a stack variable: dest = &stack[src] */
+struct AddressOfSymbolInstr : IRInstr {
+    RegParam   dest;
+    StackParam src;
+
+    AddressOfSymbolInstr(BasicBlock *bb, const Reg d, const string &s, const IRType pointerType = IRType::POINTER)
+        : IRInstr(bb, pointerType), dest(d, pointerType), src(s, pointerType) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "address_of." + irtype_name(type) + " "
+               + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** Read from pointer: dest = *ptr */
+struct LoadPointerInstr : IRInstr {
+    RegParam dest, ptr;
+
+    LoadPointerInstr(BasicBlock *bb, const Reg d, const Reg p, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, t), ptr(p, IRType::POINTER) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "load_ptr." + irtype_name(type) + " "
+               + dest.to_string() + ", " + ptr.to_string();
+    }
+};
+
+/** Write to pointer: *ptr = src */
+struct StorePointerInstr : IRInstr {
+    RegParam ptr, src;
+
+    StorePointerInstr(BasicBlock *bb, const Reg p, const Reg s, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), ptr(p, IRType::POINTER), src(s, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "store_ptr." + irtype_name(type) + " "
+               + ptr.to_string() + ", " + src.to_string();
+    }
+};
+
 /** dest = lhs + rhs  (all registers) */
 struct AddInstr : IRInstr {
     RegParam dest, lhs, rhs;

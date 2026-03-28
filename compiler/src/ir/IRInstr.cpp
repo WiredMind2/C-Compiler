@@ -11,6 +11,9 @@ void LdConstInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void StoreStackInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void AddressOfSymbolInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void LoadPointerInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void StorePointerInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void AddInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void SubInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void MulInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
