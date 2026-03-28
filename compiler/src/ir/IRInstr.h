@@ -338,9 +338,12 @@ struct CallInstr : IRInstr {
     vector<RegParam> args;
 
     CallInstr(BasicBlock *bb, string label, const Reg d,
-              const vector<Reg> &argRegs, const IRType t = IRType::INT32)
+              const vector<Reg> &argRegs, const vector<IRType> &argTypes, const IRType t = IRType::INT32)
         : IRInstr(bb, t), funcLabel(std::move(label)), dest(d, t) {
-        for (Reg r : argRegs) args.emplace_back(r, t);
+        for (size_t i = 0; i < argRegs.size(); ++i) {
+            IRType at = (i < argTypes.size()) ? argTypes[i] : t;
+            args.emplace_back(argRegs[i], at);
+        }
     }
 
     void accept(AsmGenerator& g, ostream &o) override;
