@@ -135,15 +135,26 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Maps a 32-bit GPR string to its 8-bit low-byte counterpart.
+// Covers all registers that reg_to_asm() can produce for INT8/INT32 types,
+// plus the full extended set (r10–r15, rbp, rsp) for safety.
 static string reg32_to_reg8(const string& reg32) {
-    if (reg32 == "%eax") return "%al";
-    if (reg32 == "%ecx") return "%cl";
-    if (reg32 == "%edx") return "%dl";
-    if (reg32 == "%ebx") return "%bl";
-    if (reg32 == "%edi") return "%dil";
-    if (reg32 == "%esi") return "%sil";
-    if (reg32 == "%r8d") return "%r8b";
-    if (reg32 == "%r9d") return "%r9b";
+    if (reg32 == "%eax")  return "%al";
+    if (reg32 == "%ecx")  return "%cl";
+    if (reg32 == "%edx")  return "%dl";
+    if (reg32 == "%ebx")  return "%bl";
+    if (reg32 == "%edi")  return "%dil";
+    if (reg32 == "%esi")  return "%sil";
+    if (reg32 == "%ebp")  return "%bpl";
+    if (reg32 == "%esp")  return "%spl";
+    if (reg32 == "%r8d")  return "%r8b";
+    if (reg32 == "%r9d")  return "%r9b";
+    if (reg32 == "%r10d") return "%r10b";
+    if (reg32 == "%r11d") return "%r11b";
+    if (reg32 == "%r12d") return "%r12b";
+    if (reg32 == "%r13d") return "%r13b";
+    if (reg32 == "%r14d") return "%r14b";
+    if (reg32 == "%r15d") return "%r15b";
     throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
 }
 

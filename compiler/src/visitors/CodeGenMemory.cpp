@@ -88,12 +88,8 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 
     auto* bb = visitor->getCFG()->current_bb;
 
-    if (variable_type == IRType::FLOAT64 && src.type != IRType::FLOAT64) {
+    if (src.type != variable_type) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
-        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, variable_type);
-        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, variable_type));
-    } else if (src.type == IRType::FLOAT64 && variable_type != IRType::FLOAT64) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, IRType::FLOAT64));
         bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, variable_type);
         bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, variable_type));
     } else {
