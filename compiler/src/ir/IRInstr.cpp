@@ -444,6 +444,11 @@ void I8ToI32Instr::accept(AsmGenerator& g, ostream& o) {
     string dest_register = g.reg_to_asm(dest);
     g.I8ToI32(o, src_register, dest_register);
 }
+void I32ToI8Instr::accept(AsmGenerator& g, ostream& o) {
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
+    g.I32ToI8(o, src_register, dest_register);
+}
 void RetInstr::accept(AsmGenerator& g, ostream& o) {
     g.Ret(o);
 }

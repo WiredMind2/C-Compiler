@@ -416,6 +416,21 @@ struct I8ToI32Instr : IRInstr {
     }
 };
 
+/** dest(INT8) = (int8_t) src(INT32) — int32 to int8 conversion (truncation) */
+struct I32ToI8Instr : IRInstr {
+    RegParam dest; // INT8
+    RegParam src;  // INT32
+
+    I32ToI8Instr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::INT8), dest(d, IRType::INT8), src(s, IRType::INT32) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "i32_to_i8 " + dest.to_string() + ", " + src.to_string();
+    }
+};
+
 /** Return — the return value must already be in Reg::RET */
 struct RetInstr : IRInstr {
     explicit RetInstr(BasicBlock *bb, const IRType t = IRType::INT32)

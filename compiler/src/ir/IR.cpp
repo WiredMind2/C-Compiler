@@ -72,6 +72,8 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
         add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT32) {
         add_IRInstr(new F64ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT32 && dest_type == IRType::INT8) {
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::INT8 && dest_type == IRType::INT32) {
         add_IRInstr(new I8ToI32Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::INT8 && dest_type == IRType::FLOAT64) {

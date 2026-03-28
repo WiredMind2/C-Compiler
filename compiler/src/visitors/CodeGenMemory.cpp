@@ -94,7 +94,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     IRType type = bb->get_var_type(var);
 
     if (src.type != type) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
         bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, type);
         bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, type));
     } else {
