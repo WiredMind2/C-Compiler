@@ -76,6 +76,10 @@ int main(int argn, const char **argv) {
     optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
     optimizer.runOptimizations(cfg);
 
+    // Dump symbol table and IR instructions for debugging
+    cfg->dump_symbol_table(std::cerr);
+    cfg->dump_instructions(std::cerr);
+
     cfg->gen_asm(cout);
 
     return 0;

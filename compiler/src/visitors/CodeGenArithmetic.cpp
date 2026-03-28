@@ -10,30 +10,22 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
 
     // Special case for Pointer arithmetic
     if (left.type == IRType::POINTER && right.type == IRType::INT32) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, left.name, IRType::POINTER));
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, right.name, IRType::INT32));
-        string right64 = bb->create_new_tempvar(IRType::POINTER);
-        bb->add_IRInstr(new CopyRegInstr(bb, Reg::W1, Reg::W1, IRType::POINTER)); // Extension done in CopyRegInstr visit
-        bb->add_IRInstr(new StoreStackInstr(bb, right64, Reg::W1, IRType::POINTER));
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, right64, IRType::POINTER));
-        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::POINTER, (int64_t)4));
-        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::POINTER));
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, left.name, IRType::POINTER));
         bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
         string tmp = bb->create_new_tempvar(IRType::POINTER);
         bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
         return StackParam(tmp, IRType::POINTER);
     }
     if (left.type == IRType::INT32 && right.type == IRType::POINTER) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, right.name, IRType::POINTER));
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, left.name, IRType::INT32));
-        string left64 = bb->create_new_tempvar(IRType::POINTER);
-        bb->add_IRInstr(new CopyRegInstr(bb, Reg::W1, Reg::W1, IRType::POINTER));
-        bb->add_IRInstr(new StoreStackInstr(bb, left64, Reg::W1, IRType::POINTER));
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, left64, IRType::POINTER));
-        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::POINTER, (int64_t)4));
-        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::POINTER));
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, right.name, IRType::POINTER));
         bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
         string tmp = bb->create_new_tempvar(IRType::POINTER);
         bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
@@ -55,15 +47,11 @@ antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::Substractio
 
     // Special case for Pointer arithmetic
     if (left.type == IRType::POINTER && right.type == IRType::INT32) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, left.name, IRType::POINTER));
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, right.name, IRType::INT32));
-        string right64 = bb->create_new_tempvar(IRType::POINTER);
-        bb->add_IRInstr(new CopyRegInstr(bb, Reg::W1, Reg::W1, IRType::POINTER));
-        bb->add_IRInstr(new StoreStackInstr(bb, right64, Reg::W1, IRType::POINTER));
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)4));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, right64, IRType::POINTER));
-        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::POINTER, (int64_t)4));
-        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::POINTER));
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, left.name, IRType::POINTER));
         bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
         string tmp = bb->create_new_tempvar(IRType::POINTER);
         bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));

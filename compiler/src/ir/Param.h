@@ -65,6 +65,7 @@ struct ConstParam : Param {
         switch (type) {
             case IRType::INT32:   return std::to_string(as_i32());
             case IRType::INT64:   return std::to_string(as_i64()) + "L";
+            case IRType::POINTER: return std::to_string(as_i64());
             case IRType::FLOAT32: return std::to_string(as_f32()) + "f";
             case IRType::FLOAT64: return std::to_string(as_f64());
         }

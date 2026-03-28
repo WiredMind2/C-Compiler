@@ -73,11 +73,21 @@ public:
         return (it != SymbolIndex.end()) ? it->second : INT_MIN;
     }
     IRType get_var_type(string name);
+    
+    bool is_array(const string& name) const {
+        auto it = isArrayMap.find(name);
+        return it != isArrayMap.end() && it->second;
+    }
 
     void add_param_to_symbol_table(string name, IRType t, int offset) {
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
     }
+    
+    void set_is_array(const string& name, bool isArr) {
+        isArrayMap[name] = isArr;
+    }
+
     void reset_symbol_index() { nextFreeSymbolIndex = 0; }
 
     BasicBlock* exit_true;
@@ -92,6 +102,7 @@ protected:
     int nextFreeSymbolIndex = 0;
     map<string, IRType> SymbolType;
     map<string, int>    SymbolIndex;
+    map<string, bool>   isArrayMap;
 
     friend class CFG;
 };
@@ -111,6 +122,8 @@ public:
     void gen_asm_prologue(ostream& o);
     void gen_asm_epilogue(ostream& o);
     void gen_control_flow(ostream& o, BasicBlock* bb);
+    void dump_symbol_table(std::ostream &o);
+    void dump_instructions(std::ostream &o);
 
     string create_new_tempvar(IRType t);
 

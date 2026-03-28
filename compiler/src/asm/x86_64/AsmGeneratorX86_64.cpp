@@ -138,7 +138,7 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 void AsmGeneratorX86_64::visit(ostream& o, LdConstInstr& instr) {
     if (instr.type == IRType::INT32) {
         o << "    movl $" << instr.val.raw_int() << ", " << reg_to_asm(instr.dest) << "\n";
-    } else if (instr.type == IRType::INT64) {
+    } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         o << "    movq $" << instr.val.raw_int() << ", " << reg_to_asm(instr.dest) << "\n";
     } else if (instr.type == IRType::FLOAT64) {
         // Load 64-bit IEEE bit pattern via a scratch GPR, then transfer to XMM
@@ -235,12 +235,11 @@ void AsmGeneratorX86_64::visit(ostream& o, AddInstr& instr) {
             o << "    movq " << lhs << ", " << dest << "\n";
         o << "    addq " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::POINTER) {
-        // Assume rhs is the integer operand and scale it by 4 (size of int)
+        // Pointer addition: assume both operands are already in pointer-sized
+        // registers (index should be scaled earlier). Just perform a 64-bit add.
         if (dest != lhs)
             o << "    movq " << lhs << ", " << dest << "\n";
-        o << "    movq " << rhs << ", %rax\n";
-        o << "    salq $2, %rax\n";  // multiply by 4
-        o << "    addq %rax, " << dest << "\n";
+        o << "    addq " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::INT32) {
         if (dest != lhs)
             o << "    movl " << lhs << ", " << dest << "\n";

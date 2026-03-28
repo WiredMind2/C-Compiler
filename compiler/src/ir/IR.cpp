@@ -131,8 +131,28 @@ void CFG::gen_control_flow(ostream &o, BasicBlock *bb) {
     asmGenerator->gen_control_flow(o, bb);
 }
 
+void CFG::dump_symbol_table(std::ostream &o) {
+    o << "Symbol table (entry BB):\n";
+    BasicBlock *bb = entry_bb;
+    for (auto &p : bb->SymbolIndex) {
+        o << "  " << p.first << " -> index=" << p.second
+          << " type=" << irtype_name(bb->SymbolType[p.first]) << "\n";
+    }
+}
+
+void CFG::dump_instructions(std::ostream &o) {
+    for (auto bb : getBBs()) {
+        o << "BB " << bb->label << "\n";
+        for (auto instr : bb->instrs) {
+            o << "  " << instr->to_string() << "\n";
+        }
+    }
+}
+
 void CFG::gen_asm_instr(ostream &o, IRInstr *instr) {
-    cout << ";   " << instr->to_string() << endl;
+    // Also print IR comments to stderr for easier debugging
+    cerr << ";   " << instr->to_string() << endl;
+    o << ";   " << instr->to_string() << "\n";
     asmGenerator->gen_asm_instr(o, instr);
 }
 
