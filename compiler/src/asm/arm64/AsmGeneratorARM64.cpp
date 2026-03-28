@@ -398,6 +398,12 @@ void AsmGeneratorARM64::CmpGeINT32(ostream& o, string lhs, string rhs, string de
     o << "    cset " << dest << ", ge\n";
 }
 
+
+void AsmGeneratorARM64::CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) {
+    o << "    fcmp " << lhs << ", " << rhs << "\n";
+    o << "    cset " << dest << ", ge\n";
+}
+
 // ---------------------------------------------------------------------------
 // Type Conversion
 // ---------------------------------------------------------------------------
@@ -405,4 +411,14 @@ void AsmGeneratorARM64::CmpGeINT32(ostream& o, string lhs, string rhs, string de
 void AsmGeneratorARM64::FToI(ostream& o, string src, string dest) {
     // fcvtzs: convert double (src) to 32-bit integer (dest), truncating toward zero
     o << "    fcvtzs " << dest << ", " << src << "\n";
+}
+
+void AsmGeneratorARM64::I32ToF64(ostream& o, string src, string dest) {
+    // scvtf: convert signed int32 to double
+    o << "    scvtf " << dest << ", " << src << "\n";
+}
+
+void AsmGeneratorARM64::I8ToI32(ostream& o, string src, string dest) {
+    // sxtb: sign extend byte to 32-bit
+    o << "    sxtb " << dest << ", " << src << "\n";
 }

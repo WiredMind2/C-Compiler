@@ -18,17 +18,17 @@ statement : ((expr | return_stmt ) ';')
 
 return_stmt: RETURN expr ;
 
-type_specifier : 'int' | 'double' ;
+type_specifier : 'void' | 'int' | 'double' ;
 
 declaration : type_specifier? declaration_instance (',' declaration_instance)* ';' ;
 declaration_instance : VAR ('=' expr)? ;
 
-param : 'int' VAR ;
+param : type_specifier VAR ;
 param_list : param (',' param)* ;
 
-function_declaration : 'int' VAR '(' param_list? ')' ';' ;
-function_definition  : 'int' VAR '(' param_list? ')' scope;
-condition : 'if' '(' expr ')' scope ('else' else_block )? ;
+function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
+function_definition  : type_specifier VAR '(' param_list? ')' scope;
+condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
