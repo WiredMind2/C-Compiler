@@ -72,8 +72,17 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
         add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT32) {
         add_IRInstr(new F64ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT8) {
+        add_IRInstr(new F64ToI32Instr(this, initial_register, initial_register));
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT32 && dest_type == IRType::INT8) {
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::INT8 && dest_type == IRType::INT32) {
         add_IRInstr(new I8ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT8 && dest_type == IRType::FLOAT64) {
+        // INT8 → INT32 (sign-extend) → FLOAT64
+        add_IRInstr(new I8ToI32Instr(this, initial_register, initial_register));
+        add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else {
         throw runtime_error("No conversion found");
     }
@@ -93,9 +102,13 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
             exit(1);
         }
     }
+    // Allocate at least 4 bytes per variable to keep the stack aligned.
+    // Small types like char (1 byte) are padded to 4; larger types keep their natural size.
+    int size = irtype_size(t);
+    int alloc = (size < 4) ? 4 : size;
     SymbolType[name] = t;
     SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
-    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(t));
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - alloc);
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {

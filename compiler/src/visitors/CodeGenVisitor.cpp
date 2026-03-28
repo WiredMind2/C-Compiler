@@ -66,6 +66,10 @@ antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantCo
     return ::visitDouble_constant(this, ctx);
 }
 
+antlrcpp::Any CodeGenVisitor::visitChar_constant(ifccParser::Char_constantContext* ctx) {
+    return ::visitChar_constant(this, ctx);
+}
+
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
 {
     return ::visitVariable(this, ctx);

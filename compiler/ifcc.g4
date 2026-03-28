@@ -8,7 +8,7 @@ statement : ((expr | return_stmt ) ';') | scope | function_definition | function
 
 return_stmt: RETURN expr? ;
 
-type_specifier : 'void' | 'int' | 'double' ;
+type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
 var_decl : type_specifier VAR ';' ;
 declaration_list : type_specifier VAR (',' VAR)* ';' ;
@@ -97,6 +97,7 @@ primitive
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant
+    | CHAR_CONST                 # char_constant
     ;
 
 
@@ -104,6 +105,7 @@ function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
 CONST : '-'?[0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
+CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

@@ -23,6 +23,35 @@ antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_c
     return StackParam(tmp, IRType::FLOAT64);
 }
 
+antlrcpp::Any visitChar_constant(CodeGenVisitor* visitor, ifccParser::Char_constantContext *ctx)
+{
+    string text = ctx->CHAR_CONST()->getText(); // e.g. 'a' or '\n'
+    int8_t val;
+    if (text[1] == '\\') {
+        switch (text[2]) {
+            case 'n':  val = '\n'; break;
+            case 't':  val = '\t'; break;
+            case 'r':  val = '\r'; break;
+            case '0':  val = '\0'; break;
+            case '\\': val = '\\'; break;
+            case '\'': val = '\''; break;
+            case 'a':  val = '\a'; break;
+            case 'b':  val = '\b'; break;
+            case 'f':  val = '\f'; break;
+            case 'v':  val = '\v'; break;
+            default:   val = static_cast<int8_t>(text[2]); break;
+        }
+    } else {
+        val = static_cast<int8_t>(text[1]);
+    }
+    BasicBlock *bb = visitor->getCFG()->current_bb;
+
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT8, static_cast<int64_t>(val)));
+    string tmp = bb->create_new_tempvar(IRType::INT8);
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT8));
+    return StackParam(tmp, IRType::INT8);
+}
+
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
 {
     string name = ctx->VAR()->getText();
@@ -79,7 +108,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     IRType type = bb->get_var_type(var);
 
     if (src.type != type) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
         bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, type);
         bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, type));
     } else {
