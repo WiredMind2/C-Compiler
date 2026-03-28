@@ -492,6 +492,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
 
     //  init
     if (initExpr != nullptr) {
+        // we can generate the init code since it exist (int i = 0 in for(int i = 0; i < 10; i++))...
         this->visit(initExpr);
     }
 
@@ -606,4 +607,129 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
         exit(1);
     }
     return nullptr;
+}
+
+
+antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx)
+{
+    CFG* cfg = this->cfg;
+    StackParam switchExpr = std::any_cast<StackParam>(this->visit(ctx->expr()));
+
+    // TODO : should also work on char
+    if (switchExpr.type != IRType::INT32 && switchExpr.type != IRType::INT64) {
+        std::cerr << "Error: switch expression must be of integer type." << std::endl;
+        exit(1);
+    }
+
+    BasicBlock* currentBB = cfg->current_bb;
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    cfg->add_bb(afterBB);
+
+    std::vector<std::pair<int, BasicBlock*>> cases;
+    for (auto caseBlockCtx : ctx->case_block()) {
+        // convert case value to int for uniformity
+        int caseValue = std::stoll(caseBlockCtx->CONST()->getText());
+
+        // Check for duplicate case values
+        if (std::find_if(cases.begin(), cases.end(),[caseValue](const std::pair<int, BasicBlock*>& p) {
+                    return p.first == caseValue;
+                }) != cases.end()) {
+            std::cerr << "Error: duplicate case value " << caseValue
+                      << " in switch statement." << std::endl;
+            exit(1);
+        }
+
+        BasicBlock* caseBB = new BasicBlock(cfg, cfg->new_BB_name());
+        cfg->add_bb(caseBB);
+        cases.push_back({caseValue, caseBB});
+
+        // Mark caseBB as a loop block so that break statements inside it will jump to afterBB
+        caseBB->is_loop          = true;
+        caseBB->loop_break_target = afterBB;
+
+        cfg->current_bb = caseBB;
+        cfg->getStackBBs().push_back(caseBB);
+        for (auto stmt : caseBlockCtx->statement()) {
+            this->visit(stmt);
+        }
+        cfg->getStackBBs().pop_back();
+
+        BasicBlock* lastCaseBB = cfg->current_bb;
+        if (lastCaseBB->exit_true == nullptr &&
+            (lastCaseBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastCaseBB->instrs.back()) == nullptr)) {
+            lastCaseBB->exit_true = afterBB;
+        }
+    }
+
+
+    // Handle default case if it exists
+    BasicBlock* defaultBB = nullptr;
+    if (ctx->default_block()) {
+        defaultBB = new BasicBlock(cfg, cfg->new_BB_name());
+        cfg->add_bb(defaultBB);
+
+        defaultBB->is_loop  = true;
+        defaultBB->loop_break_target = afterBB;
+
+        cfg->current_bb = defaultBB;
+        cfg->getStackBBs().push_back(defaultBB);
+        for (auto stmt : ctx->default_block()->statement()) {
+            this->visit(stmt);
+        }
+        cfg->getStackBBs().pop_back();
+
+
+        // If the default block doesn't end with a return or break, add a jump to afterBB
+        BasicBlock* lastDefaultBB = cfg->current_bb;
+        if (lastDefaultBB->exit_true == nullptr &&
+            (lastDefaultBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastDefaultBB->instrs.back()) == nullptr)) {
+            lastDefaultBB->exit_true = afterBB;
+        }
+    }
+
+    BasicBlock* dispatchBB = currentBB;
+
+    // Generate dispatch code in current block: a sequence of comparisons and conditional jumps to case blocks
+    for (int i = 0; i < (int)cases.size(); i++) {
+        auto [caseValue, caseBB] = cases[i];
+
+        // W1 = caseValue (constante littérale)
+        dispatchBB->add_IRInstr(
+        new LdConstInstr(dispatchBB, Reg::W1, switchExpr.type, static_cast<int64_t>(caseValue)));
+        // W0 = switchExpr (variable sur la pile)
+        dispatchBB->add_IRInstr(
+            new LoadStackInstr(dispatchBB, Reg::W0, switchExpr.name, switchExpr.type));
+        // W0 = (W0 == W1)
+        dispatchBB->add_IRInstr(
+            new CmpEqInstr(dispatchBB, Reg::W0, Reg::W0, Reg::W1, switchExpr.type));
+        // Stocker dans un temporaire et l'utiliser comme condition de branchement
+        std::string cmpTmp = dispatchBB->create_new_tempvar(IRType::INT32);
+        dispatchBB->add_IRInstr(
+            new StoreStackInstr(dispatchBB, cmpTmp, Reg::W0, IRType::INT32));
+
+        dispatchBB->test_var_name = cmpTmp;
+        dispatchBB->exit_true     = caseBB;
+
+        // For the false branch, if this is not the last case, we need to chain to the next comparison.
+        if (i < (int)cases.size() - 1) {
+            // Pas le dernier case : enchaîner vers un nouveau bloc de dispatch
+            BasicBlock* nextDispatch = new BasicBlock(cfg, cfg->new_BB_name());
+            cfg->add_bb(nextDispatch);
+            dispatchBB->exit_false = nextDispatch;
+            dispatchBB = nextDispatch;
+        } else {
+            // Dernier case : false -> default ou afterBB
+            dispatchBB->exit_false = defaultBB ? defaultBB : afterBB;
+        }
+    }
+
+    if (cases.empty()) {
+        // Aucun case : sauter directement au default ou afterBB
+        dispatchBB->exit_true = defaultBB ? defaultBB : afterBB;
+    }
+
+    cfg->current_bb = afterBB;
+    return 0;
 }
