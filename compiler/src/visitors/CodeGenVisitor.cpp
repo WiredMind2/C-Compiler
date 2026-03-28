@@ -284,43 +284,41 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
     CFG* cfg = this->cfg;
     BasicBlock* preBB = cfg->current_bb;
 
-    // Create a fresh BB for this inner scope so that variables declared here
-    // live in their own symbol table entry, enabling proper shadowing of
-    // same-named variables from outer scopes.
     BasicBlock* scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
     scopeBB->functionName = preBB->functionName;
     cfg->add_bb(scopeBB);
 
-    // Wire the predecessor to fall through unconditionally into the scope BB.
     preBB->exit_true = scopeBB;
 
     cfg->current_bb = scopeBB;
     cfg->getStackBBs().push_back(scopeBB);
 
+    // Si on est dans un switch (decl_target_bb actif), un scope explicite { }
+    // crée son propre scope indépendant : on suspend decl_target_bb le temps de ce bloc et on le restaure en sortant.
+    BasicBlock* savedDeclTarget = cfg->decl_target_bb;
+    cfg->decl_target_bb = nullptr;
+
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
 
+    cfg->decl_target_bb = savedDeclTarget;
     cfg->getStackBBs().pop_back();
 
-    // Create a merge BB so that code after the closing '}' has a clean landing pad.
     BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
     afterBB->functionName = preBB->functionName;
     cfg->add_bb(afterBB);
 
-    // Only add the fall-through edge if the scope didn't already end with a
-    // return or an explicit branch (break / continue / nested if).
     BasicBlock* lastBB = cfg->current_bb;
     if (lastBB->exit_true == nullptr &&
         (lastBB->instrs.empty() ||
          dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
         lastBB->exit_true = afterBB;
-    }
+         }
 
     cfg->current_bb = afterBB;
     return 0;
 }
-
 antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
 {
     auto* bb = cfg->current_bb;
@@ -640,8 +638,7 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
     return nullptr;
 }
 
-antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx)
-{
+antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) {
     CFG* cfg = this->cfg;
     StackParam switchExpr = std::any_cast<StackParam>(this->visit(ctx->expr()));
 
@@ -733,9 +730,6 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
 
         for (auto stmt : ctx->case_block(i)->statement()) {
             this->visit(stmt);
-            // After visiting a statement (especially scopes), restore current_bb to the case BB
-            // This ensures that if a scope changed current_bb, we return to the case block
-            cfg->current_bb = caseBBs[i];
         }
 
         BasicBlock* lastBB = cfg->current_bb;
@@ -743,7 +737,7 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
             (lastBB->instrs.empty() ||
              dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
             lastBB->exit_true = fallThrough;
-        }
+             }
     }
 
     if (hasDefault) {
@@ -751,8 +745,6 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
 
         for (auto stmt : ctx->default_block()->statement()) {
             this->visit(stmt);
-            // After visiting a statement (especially scopes), restore current_bb to the default BB
-            cfg->current_bb = defaultBB;
         }
 
         BasicBlock* lastBB = cfg->current_bb;
@@ -760,7 +752,7 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
             (lastBB->instrs.empty() ||
              dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
             lastBB->exit_true = afterBB;
-        }
+             }
     }
 
     cfg->decl_target_bb = nullptr;
