@@ -56,7 +56,8 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
 
 int BasicBlock::allocate_bytes_on_symbol_table(int size) {
     nextFreeSymbolIndex -= size;
-    if (size == 8 && (nextFreeSymbolIndex % 8) != 0) {
+    // If the allocation size is a multiple of 8, keep 8-byte alignment
+    if ((size % 8) == 0 && (nextFreeSymbolIndex % 8) != 0) {
         nextFreeSymbolIndex &= ~7;
     }
     int index = nextFreeSymbolIndex;
@@ -115,6 +116,7 @@ CFG::CFG(TargetArch arch) {
     current_bb = new BasicBlock(this, new_BB_name());
     entry_bb = current_bb;
     add_bb(current_bb);
+    nextTempVarNumber = 0;
 
     switch (arch) {
         case TargetArch::ARM64:
@@ -154,7 +156,7 @@ void CFG::dump_instructions(std::ostream &o) {
 
 void CFG::gen_asm_instr(ostream &o, IRInstr *instr) {
     if (g_emit_ir_as_asm_comments) {
-        cerr << ";   " << instr->to_string() << endl;
+        // Emit IR as assembly comments only (avoid duplicating to stderr)
         o << ";   " << instr->to_string() << "\n";
     }
     asmGenerator->gen_asm_instr(o, instr);
@@ -175,7 +177,7 @@ string CFG::new_BB_name() {
 }
 
 string CFG::create_new_tempvar(IRType t) {
-    string name = "!tmp" + to_string(nextBBnumber++); // Using BB number for uniqueness
+    string name = "!tmp" + to_string(nextTempVarNumber++);
     entry_bb->add_var_to_symbol_table(name, t);
     return name;
 }
@@ -197,6 +199,11 @@ IRType CFG::get_array_element_type(const string &name) const {
         return entry_bb->arrayElementType.at(name);
     // Fallback to INT32 if unknown
     return IRType::INT32;
+}
+
+bool CFG::has_array_element_type(const string &name) const {
+    if (!entry_bb) return false;
+    return entry_bb->arrayElementType.find(name) != entry_bb->arrayElementType.end();
 }
 
 void CFG::set_emit_ir_comments(bool enabled) {

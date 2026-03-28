@@ -39,6 +39,9 @@ int main(int argc, char** argv) {
             }
         } else if (arg == "--dump-ir") {
             dump_ir = true;
+        } else if (!arg.empty() && arg[0] == '-') {
+            cerr << "Unknown option: " << arg << endl;
+            return 1;
         } else if (filename == nullptr) {
             filename = argv[i];
         }

@@ -12,7 +12,7 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
     if (left.type == IRType::POINTER && right.type == IRType::INT32) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, right.name, IRType::INT32));
         int elemSize = irtype_size(IRType::INT32);
-        if (bb->is_array(left.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(left.name));
+        if (bb->cfg->has_array_element_type(left.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(left.name));
         bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
         bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
@@ -25,7 +25,7 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
     if (left.type == IRType::INT32 && right.type == IRType::POINTER) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, left.name, IRType::INT32));
         int elemSize = irtype_size(IRType::INT32);
-        if (bb->is_array(right.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(right.name));
+        if (bb->cfg->has_array_element_type(right.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(right.name));
         bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
         bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
@@ -53,7 +53,7 @@ antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::Substractio
     if (left.type == IRType::POINTER && right.type == IRType::INT32) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, right.name, IRType::INT32));
         int elemSize = irtype_size(IRType::INT32);
-        if (bb->is_array(left.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(left.name));
+        if (bb->cfg->has_array_element_type(left.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(left.name));
         bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
         bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 

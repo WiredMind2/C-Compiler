@@ -1,6 +1,9 @@
 #include "CodeGenVisitor.h"
 #include "../ir/IR.h"
 #include <iostream>
+#include <cstdint>
+#include <stdexcept>
+#include <limits>
 #include <functional>
 
 using namespace std;
@@ -47,14 +50,36 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
     IRType baseType = irtype_from_string(ctx->type_specifier()->getText());
     for (auto decl : ctx->declarator()) {
         string var = decl->VAR()->getText();
-        bool isPointer = decl->getText().find('*') != string::npos;
+        int pointerDepth = 0;
+        // derive pointer depth from AST (declarator: '*'* VAR ...)
+        if (decl->STAR()) pointerDepth = static_cast<int>(decl->STAR().size());
+        bool isPointer = pointerDepth > 0;
         IRType type = isPointer ? IRType::POINTER : baseType;
-        
+
         auto* bb = visitor->getCFG()->current_bb;
         if (decl->CONST()) {
-            int numElements = std::stoi(decl->CONST()->getText());
-            int elemSize = irtype_size(baseType);
-            int totalSize = numElements * elemSize;
+            // Parse number of elements and compute allocation size with overflow checks
+            long long numElementsLL = std::stoll(decl->CONST()->getText());
+            const long long elemSizeLL = static_cast<long long>(irtype_size(baseType));
+
+            if (numElementsLL <= 0) {
+                throw std::runtime_error("Invalid array size for '" + var + "': " + decl->CONST()->getText());
+            }
+
+            using SizeType = std::uint64_t;
+            const SizeType numElements = static_cast<SizeType>(numElementsLL);
+            const SizeType elemSize = static_cast<SizeType>(elemSizeLL);
+            const SizeType totalSizeU = numElements * elemSize;
+            if (elemSize != 0 && totalSizeU / elemSize != numElements) {
+                throw std::runtime_error("Array allocation size overflow for '" + var + "'");
+            }
+
+            constexpr SizeType kMaxStackArrayBytes = static_cast<SizeType>(1) << 20; // 1 MiB
+            if (totalSizeU == 0 || totalSizeU > kMaxStackArrayBytes) {
+                throw std::runtime_error("Array '" + var + "' is too large to allocate on stack: " + std::to_string(totalSizeU) + " bytes");
+            }
+
+            int totalSize = static_cast<int>(totalSizeU);
             int offset = bb->allocate_bytes_on_symbol_table(totalSize);
             // Register the array base as a symbol at the reserved offset (no extra allocation)
             bb->add_param_to_symbol_table(var, IRType::POINTER, offset);
@@ -63,6 +88,10 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
             visitor->getCFG()->set_array_element_type(var, baseType);
         } else {
             bb->add_var_to_symbol_table(var, type);
+            // If this is a pointer declaration, record the pointee type so pointer arithmetic can scale
+            if (isPointer) {
+                visitor->getCFG()->set_array_element_type(var, baseType);
+            }
         }
     }
     return 0;
@@ -71,13 +100,15 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
 antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext *ctx)
 {
     // Handle declaration with initialization: int x = expr;
-    string text = ctx->declarator()->getText();
-    bool isPointer = text.find('*') != string::npos;
     IRType baseType = irtype_from_string(ctx->type_specifier()->getText());
+    int pointerDepth = 0;
+    if (ctx->declarator()->STAR()) pointerDepth = static_cast<int>(ctx->declarator()->STAR().size());
+    bool isPointer = pointerDepth > 0;
     IRType type = isPointer ? IRType::POINTER : baseType;
-    
+
     string var = ctx->declarator()->VAR()->getText();
     visitor->getCFG()->current_bb->add_var_to_symbol_table(var, type);
+    if (isPointer) visitor->getCFG()->set_array_element_type(var, baseType);
 
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->expr()));
     auto* bb = visitor->getCFG()->current_bb;
@@ -125,7 +156,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                     // We do INT32 multiplication, the result in W1.
                     // Determine element size for scaling
                     int elemSize = irtype_size(IRType::INT32);
-                    if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+                    if (bb->cfg->has_array_element_type(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
                     bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
                     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
@@ -153,7 +184,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                     string addrTmp = bb->create_new_tempvar(IRType::POINTER);
                     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
                     int elemSize = irtype_size(IRType::INT32);
-                    if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+                    if (bb->cfg->has_array_element_type(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
                     bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
                     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
                     
@@ -224,41 +255,53 @@ antlrcpp::Any visitDereference(CodeGenVisitor* visitor, ifccParser::DereferenceC
 
 antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfContext *ctx) {
     auto* bb = visitor->getCFG()->current_bb;
+
+    // Handle: & ( primitive ) and & ( array_subscript ) via existing primitive path
     ifccParser::PrimitiveExprRefContext* primRefCtx = dynamic_cast<ifccParser::PrimitiveExprRefContext*>(ctx->unary());
-    if (!primRefCtx) {
-        cerr << "error: unsupported form for '&' operator" << endl;
-        exit(1);
-    }
-    
-    ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(primRefCtx->primitive());
-    if (varCtx) {
-        string varName = varCtx->VAR()->getText();
-        string tmp = bb->create_new_tempvar(IRType::POINTER);
-        bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, varName));
-        bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
-        return StackParam(tmp, IRType::POINTER);
-    }
-    
-    ifccParser::Array_subscriptContext* arrayCtx = dynamic_cast<ifccParser::Array_subscriptContext*>(primRefCtx->primitive());
-    if (arrayCtx) {
-        StackParam base = std::any_cast<StackParam>(visitor->visit(arrayCtx->primitive()));
-        StackParam index = std::any_cast<StackParam>(visitor->visit(arrayCtx->expr()));
-        
-        string tmp1 = bb->create_new_tempvar(IRType::POINTER);
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
-        int elemSize = irtype_size(IRType::INT32);
-        if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
-        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
-        bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
-        
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
-        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
-        bb->add_IRInstr(new StoreStackInstr(bb, tmp1, Reg::W0, IRType::POINTER));
-        return StackParam(tmp1, IRType::POINTER);
+    if (primRefCtx) {
+        ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(primRefCtx->primitive());
+        if (varCtx) {
+            string varName = varCtx->VAR()->getText();
+            string tmp = bb->create_new_tempvar(IRType::POINTER);
+            bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, varName));
+            bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
+            return StackParam(tmp, IRType::POINTER);
+        }
+
+        ifccParser::Array_subscriptContext* arrayCtx = dynamic_cast<ifccParser::Array_subscriptContext*>(primRefCtx->primitive());
+        if (arrayCtx) {
+            StackParam base = std::any_cast<StackParam>(visitor->visit(arrayCtx->primitive()));
+            StackParam index = std::any_cast<StackParam>(visitor->visit(arrayCtx->expr()));
+
+            string tmp1 = bb->create_new_tempvar(IRType::POINTER);
+            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
+            int elemSize = irtype_size(IRType::INT32);
+            if (bb->cfg->has_array_element_type(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+            bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
+            bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
+
+            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
+            bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
+            bb->add_IRInstr(new StoreStackInstr(bb, tmp1, Reg::W0, IRType::POINTER));
+            return StackParam(tmp1, IRType::POINTER);
+        }
     }
 
-    cerr << "error: unsupported form for '&' operator" << endl;
-    exit(1);
+    // Support &(*p) -> p for the common case where unary is a dereference
+    ifccParser::DereferenceContext* derefCtx = dynamic_cast<ifccParser::DereferenceContext*>(ctx->unary());
+    if (derefCtx) {
+        // If the inner unary is a primitive variable, return that variable (holds the pointer)
+        ifccParser::PrimitiveExprRefContext* innerPrim = dynamic_cast<ifccParser::PrimitiveExprRefContext*>(derefCtx->unary());
+        if (innerPrim) {
+            ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(innerPrim->primitive());
+            if (varCtx) {
+                string varName = varCtx->VAR()->getText();
+                return StackParam(varName, IRType::POINTER);
+            }
+        }
+    }
+
+    throw std::runtime_error("unsupported form for '&' operator");
 }
 
 antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_subscriptContext *ctx) {
@@ -270,7 +313,7 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
     string tmp1 = bb->create_new_tempvar(IRType::POINTER);
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
     int elemSize = irtype_size(IRType::INT32);
-    if (bb->is_array(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
+    if (bb->cfg->has_array_element_type(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
     

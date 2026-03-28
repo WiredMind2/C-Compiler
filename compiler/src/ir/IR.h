@@ -137,6 +137,7 @@ public:
     // Array element type helpers
     void set_array_element_type(const string& name, IRType t) { entry_bb->arrayElementType[name] = t; }
     IRType get_array_element_type(const string& name) const;
+    bool has_array_element_type(const string& name) const;
 
     BasicBlock* findBBByVariable(const string& var);
     string      new_BB_name();
@@ -165,6 +166,7 @@ public:
 
 protected:
     int                 nextBBnumber = 0;
+    int                 nextTempVarNumber = 0;
     vector<BasicBlock*> bbs;
     vector<BasicBlock*> bbStack;
 

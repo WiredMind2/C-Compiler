@@ -81,8 +81,12 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
         int numParams = (int)sig->paramNames.size();
         for (int i = 0; i < numParams && i < 6; i++) {
             int offset = bb->get_var_index(sig->paramNames[i]);
-            string reg = "w" + to_string(i); // Simplified for INT32 params
-            o << "    str " << reg << ", [fp, #" << offset << "]\n";
+            Reg regEnum = static_cast<Reg>(static_cast<int>(Reg::ARG0) + i);
+            IRType ptype = sig->paramTypes[i];
+            RegParam rp(regEnum, ptype);
+            string regAsm = reg_to_asm(rp);
+            // Store parameter from the ABI register into the stack slot.
+            o << "    str " << regAsm << ", [fp, #" << offset << "]\n";
         }
     } else {
         o << bb->label << ":\n";
