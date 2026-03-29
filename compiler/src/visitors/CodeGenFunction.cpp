@@ -16,7 +16,8 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            IRType type = irtype_from_string(param->type_specifier()->getText());
+            paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
     }
@@ -49,7 +50,8 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            IRType type = irtype_from_string(param->type_specifier()->getText());
+            paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
     }
@@ -85,12 +87,26 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         std::cerr << "Error: too many arguments in call to '" << func_name << "'. Expected " << expectedArgs << ", got " << actualArgs << "." << std::endl;
         exit(1);
     }
+
+    auto isIntegral = [](IRType t) {
+        return t == IRType::INT8 || t == IRType::INT32 || t == IRType::INT64;
+    };
+    auto isFloat = [](IRType t) {
+        return t == IRType::FLOAT32 || t == IRType::FLOAT64;
+    };
+
     for (int i = 0; i < actualArgs; i++) {
         StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(i)));
-        if (arg.type != function_signature->paramTypes[i]) {
-            std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
-                      << irtype_name(function_signature->paramTypes[i]) << ", got " << irtype_name(arg.type) << "." << std::endl;
-            exit(1);
+        IRType expected = function_signature->paramTypes[i];
+        IRType actual = arg.type;
+        if (actual != expected) {
+            // Allow implicit numeric conversions (integral promotions / float promotions)
+            if (!(isIntegral(actual) && isIntegral(expected)) && !(isFloat(actual) && isFloat(expected))) {
+                std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
+                          << irtype_name(expected) << ", got " << irtype_name(actual) << "." << std::endl;
+                exit(1);
+            }
+            // otherwise compatible via implicit conversion
         }
     }
 
@@ -104,14 +120,24 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     // Evaluate each argument, load into ARGn register.
     auto args = ctx->expr();
     std::vector<Reg> usedArgRegs;
+    std::vector<IRType> usedArgTypes;
     for (int i = 0; i < static_cast<int>(args.size()) && i < 6; i++) {
         StackParam argVar = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(args[i]));
         bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
+        // Insert conversion to expected parameter type when needed (e.g. char -> int)
+        IRType expectedType = IRType::INT32;
+        if (function_signature && static_cast<int>(function_signature->paramTypes.size()) > i) {
+            expectedType = function_signature->paramTypes[i];
+        }
+        if (argVar.type != expectedType) {
+            bb->generate_conversion_instruction(argRegs[i], argVar.type, argRegs[i], expectedType);
+        }
         usedArgRegs.push_back(argRegs[i]);
+        usedArgTypes.push_back(expectedType);
     }
 
     // Generate the call instruction
-    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs));
+    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs, usedArgTypes));
 
     // Get the signature again (maybe it was added above because it is a standard library function)
     func_name = ctx->VAR()->getText();
@@ -145,10 +171,25 @@ int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_n
 {
     switch (getStandardLibraryFunction(func_name)) {
         case StandardLibraryFunction::GETCHAR:
+            // Only consider getchar as standard if <stdio.h> was included
+            if (!visitor->has_stdio()) return 0;
             return ctx->expr().empty();
 
-        case StandardLibraryFunction::PUTCHAR:
+        case StandardLibraryFunction::PUTCHAR: {
+            // Only consider putchar as standard if <stdio.h> was included
+            if (!visitor->has_stdio()) return 0;
+            if (ctx->expr().size() != 1) {
+                return 0;
+            }
+
+            StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(0)));
+            // Accept both int and char (integral promotion to int allowed)
+            return arg.type == IRType::INT32 || arg.type == IRType::INT8;
+        }
+
         case StandardLibraryFunction::MALLOC: {
+            // Only consider malloc as standard if <stdlib.h> was included
+            if (!visitor->has_stdlib()) return 0;
             if (ctx->expr().size() != 1) {
                 return 0;
             }

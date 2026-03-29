@@ -20,8 +20,10 @@
 
 class CodeGenVisitor : public ifccBaseVisitor {
 public:
-    CodeGenVisitor(TargetArch arch) {
+    CodeGenVisitor(TargetArch arch, bool include_stdio = false, bool include_stdlib = false) {
         cfg = new CFG(arch);
+        this->include_stdio = include_stdio;
+        this->include_stdlib = include_stdlib;
     }
 
     virtual antlrcpp::Any visitProg(ifccParser::ProgContext *ctx) override;
@@ -109,4 +111,9 @@ public:
 
 private:
     CFG *cfg;
+    bool include_stdio = false;
+    bool include_stdlib = false;
+public:
+    bool has_stdio() const { return include_stdio; }
+    bool has_stdlib() const { return include_stdlib; }
 };
