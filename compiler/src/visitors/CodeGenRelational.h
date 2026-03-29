@@ -3,6 +3,7 @@
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
 #include <string>
+#include "utils.h"
 
 /**
  * CodeGenRelational - Handles relational operations for code generation

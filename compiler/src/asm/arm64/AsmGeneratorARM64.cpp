@@ -173,17 +173,61 @@ void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string des
 // Function Call / Return
 // ---------------------------------------------------------------------------
 
-void AsmGeneratorARM64::Call(ostream& o, string funcLabel, vector<string> args, string dest) {
+void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
     int numArgs = (int) args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
-        string dst = "w" + to_string(i);
-        if (args[i] != dst)
-            o << "    mov " << dst << ", " << args[i] << "\n";
+        string src = args[i];
+        // If argument is a floating register (dN / vN), move to FP arg register d{i}
+        if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
+            string dst = "d" + to_string(i);
+            if (src != dst)
+                o << "    fmov " << dst << ", " << src << "\n";
+        } else if (!src.empty() && src[0] == 'x') {
+            string dst = "x" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        } else {
+            // default to 32-bit register move
+            string dst = "w" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        }
+    }
+    o << "    bl " << funcLabel << "\n";
+    // Move return value from w0/d0 to destination when needed
+    if (!dest.empty() && dest[0] == 'd') {
+        if (dest != "d0") o << "    fmov " << dest << ", d0\n";
+    } else {
+        if (dest != "w0") o << "    mov " << dest << ", w0\n";
+    }
+}
+
+void AsmGeneratorARM64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
+    int numArgs = (int) args.size();
+    for (int i = 0; i < numArgs && i < 6; i++) {
+        string src = args[i];
+        if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
+            string dst = "d" + to_string(i);
+            if (src != dst)
+                o << "    fmov " << dst << ", " << src << "\n";
+        } else if (!src.empty() && src[0] == 'x') {
+            string dst = "x" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        } else {
+            string dst = "w" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        }
     }
     o << "    bl " << macho_symbol(funcLabel) << "\n";
-    if (dest != "w0")
-        o << "    mov " << dest << ", w0\n";
+    if (!dest.empty() && dest[0] == 'd') {
+        if (dest != "d0") o << "    fmov " << dest << ", d0\n";
+    } else {
+        if (dest != "w0") o << "    mov " << dest << ", w0\n";
+    }
 }
+
 void AsmGeneratorARM64::Ret(ostream& o) {
     o << "    mov sp, fp\n";
     o << "    ldp fp, lr, [sp], #16\n";
@@ -194,6 +238,9 @@ void AsmGeneratorARM64::Ret(ostream& o) {
 // Load Constants
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::ldConstInstrINT8(std::ostream& o, ConstParam src, std::string dest) {
+    o << "    mov " << dest << ", #" << src.raw_int() << "\n";
+}
 void AsmGeneratorARM64::ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) {
     int64_t val = src.raw_int();
     uint32_t uval = static_cast<uint32_t>(val & 0xFFFFFFFF);
@@ -234,6 +281,10 @@ void AsmGeneratorARM64::ldConstInstrFLOAT64(std::ostream& o, double src, std::st
 // Register Copy
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::CopyRegINT8(ostream& o, string src, string dest) {
+    if (src != dest)
+        o << "    mov " << dest << ", " << src << "\n";
+}
 void AsmGeneratorARM64::CopyRegINT32(ostream& o, string src, string dest) {
     if (src != dest)
         o << "    mov " << dest << ", " << src << "\n";
@@ -247,6 +298,9 @@ void AsmGeneratorARM64::CopyRegFLOAT64(ostream& o, string src, string dest) {
 // Stack Operations (Load)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::LoadStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    ldrsb " << dest << ", " << var_to_asm(src) << "\n";
+}
 void AsmGeneratorARM64::LoadStackInstrINT32(ostream& o, string src, string dest) {
     o << "    ldr " << dest << ", " << var_to_asm(src) << "\n";
 }
@@ -339,6 +393,9 @@ void AsmGeneratorARM64::CmpGtFLOAT64(ostream& o, string lhs, string rhs, string 
 // Stack Operations (Store)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorARM64::StoreStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    strb " << src << ", " << dest << "\n";
+}
 void AsmGeneratorARM64::StoreStackInstrINT32(ostream& o, string src, string dest) {
     o << "    str " << src << ", " << dest << "\n";
 }
@@ -420,5 +477,10 @@ void AsmGeneratorARM64::I32ToF64(ostream& o, string src, string dest) {
 
 void AsmGeneratorARM64::I8ToI32(ostream& o, string src, string dest) {
     // sxtb: sign extend byte to 32-bit
+    o << "    sxtb " << dest << ", " << src << "\n";
+}
+
+void AsmGeneratorARM64::I32ToI8(ostream& o, string src, string dest) {
+    // Truncate int32 to int8: sxtb sign-extends the low byte back to 32-bit
     o << "    sxtb " << dest << ", " << src << "\n";
 }

@@ -338,9 +338,12 @@ struct CallInstr : IRInstr {
     vector<RegParam> args;
 
     CallInstr(BasicBlock *bb, string label, const Reg d,
-              const vector<Reg> &argRegs, const IRType t = IRType::INT32)
+              const vector<Reg> &argRegs, const vector<IRType> &argTypes, const IRType t = IRType::INT32)
         : IRInstr(bb, t), funcLabel(std::move(label)), dest(d, t) {
-        for (Reg r : argRegs) args.emplace_back(r, t);
+        for (size_t i = 0; i < argRegs.size(); ++i) {
+            IRType at = (i < argTypes.size()) ? argTypes[i] : t;
+            args.emplace_back(argRegs[i], at);
+        }
     }
 
     void accept(AsmGenerator& g, ostream &o) override;
@@ -413,6 +416,21 @@ struct I8ToI32Instr : IRInstr {
 
     [[nodiscard]] string to_string() const override {
         return "i8_to_i32 " + dest.to_string() + ", " + src.to_string();
+    }
+};
+
+/** dest(INT8) = (int8_t) src(INT32) — int32 to int8 conversion (truncation) */
+struct I32ToI8Instr : IRInstr {
+    RegParam dest; // INT8
+    RegParam src;  // INT32
+
+    I32ToI8Instr(BasicBlock *bb, const Reg d, const Reg s)
+        : IRInstr(bb, IRType::INT8), dest(d, IRType::INT8), src(s, IRType::INT32) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "i32_to_i8 " + dest.to_string() + ", " + src.to_string();
     }
 };
 

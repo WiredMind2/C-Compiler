@@ -12,6 +12,7 @@ AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 // Helpers
 // ---------------------------------------------------------------------------
 
+// convert a IR register into a machine register.
 string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
     // For FLOAT64, map working registers to XMM registers
     if (p.type == IRType::FLOAT64) {
@@ -85,7 +86,7 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
     // Only generate prologue for function entry blocks
     if (isFunctionEntry) {
         // Generate prologue for this function entry block
-        int stackSpace = cfg->calculateRequiredStackSpace();
+        int stackSpace = bb->calculateRequiredStackSpace();
         o << bb->label << ":\n";
         o << "    pushq %rbp\n";
         o << "    movq %rsp, %rbp\n";
@@ -93,12 +94,17 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
 
         // Copy parameters from ABI registers to stack slots (System V ABI)
         // Parameters are stored at positive offsets: 16(%rbp), 24(%rbp), ...
-        static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        static const string integer_arg_register[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        static const string double_arg_register[] = {"%xmm0", "%xmm1", "%xmm2", "%xmm3","%xmm4", "%xmm5"};
         if (sig) {
             int numParams = (int)sig->paramNames.size();
             for (int i = 0; i < numParams && i < 6; i++) {
                 int offset = 16 + i * 8;
-                o << "    movq " << argRegs64[i] << ", " << offset << "(%rbp)\n";
+                if (sig->paramTypes[i] == IRType::INT32) {
+                    o << "    movq " << integer_arg_register[i] << ", " << offset << "(%rbp)\n";
+                } else if (sig->paramTypes[i] == IRType::FLOAT64) {
+                    o << "    movsd " << double_arg_register[i] << ", " << offset << "(%rbp)\n";
+                }
             }
         }
     } else {
@@ -132,9 +138,39 @@ void AsmGeneratorX86_64::gen_asm_instr(ostream& o, IRInstr* instr) {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// Maps a 32-bit GPR string to its 8-bit low-byte counterpart.
+// Covers all registers that reg_to_asm() can produce for INT8/INT32 types,
+// plus the full extended set (r10–r15, rbp, rsp) for safety.
+static string reg32_to_reg8(const string& reg32) {
+    if (reg32 == "%eax")  return "%al";
+    if (reg32 == "%ecx")  return "%cl";
+    if (reg32 == "%edx")  return "%dl";
+    if (reg32 == "%ebx")  return "%bl";
+    if (reg32 == "%edi")  return "%dil";
+    if (reg32 == "%esi")  return "%sil";
+    if (reg32 == "%ebp")  return "%bpl";
+    if (reg32 == "%esp")  return "%spl";
+    if (reg32 == "%r8d")  return "%r8b";
+    if (reg32 == "%r9d")  return "%r9b";
+    if (reg32 == "%r10d") return "%r10b";
+    if (reg32 == "%r11d") return "%r11b";
+    if (reg32 == "%r12d") return "%r12b";
+    if (reg32 == "%r13d") return "%r13b";
+    if (reg32 == "%r14d") return "%r14b";
+    if (reg32 == "%r15d") return "%r15b";
+    throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
+}
+
+// ---------------------------------------------------------------------------
 // Load Constants
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::ldConstInstrINT8(ostream& o, ConstParam constant, string dest) {
+    o << "    movb $" << constant.raw_int() << ", " << reg32_to_reg8(dest) << "\n";
+}
 void AsmGeneratorX86_64::ldConstInstrINT32(ostream& o, ConstParam constant, string dest) {
     o << "    movl $" << constant.raw_int() << ", " << dest << "\n";
 }
@@ -151,6 +187,10 @@ void AsmGeneratorX86_64::ldConstInstrFLOAT64(ostream& o, double constant, string
 // Register Copy
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::CopyRegINT8(ostream& o, string src, string dest) {
+    if (src != dest)
+        o << "    movb " << reg32_to_reg8(src) << ", " << reg32_to_reg8(dest) << "\n";
+}
 void AsmGeneratorX86_64::CopyRegINT32(ostream& o, string src, string dest) {
     if (src != dest) {
         o << "    movl " << src << ", " << dest << "\n";
@@ -166,6 +206,9 @@ void AsmGeneratorX86_64::CopyRegFLOAT64(ostream& o, string src, string dest) {
 // Stack Operations (Store)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::StoreStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    movb " << reg32_to_reg8(src) << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::StoreStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << src << ", " << dest << "\n";
 }
@@ -178,6 +221,9 @@ void AsmGeneratorX86_64::StoreStackInstrFLOAT64(ostream& o, string src, string d
 // Stack Operations (Load)
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::LoadStackInstrINT8(ostream& o, string src, string dest) {
+    o << "    movsbl " << var_to_asm(src) << ", " << dest << "\n";
+}
 void AsmGeneratorX86_64::LoadStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << var_to_asm(src) << ", " << dest << "\n";
 }
@@ -471,23 +517,59 @@ void AsmGeneratorX86_64::I32ToF64(ostream& o, string src, string dest) {
 }
 
 void AsmGeneratorX86_64::I8ToI32(ostream& o, string src, string dest) {
-    // movsbl: move with sign extension from byte to doubleword
-    o << "    movsbl " << src << ", " << dest << "\n";
+    // movsbl: sign-extend byte to doubleword; source must be an 8-bit register
+    o << "    movsbl " << reg32_to_reg8(src) << ", " << dest << "\n";
+}
+
+void AsmGeneratorX86_64::I32ToI8(ostream& o, string src, string dest) {
+    // Truncate int32 to int8: keep low byte and sign-extend back to 32-bit
+    if (src != dest)
+        o << "    movl " << src << ", " << dest << "\n";
+    o << "    movsbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
 }
 
 // ---------------------------------------------------------------------------
 // Function Call / Return
 // ---------------------------------------------------------------------------
 
-void AsmGeneratorX86_64::Call(ostream& o, string funcLabel, vector<string> args, string dest) {
-    static const string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+void AsmGeneratorX86_64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
+    // we need to extend the 32 bits integer stored in %edi, %esi, ... into 64 bits as this is the ABI standard
+    static const string integer_argument_register[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+
+    int index_in_interger_argument_register = 0;
     for (int i = 0; i < args.size() && i < 6; i++) {
-        string r32 = args[i];
-        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+        // if the parameter is NOT a double one
+        if (!args[i].starts_with("%x")) {
+            // we generate the instruction to extend %edi, %esi, ... into %rdi, %rsi
+            o << "    movslq " << args[i] << ", " << integer_argument_register[index_in_interger_argument_register] << "\n";
+            index_in_interger_argument_register++;
+        }
     }
+
     o << "    call " << funcLabel << "\n";
-    if (dest != "%eax")
+    if (dest != "%eax") {
         o << "    movl %eax, " << dest << "\n";
+    }
+}
+
+void AsmGeneratorX86_64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
+    // Handle mixed integer / float arguments like CallWithINT32Return but
+    // keep FLOAT64 return handling (move %xmm0 to destination).
+    static const string integer_argument_register[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+
+    int index_in_integer_argument_register = 0;
+    for (int i = 0; i < args.size() && i < 6; i++) {
+        // If the parameter is NOT an XMM register (i.e. integer), move/sign-extend
+        if (!args[i].starts_with("%x")) {
+            o << "    movslq " << args[i] << ", " << integer_argument_register[index_in_integer_argument_register] << "\n";
+            index_in_integer_argument_register++;
+        }
+    }
+
+    o << "    call " << funcLabel << "\n";
+    if (dest != "%xmm0") {
+        o << "    movsd %xmm0, " << dest << "\n";
+    }
 }
 
 void AsmGeneratorX86_64::Ret(ostream& o) {

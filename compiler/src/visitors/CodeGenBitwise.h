@@ -2,6 +2,7 @@
 
 #include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
+#include "utils.h"
 
 /**
  * CodeGenBitwise - Handles bitwise operations for code generation

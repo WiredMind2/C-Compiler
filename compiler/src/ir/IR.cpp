@@ -22,7 +22,7 @@ BasicBlock::BasicBlock(CFG* cfg, string entry_label, bool is_loop)
 }
 
 void BasicBlock::reset_symbol_index() {
-    cfg->setNextFreeSymbolIndex(-4);
+    cfg->setNextFreeSymbolIndex(-8);
 }
 
 void BasicBlock::gen_asm(ostream& o) {
@@ -72,8 +72,17 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
         add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT32) {
         add_IRInstr(new F64ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::FLOAT64 && dest_type == IRType::INT8) {
+        add_IRInstr(new F64ToI32Instr(this, initial_register, initial_register));
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT32 && dest_type == IRType::INT8) {
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::INT8 && dest_type == IRType::INT32) {
         add_IRInstr(new I8ToI32Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT8 && dest_type == IRType::FLOAT64) {
+        // INT8 → INT32 (sign-extend) → FLOAT64
+        add_IRInstr(new I8ToI32Instr(this, initial_register, initial_register));
+        add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else {
         throw runtime_error("No conversion found");
     }
@@ -93,9 +102,13 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
             exit(1);
         }
     }
+    // Allocate at least 4 bytes per variable to keep the stack aligned.
+    // Small types like char (1 byte) are padded to 4; larger types keep their natural size.
+    int size = irtype_size(t);
+    int alloc = (size < 4) ? 4 : size;
     SymbolType[name] = t;
     SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
-    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - irtype_size(t));
+    cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - alloc);
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {
@@ -163,11 +176,10 @@ IRType BasicBlock::get_var_type(string name) {
 }
 
 int BasicBlock::calculateRequiredStackSpace() {
-    // Stack space is now tracked at the CFG level. This method is kept only to
-    // catch incorrect usage of the BasicBlock API and to delegate to the single
-    // source of truth when possible.
     assert(cfg && "BasicBlock has no parent CFG; use CFG::calculateRequiredStackSpace instead");
-    return cfg->calculateRequiredStackSpace();
+
+    string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
+    return cfg->calculateRequiredStackSpace(funcName);
 }
 
 void BasicBlock::allocateVariable(string name, IRType type) {
@@ -182,7 +194,7 @@ void BasicBlock::allocateVariable(string name, IRType type) {
 
 CFG::CFG(TargetArch arch) {
     nextBBnumber = 0;
-    nextFreeSymbolIndex = -4;
+    nextFreeSymbolIndex = -8;
     current_bb   = new BasicBlock(this, new_BB_name());
     add_bb(current_bb);
 
@@ -228,7 +240,31 @@ string CFG::new_BB_name() {
     return "BB" + to_string(nextBBnumber++);
 }
 
-int CFG::calculateRequiredStackSpace() {
+int CFG::calculateRequiredStackSpace(const string& funcName) {
+    if (!funcName.empty()) {
+        FunctionSignature* sig = get_function(funcName);
+        if (sig) {
+            if (sig->cachedStackSpace != -1) {
+                return sig->cachedStackSpace;
+            }
+            int minIndex = 0;
+            for (auto* bb : sig->bbs) {
+                for (const auto& entry : bb->SymbolIndex) {
+                    if (entry.second < minIndex) {
+                        minIndex = entry.second;
+                    }
+                }
+            }
+            int usedSpace = -minIndex;
+            int aligned = usedSpace;
+            if (aligned % 16 != 0)
+                aligned = ((aligned / 16) + 1) * 16;
+            if (aligned < 16) aligned = 16;
+            sig->cachedStackSpace = aligned;
+            return aligned;
+        }
+    }
+
     int usedSpace = -nextFreeSymbolIndex;
     int aligned   = usedSpace;
     if (aligned % 16 != 0)

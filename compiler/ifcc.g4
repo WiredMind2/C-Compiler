@@ -16,9 +16,9 @@ statement : ((expr | return_stmt ) ';')
     | declaration
     ;
 
-return_stmt: RETURN expr ;
+return_stmt: RETURN expr? ;
 
-type_specifier : 'void' | 'int' | 'double' ;
+type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
 declaration : type_specifier? declaration_instance (',' declaration_instance)* ';' ;
 declaration_instance : VAR ('=' expr)? ;
@@ -105,13 +105,15 @@ primitive
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant
+    | CHAR_CONST                 # char_constant
     ;
 
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
-CONST : '-'?[0-9]+ ;
+CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
+CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

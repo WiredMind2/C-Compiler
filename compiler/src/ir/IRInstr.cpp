@@ -10,6 +10,10 @@ void LdConstInstr::accept(AsmGenerator& g, ostream& o) {
     string dest_register = g.reg_to_asm(dest);
 
     switch (type) {
+        case IRType::INT8: {
+            g.ldConstInstrINT8(o, val, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.ldConstInstrINT32(o, val, dest_register);
             break;
@@ -31,6 +35,10 @@ void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     switch (src.type) {
+        case IRType::INT8: {
+            g.CopyRegINT8(o, src_register, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.CopyRegINT32(o, src_register, dest_register);
             break;
@@ -49,6 +57,10 @@ void StoreStackInstr::accept(AsmGenerator& g, ostream& o) {
     string variable_name = g.var_to_asm(dest.name);
 
     switch (type) {
+        case IRType::INT8: {
+            g.StoreStackInstrINT8(o, src_register_string, variable_name);
+            break;
+        }
         case IRType::INT32: {
             g.StoreStackInstrINT32(o, src_register_string, variable_name);
             break;
@@ -67,6 +79,10 @@ void LoadStackInstr ::accept(AsmGenerator& g, ostream& o) {
     string variable_name = src.name;
 
     switch (type) {
+        case IRType::INT8: {
+            g.LoadStackInstrINT8(o, variable_name, dest_register);
+            break;
+        }
         case IRType::INT32: {
             g.LoadStackInstrINT32(o, variable_name, dest_register);
             break;
@@ -406,7 +422,12 @@ void CallInstr::accept(AsmGenerator& g, ostream& o) {
         arg_registers.push_back(g.reg_to_asm(arg));
     }
     string dest_register = g.reg_to_asm(dest);
-    g.Call(o, funcLabel, arg_registers, dest_register);
+
+    if (dest.type == IRType::FLOAT64) {
+        g.CallWithFLOAT64Return(o, funcLabel, arg_registers, dest_register);
+    } else {
+        g.CallWithINT32Return(o, funcLabel, arg_registers, dest_register);
+    }
 }
 void F64ToI32Instr::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
@@ -427,6 +448,11 @@ void I8ToI32Instr::accept(AsmGenerator& g, ostream& o) {
     string src_register = g.reg_to_asm(src);
     string dest_register = g.reg_to_asm(dest);
     g.I8ToI32(o, src_register, dest_register);
+}
+void I32ToI8Instr::accept(AsmGenerator& g, ostream& o) {
+    string src_register = g.reg_to_asm(src);
+    string dest_register = g.reg_to_asm(dest);
+    g.I32ToI8(o, src_register, dest_register);
 }
 void RetInstr::accept(AsmGenerator& g, ostream& o) {
     g.Ret(o);
