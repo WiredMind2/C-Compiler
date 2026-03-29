@@ -20,7 +20,7 @@ return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
-declaration : type_specifier? declaration_instance (',' declaration_instance)* ';' ;
+declaration : type_specifier declaration_instance (',' declaration_instance)* ';' ;
 declaration_instance : VAR ('=' expr)? ;
 
 param : type_specifier VAR ;
