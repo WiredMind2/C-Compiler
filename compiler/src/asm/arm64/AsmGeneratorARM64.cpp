@@ -190,6 +190,8 @@ void AsmGeneratorARM64::visit(std::ostream& o, LoadPointerInstr& instr) {
     } else if (instr.type == IRType::FLOAT64) {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else if (instr.type == IRType::INT8) {
+        // Note: We currently treat char/INT8 as signed (ldrsb).
+        // If unsigned types are added later, this will need a UINT8 type and ldrb.
         o << "    ldrsb " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
@@ -202,6 +204,7 @@ void AsmGeneratorARM64::visit(std::ostream& o, StorePointerInstr& instr) {
     } else if (instr.type == IRType::FLOAT64) {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else if (instr.type == IRType::INT8) {
+        // Truncates to 8-bit. Consistent with char being a signed 8-bit int.
         o << "    strb " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";

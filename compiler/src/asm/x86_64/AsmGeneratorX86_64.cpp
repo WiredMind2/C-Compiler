@@ -263,6 +263,8 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LoadPointerInstr& instr) {
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else if (instr.type == IRType::INT8) {
+        // Note: We currently treat char/INT8 as signed (movsbl).
+        // If unsigned types are added later, this will need a UINT8 type and movzbl.
         o << "    movsbl (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else {
         o << "    movl (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
@@ -275,6 +277,7 @@ void AsmGeneratorX86_64::visit(std::ostream& o, StorePointerInstr& instr) {
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else if (instr.type == IRType::INT8) {
+        // Truncates to 8-bit. Consistent with char being a signed 8-bit int.
         o << "    movb " << reg32_to_reg8(reg_to_asm(instr.src)) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else {
         o << "    movl " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";

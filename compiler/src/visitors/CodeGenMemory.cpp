@@ -31,10 +31,10 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
         throw std::runtime_error("integer literal out of range for 64-bit: '" + text + "'");
     }
 
-    if (val < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) ||
-        val > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
-        throw std::runtime_error("integer literal out of range for 32-bit type: '" + text + "'");
-    }
+    // Allow implicit overflow/truncation for constants like standard C does (e.g. 4294967316 truncating to 20 inside a 32-bit int).
+    // If we wanted exact bounds we could emit a warning here, but we will accept and truncate it.
+    // Truncate to 32-bits so raw_int doesn't overflow assembly instructions string streams:
+    val = static_cast<int64_t>(static_cast<int32_t>(val));
 
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
