@@ -120,6 +120,12 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
         if (!targetBB) targetBB = visitor->getCFG()->current_bb;
         
         targetBB->add_var_to_symbol_table(var, type);
+        // If this is a top-level declaration (global), record its name
+        // in the CFG globalSymbols so the assembler can emit it later.
+        if (targetBB == visitor->getCFG()->entry_bb) {
+            auto &globals = visitor->getCFG()->globalSymbols;
+            if (std::find(globals.begin(), globals.end(), var) == globals.end()) globals.push_back(var);
+        }
         if (isPointer) visitor->getCFG()->set_array_element_type(var, baseType);
         if (isArray) {
             targetBB->set_is_array(var, true);
@@ -632,14 +638,51 @@ antlrcpp::Any visitAddAssignment(CodeGenVisitor* visitor, ifccParser::AddAssignm
     }
 
 
-    // Reload the stable address and perform the store
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
-    bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
+    // Load RHS first so we can safely scale it.
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W2, src.name, src.type));
-    if (src.type != targetType) {
-        bb->generate_conversion_instruction(Reg::W2, src.type, Reg::W2, targetType);
+
+    if (targetType == IRType::POINTER) {
+        // Convert/scale RHS into element-offset (INT32), then convert to pointer-sized delta
+        if (src.type != IRType::INT32) {
+            bb->generate_conversion_instruction(Reg::W2, src.type, Reg::W2, IRType::INT32);
+        }
+        int elemSize = irtype_size(IRType::INT32);
+        std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
+            ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
+            if (v) return bb->resolve_var_name(v->VAR()->getText());
+            ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
+            if (a) return getArrayName(a->primitive());
+            return string();
+        };
+        string baseName;
+        if (ctx->lvalue() && ctx->lvalue()->primitive()) {
+            ifccParser::PrimitiveContext* prim = ctx->lvalue()->primitive();
+            if (prim) baseName = getArrayName(prim);
+        }
+        if (!baseName.empty() && bb->cfg->has_array_element_type(baseName))
+            elemSize = irtype_size(bb->cfg->get_array_element_type(baseName));
+
+        // Use W1 for elemSize instead of W0 so MulInstr doesn't clobber rhs! (W0 -> eax is overwritten by MulInstr on x86).
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)elemSize));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W2, Reg::W2, Reg::W1, IRType::INT32));
+        bb->generate_conversion_instruction(Reg::W2, IRType::INT32, Reg::W2, IRType::POINTER);
+        
+        // NOW load address into W1 and pointer value into W3
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
+        bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
+
+        // Perform pointer addition: result in W0
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, IRType::POINTER));
+    } else {
+        if (src.type != targetType) {
+            bb->generate_conversion_instruction(Reg::W2, src.type, Reg::W2, targetType);
+        }
+        // Load address into W1 and variable value into W3
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
+        bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
+
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
     }
-    bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     
     string resTmp = bb->create_new_tempvar(targetType);
@@ -799,14 +842,49 @@ antlrcpp::Any visitSubAssignment(CodeGenVisitor* visitor, ifccParser::SubAssignm
     }
 
 
-    // Reload the stable address and perform the store
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
-    bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
+    // Load RHS first so we can safely scale it.
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W2, src.name, src.type));
-    if (src.type != targetType) {
-        bb->generate_conversion_instruction(Reg::W2, src.type, Reg::W2, targetType);
+    if (targetType == IRType::POINTER) {
+        // Scale integer RHS by element size, then convert to pointer and subtract.
+        if (src.type != IRType::INT32) {
+            bb->generate_conversion_instruction(Reg::W2, src.type, Reg::W2, IRType::INT32);
+        }
+        int elemSize = irtype_size(IRType::INT32);
+        std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
+            ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
+            if (v) return bb->resolve_var_name(v->VAR()->getText());
+            ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
+            if (a) return getArrayName(a->primitive());
+            return string();
+        };
+        string baseName;
+        if (ctx->lvalue() && ctx->lvalue()->primitive()) {
+            ifccParser::PrimitiveContext* prim = ctx->lvalue()->primitive();
+            if (prim) baseName = getArrayName(prim);
+        }
+        if (!baseName.empty() && bb->cfg->has_array_element_type(baseName))
+            elemSize = irtype_size(bb->cfg->get_array_element_type(baseName));
+
+        // Use W1 for elemSize instead of W0 so MulInstr doesn't clobber rhs! (W0 -> eax is overwritten by MulInstr on x86).
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)elemSize));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W2, Reg::W2, Reg::W1, IRType::INT32));
+        bb->generate_conversion_instruction(Reg::W2, IRType::INT32, Reg::W2, IRType::POINTER);
+
+        // NOW load address into W1 and pointer value into W3
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
+        bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
+
+        bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, IRType::POINTER));
+    } else {
+        if (src.type != targetType) {
+            bb->generate_conversion_instruction(Reg::W2, src.type, Reg::W2, targetType);
+        }
+        // Load address into W1 and variable value into W3
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
+        bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
+
+        bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
     }
-    bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     
     string resTmp = bb->create_new_tempvar(targetType);
@@ -967,8 +1045,34 @@ antlrcpp::Any visitPreIncrement(CodeGenVisitor* visitor, ifccParser::PreIncremen
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
     bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
     
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, targetType, (int64_t)1));
-    bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+    if (targetType == IRType::POINTER) {
+        int elemSize = irtype_size(IRType::INT32);
+        // Try to discover base array element type for proper scaling
+        std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
+            ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
+            if (v) return bb->resolve_var_name(v->VAR()->getText());
+            ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
+            if (a) return getArrayName(a->primitive());
+            return string();
+        };
+        string baseName;
+        if (ctx->lvalue() && ctx->lvalue()->primitive()) {
+            ifccParser::PrimitiveContext* prim = ctx->lvalue()->primitive();
+            if (prim) baseName = getArrayName(prim);
+        }
+        if (!baseName.empty() && bb->cfg->has_array_element_type(baseName))
+            elemSize = irtype_size(bb->cfg->get_array_element_type(baseName));
+
+        // Scale integer RHS by element size before converting to pointer and adding
+        // src is in Reg::W2 after loading
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)elemSize));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W2, Reg::W2, Reg::W1, IRType::INT32));
+        bb->generate_conversion_instruction(Reg::W2, IRType::INT32, Reg::W2, IRType::POINTER);
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, IRType::POINTER));
+    } else {
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, targetType, (int64_t)1));
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+    }
     
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     
@@ -1130,8 +1234,32 @@ antlrcpp::Any visitPreDecrement(CodeGenVisitor* visitor, ifccParser::PreDecremen
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
     bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
     
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, targetType, (int64_t)1));
-    bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+    if (targetType == IRType::POINTER) {
+        int elemSize = irtype_size(IRType::INT32);
+        std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
+            ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
+            if (v) return bb->resolve_var_name(v->VAR()->getText());
+            ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
+            if (a) return getArrayName(a->primitive());
+            return string();
+        };
+        string baseName;
+        if (ctx->lvalue() && ctx->lvalue()->primitive()) {
+            ifccParser::PrimitiveContext* prim = ctx->lvalue()->primitive();
+            if (prim) baseName = getArrayName(prim);
+        }
+        if (!baseName.empty() && bb->cfg->has_array_element_type(baseName))
+            elemSize = irtype_size(bb->cfg->get_array_element_type(baseName));
+
+        // Scale integer RHS by element size before converting to pointer and subtracting
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)elemSize));
+        bb->add_IRInstr(new MulInstr(bb, Reg::W2, Reg::W2, Reg::W1, IRType::INT32));
+        bb->generate_conversion_instruction(Reg::W2, IRType::INT32, Reg::W2, IRType::POINTER);
+        bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, IRType::POINTER));
+    } else {
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, targetType, (int64_t)1));
+        bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+    }
     
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     
@@ -1293,8 +1421,29 @@ antlrcpp::Any visitPostIncrement(CodeGenVisitor* visitor, ifccParser::PostIncrem
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
     bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
     
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, targetType, (int64_t)1));
-    bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+    if (targetType == IRType::POINTER) {
+        int elemSize = irtype_size(IRType::INT32);
+        std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
+            ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
+            if (v) return bb->resolve_var_name(v->VAR()->getText());
+            ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
+            if (a) return getArrayName(a->primitive());
+            return string();
+        };
+        string baseName;
+        if (ctx->lvalue() && ctx->lvalue()->primitive()) {
+            ifccParser::PrimitiveContext* prim = ctx->lvalue()->primitive();
+            if (prim) baseName = getArrayName(prim);
+        }
+        if (!baseName.empty() && bb->cfg->has_array_element_type(baseName))
+            elemSize = irtype_size(bb->cfg->get_array_element_type(baseName));
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
+        bb->generate_conversion_instruction(Reg::W2, IRType::INT32, Reg::W2, IRType::POINTER);
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, IRType::POINTER));
+    } else {
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, targetType, (int64_t)1));
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+    }
     
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     

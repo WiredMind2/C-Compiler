@@ -225,6 +225,9 @@ public:
 
     // Return a list of global symbol names (unmangled) recorded in entry_bb.
     std::vector<std::string> get_global_symbols() const;
+
+    // Track declared global symbol names (top-level variables)
+    std::vector<std::string> globalSymbols;
     FunctionSignature* get_function(string name);
     vector<FunctionSignature>& get_functions() { return functions; }
     BasicBlock*        create_function_entry(string name, IRType returnType,

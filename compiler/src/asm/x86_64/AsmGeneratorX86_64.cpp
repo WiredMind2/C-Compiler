@@ -806,14 +806,25 @@ void AsmGeneratorX86_64::gen_control_flow(std::ostream& o, BasicBlock* bb) {
     } else {
         if (!bb->test_var_name.empty()) {
             string test_asm = var_to_asm(bb->test_var_name);
-            o << "    movl " << test_asm << ", %eax\n";
+            // If the test variable is a pointer, load 64-bit and compare 64-bit
+            if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
+                o << "    movq " << test_asm << ", %rax\n";
+                o << "    cmpq $0, %rax\n";
+            } else {
+                o << "    movl " << test_asm << ", %eax\n";
+                o << "    cmpl $0, %eax\n";
+            }
         } else {
             cerr << "Internal Error: Conditional branch in " << bb->label
                  << " has no test_var_name." << endl;
             exit(1);
         }
-        o << "    cmpl $0, %eax\n";
-        o << "    je "  << bb->exit_false->label << "\n";
-        o << "    jmp " << bb->exit_true->label << "\n";
+        if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
+            o << "    je "  << bb->exit_false->label << "\n";
+            o << "    jmp " << bb->exit_true->label << "\n";
+        } else {
+            o << "    je "  << bb->exit_false->label << "\n";
+            o << "    jmp " << bb->exit_true->label << "\n";
+        }
     }
 }

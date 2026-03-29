@@ -68,8 +68,9 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
         add_IRInstr(new I8ToI32Instr(this, initial_register, initial_register));
         add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::INT32 && dest_type == IRType::POINTER) {
-        // zero-extend 32->64 by emitting a 32-bit copy into the 64-bit dest register
-        auto* instr = new CopyRegInstr(this, initial_register, initial_register, IRType::INT32);
+        // zero-extend 32->64 by copying the 32-bit source into the requested
+        // destination register and treating that destination as POINTER-sized.
+        auto* instr = new CopyRegInstr(this, dest_register, initial_register, IRType::INT32);
         instr->dest.type = IRType::POINTER; // ensure destination register is treated as 64-bit
         add_IRInstr(instr);
     } else {
@@ -383,15 +384,7 @@ CFG::FunctionSignature *CFG::get_function(string name) {
 }
 
 std::vector<std::string> CFG::get_global_symbols() const {
-    std::vector<std::string> out;
-    if (!entry_bb) return out;
-    for (const auto &p : entry_bb->SymbolType) {
-        const std::string &name = p.first;
-        if (name.find("@") != std::string::npos) continue;
-        if (name.rfind("!tmp", 0) == 0) continue;
-        out.push_back(name);
-    }
-    return out;
+    return globalSymbols;
 }
 
 BasicBlock* CFG::create_function_entry(string name, IRType returnType,
@@ -410,7 +403,7 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     }
 
     current_bb = entryBB;
-    // Do not overwrite CFG::entry_bb here — it represents the global scope.
+    entry_bb = current_bb;
 
     // Add to data structures
     if (sig) {

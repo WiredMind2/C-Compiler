@@ -405,8 +405,14 @@ void AsmGeneratorARM64::gen_control_flow(std::ostream& o, BasicBlock* bb) {
     } else if (bb->exit_false == nullptr) {
         o << "    b " << bb->exit_true->label << "\n";
     } else {
-        o << "    ldr w0, " << var_to_asm(bb->test_var_name) << "\n";
-        o << "    cmp w0, #0\n";
+        // Use 64-bit load/compare for pointer tests, 32-bit otherwise
+        if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
+            o << "    ldr x0, " << var_to_asm(bb->test_var_name) << "\n";
+            o << "    cmp x0, #0\n";
+        } else {
+            o << "    ldr w0, " << var_to_asm(bb->test_var_name) << "\n";
+            o << "    cmp w0, #0\n";
+        }
         o << "    b.eq " << bb->exit_false->label << "\n";
         o << "    b "    << bb->exit_true->label  << "\n";
     }
