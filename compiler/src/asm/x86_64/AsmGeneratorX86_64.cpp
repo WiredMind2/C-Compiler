@@ -92,6 +92,15 @@ static string reg32_to_reg8(const string& reg32) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
+    if (!cfg->stringLiterals.empty()) {
+        o << "    .section .rodata\n";
+        for (size_t i = 0; i < cfg->stringLiterals.size(); ++i) {
+            o << ".LC" << i << ":\n";
+            o << "    .string " << cfg->stringLiterals[i] << "\n";
+        }
+        o << "    .text\n";
+    }
+
     for (auto bb : cfg->getBBs()) {
         o << ".globl " << bb->label << "\n";
     }
@@ -155,6 +164,10 @@ void AsmGeneratorX86_64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
 // ---------------------------------------------------------------------------
 // Visitor wrappers: delegate to typed helpers
 // ---------------------------------------------------------------------------
+
+void AsmGeneratorX86_64::visit(std::ostream& o, LdStringInstr& instr) {
+    o << "    leaq .LC" << instr.strIndex << "(%rip), " << reg_to_asm(instr.dest) << "\n";
+}
 
 void AsmGeneratorX86_64::visit(std::ostream& o, LdConstInstr& instr) {
     string dest = reg_to_asm(instr.dest);

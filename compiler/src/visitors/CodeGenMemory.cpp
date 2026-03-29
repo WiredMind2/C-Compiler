@@ -1564,3 +1564,14 @@ antlrcpp::Any visitPostDecrement(CodeGenVisitor* visitor, ifccParser::PostDecrem
     return StackParam(resTmp, targetType);
     
 }
+
+antlrcpp::Any visitStringConstant(CodeGenVisitor* visitor, ifccParser::StringConstantContext *ctx)
+{
+    string text = ctx->STRING_CONST()->getText();
+    auto* bb = visitor->getCFG()->current_bb;
+    int idx = visitor->getCFG()->registerStringLiteral(text);
+    string tmp = bb->create_new_tempvar(IRType::POINTER);
+    bb->add_IRInstr(new LdStringInstr(bb, Reg::W0, idx));
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
+    return StackParam(tmp, IRType::POINTER);
+}

@@ -53,6 +53,15 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::gen_asm(std::ostream& o) {
+    if (!cfg->stringLiterals.empty()) {
+        o << "    .section __TEXT,__cstring,cstring_literals\n";
+        for (size_t i = 0; i < cfg->stringLiterals.size(); ++i) {
+            o << ".LC" << i << ":\n";
+            o << "    .asciz " << cfg->stringLiterals[i] << "\n";
+        }
+        o << "    .text\n";
+    }
+
     // Generate .globl for all functions
     for (auto bb : cfg->getBBs()) {
         auto* sig = cfg->get_function(bb->label);
@@ -104,6 +113,11 @@ void AsmGeneratorARM64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
 // ---------------------------------------------------------------------------
 // Visitor implementations
 // ---------------------------------------------------------------------------
+
+void AsmGeneratorARM64::visit(std::ostream& o, LdStringInstr& instr) {
+    o << "    adrp " << reg_to_asm(instr.dest) << ", .LC" << instr.strIndex << "@PAGE\n";
+    o << "    add " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.dest) << ", .LC" << instr.strIndex << "@PAGEOFF\n";
+}
 
 void AsmGeneratorARM64::visit(std::ostream& o, LdConstInstr& instr) {
     string dest = reg_to_asm(instr.dest);

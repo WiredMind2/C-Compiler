@@ -5,6 +5,7 @@
 void IRInstr::gen_asm(ostream& o) {
     bb->cfg->asmGenerator->gen_asm_instr(o, this);
 }
+void LdStringInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void LdConstInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void StoreStackInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }

@@ -175,6 +175,13 @@ class CFG {
 public:
     explicit CFG(TargetArch arch);
 
+    std::vector<std::string> stringLiterals;
+    int registerStringLiteral(const std::string& str) {
+        int idx = stringLiterals.size();
+        stringLiterals.push_back(str);
+        return idx;
+    }
+
     void add_bb(BasicBlock* bb);
 
     void gen_asm(ostream& o);
