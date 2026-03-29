@@ -117,7 +117,11 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
             }
 
             int totalSize = static_cast<int>(totalSizeU);
-            int offset = bb->allocate_bytes_on_symbol_table(totalSize);
+            // Round up array allocation to 8 bytes so the array base (recorded
+            // as a pointer symbol) resides on an 8-byte boundary. This avoids
+            // pointer misalignment and overlapping with neighboring 4-byte slots.
+            int allocSize = (totalSize + 7) & ~7; // round up to multiple of 8
+            int offset = bb->allocate_bytes_on_symbol_table(allocSize);
             // Register the array base as a symbol at the reserved offset (no extra allocation)
             bb->add_param_to_symbol_table(var, IRType::POINTER, offset);
             bb->set_is_array(var, true);
@@ -247,11 +251,8 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 
                 // If parenthesis e.g. *(p+1), prim is parenthesis, which falls back to its rvalue evaluation
                 StackParam rvalue = std::any_cast<StackParam>(visitor->visit(prim));
-                // If the rvalue already holds a pointer, treat it as the address directly.
-                if (rvalue.type == IRType::POINTER) {
-                    return rvalue;
-                }
-                // For non-pointer rvalues, fall back to taking the address of the temporary
+                // For non-pointer rvalues AND pointer rvalues, take the address of the temporary so that
+                // pointers-to-temporaries behave consistently.
                 string addrTmp = bb->create_new_tempvar(IRType::POINTER);
                 bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, rvalue.name));
                 bb->add_IRInstr(new StoreStackInstr(bb, addrTmp, Reg::W0, IRType::POINTER));
@@ -286,9 +287,6 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 
     StackParam src = std::any_cast<StackParam>(visitor->visit(ctx->compoundAssignment()));
 
-    // Reload the stable address and perform the store
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
     // Determine the target variable type to insert any needed conversion
     IRType targetType = IRType::INT32;
     if (ctx->lvalue() && ctx->lvalue()->primitive()) {
@@ -301,12 +299,25 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
             }
             ifccParser::Array_subscriptContext* arrCtx = dynamic_cast<ifccParser::Array_subscriptContext*>(prim);
             if (arrCtx) {
-                // base element type for array subscripts
-                StackParam base = std::any_cast<StackParam>(visitor->visit(arrCtx->primitive()));
-                if (bb->cfg->has_array_element_type(base.name)) targetType = bb->cfg->get_array_element_type(base.name);
+                // To avoid generating IR twice, try to find the variable recursively
+                std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
+                    ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
+                    if (v) return v->VAR()->getText();
+                    ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
+                    if (a) return getArrayName(a->primitive());
+                    return "";
+                };
+                string baseName = getArrayName(arrCtx->primitive());
+                if (baseName != "" && bb->cfg->has_array_element_type(baseName)) {
+                    targetType = bb->cfg->get_array_element_type(baseName);
+                }
             }
         }
     }
+
+    // Reload the stable address and perform the store
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
     if (src.type != targetType) {
         bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W0, targetType);
     }

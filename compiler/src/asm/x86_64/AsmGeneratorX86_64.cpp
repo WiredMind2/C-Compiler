@@ -156,25 +156,31 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LdConstInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, CopyRegInstr& instr) {
-    string src  = reg_to_asm(instr.src);
-    string dest = reg_to_asm(instr.dest);
+    // Choose assembly register names according to the copy type
     if (instr.type == IRType::INT8) {
-        CopyRegINT8(o, src, dest);
+        string src8  = reg32_to_reg8(reg_to_asm(instr.src));
+        string dest8 = reg32_to_reg8(reg_to_asm(instr.dest));
+        CopyRegINT8(o, src8, dest8);
     } else if (instr.type == IRType::INT32) {
-        CopyRegINT32(o, src, dest);
+        RegParam src32(instr.src.reg, IRType::INT32);
+        RegParam dest32(instr.dest.reg, IRType::INT32);
+        CopyRegINT32(o, reg_to_asm(src32), reg_to_asm(dest32));
     } else if (instr.type == IRType::FLOAT64) {
-        CopyRegFLOAT64(o, src, dest);
+        RegParam srcF(instr.src.reg, IRType::FLOAT64);
+        RegParam destF(instr.dest.reg, IRType::FLOAT64);
+        CopyRegFLOAT64(o, reg_to_asm(srcF), reg_to_asm(destF));
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-        // 64-bit copy: if source was produced as INT32, the register contains
-        // a zero-extended value if movl was used earlier; prefer movq otherwise.
+        // 64-bit copy: if source register actually holds a 32-bit value,
+        // write the 32-bit alias into the 64-bit destination to zero-extend.
+        string src64 = reg_to_asm(instr.src);
+        string dest64 = reg_to_asm(instr.dest);
         if (instr.src.type == IRType::INT32) {
-            // Write 32-bit alias into dest to zero-extend
             RegParam dest32(instr.dest.reg, IRType::INT32);
             string dest32asm = reg_to_asm(dest32);
             if (reg_to_asm(instr.src) != dest32asm)
                 o << "    movl " << reg_to_asm(instr.src) << ", " << dest32asm << "\n";
-        } else if (src != dest) {
-            o << "    movq " << src << ", " << dest << "\n";
+        } else if (src64 != dest64) {
+            o << "    movq " << src64 << ", " << dest64 << "\n";
         }
     }
 }
@@ -186,8 +192,9 @@ void AsmGeneratorX86_64::visit(std::ostream& o, StoreStackInstr& instr) {
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         string src = reg_to_asm(instr.src);
         if (instr.src.type == IRType::INT32) {
-            // movl into mem will zero-extend in GPR; but to store 64-bit, move via rax
-            o << "    movslq " << src << ", %rax\n";
+            // Zero-extend 32->64 by moving the 32-bit alias into %eax (which
+            // zero-extends %rax), then store the full 64-bit register to memory.
+            o << "    movl " << src << ", %eax\n";
             o << "    movq %rax, " << var_to_asm(instr.dest.name) << "\n";
         } else {
             o << "    movq " << src << ", " << var_to_asm(instr.dest.name) << "\n";
@@ -202,14 +209,11 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LoadStackInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << var_to_asm(instr.src.name)
           << ", "        << reg_to_asm(instr.dest) << "\n";
-    } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-        if (instr.dest.type == IRType::INT32) {
-            o << "    movl " << var_to_asm(instr.src.name)
-              << ", "       << reg_to_asm(instr.dest) << "\n";
-        } else {
-            o << "    movq " << var_to_asm(instr.src.name)
-              << ", "       << reg_to_asm(instr.dest) << "\n";
-        }
+        } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+                // Always load the full 64-bit value from stack into the register's 64-bit view
+                RegParam dest64(instr.dest.reg, IRType::POINTER);
+                o << "    movq " << var_to_asm(instr.src.name)
+                    << ", "       << reg_to_asm(dest64) << "\n";
     } else {
         o << "    movl " << var_to_asm(instr.src.name)
           << ", "       << reg_to_asm(instr.dest) << "\n";

@@ -67,6 +67,11 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
     } else if (initial_type == IRType::INT8 && dest_type == IRType::FLOAT64) {
         add_IRInstr(new I8ToI32Instr(this, initial_register, initial_register));
         add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::INT32 && dest_type == IRType::POINTER) {
+        // zero-extend 32->64 by emitting a 32-bit copy into the 64-bit dest register
+        auto* instr = new CopyRegInstr(this, initial_register, initial_register, IRType::INT32);
+        instr->dest.type = IRType::POINTER; // ensure destination register is treated as 64-bit
+        add_IRInstr(instr);
     } else {
         throw runtime_error("No conversion found");
     }
@@ -87,6 +92,16 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
     int alloc = (size < 4) ? 4 : size;
     SymbolType[name] = t;
     if (cfg) {
+        // Ensure 8-byte types start on an 8-byte boundary to avoid overlapping
+        // neighboring 4-byte slots when emitting 64-bit stores/loads.
+        if (alloc >= 8) {
+            int cur = cfg->getNextFreeSymbolIndex();
+            if (cur % 8 != 0) {
+                // insert 4-byte padding to align to 8 bytes
+                cur -= 4;
+                cfg->setNextFreeSymbolIndex(cur);
+            }
+        }
         int idx = cfg->getNextFreeSymbolIndex() - alloc;
         SymbolIndex[name] = idx;
         cfg->setNextFreeSymbolIndex(idx);
@@ -96,9 +111,23 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
 }
 
 int BasicBlock::allocate_bytes_on_symbol_table(int size) {
-    int idx = cfg ? cfg->getNextFreeSymbolIndex() - size : -size;
-    if (cfg) cfg->setNextFreeSymbolIndex(idx);
-    return idx;
+    if (cfg) {
+        // For allocations that will hold 8-byte values (or larger), ensure
+        // the start is 8-byte aligned to avoid overlapping with adjacent
+        // 4-byte slots when the backend emits 64-bit memory operations.
+        if (size >= 8) {
+            int cur = cfg->getNextFreeSymbolIndex();
+            if (cur % 8 != 0) {
+                cur -= 4; // insert 4-byte padding to align
+                cfg->setNextFreeSymbolIndex(cur);
+            }
+        }
+        int idx = cfg->getNextFreeSymbolIndex() - size;
+        cfg->setNextFreeSymbolIndex(idx);
+        return idx;
+    } else {
+        return -size;
+    }
 }
 
 string BasicBlock::create_new_tempvar(IRType t) {

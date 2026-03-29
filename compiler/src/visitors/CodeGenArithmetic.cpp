@@ -16,6 +16,9 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
         bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
         bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
+        // Promote the 32-bit scaled index into a pointer-sized register
+        bb->generate_conversion_instruction(Reg::W1, IRType::INT32, Reg::W1, IRType::POINTER);
+
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, left.name, IRType::POINTER));
         bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
         string tmp = bb->create_new_tempvar(IRType::POINTER);
@@ -28,6 +31,9 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
         if (bb->cfg->has_array_element_type(right.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(right.name));
         bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
         bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
+
+        // Promote the 32-bit scaled index into a pointer-sized register
+        bb->generate_conversion_instruction(Reg::W1, IRType::INT32, Reg::W1, IRType::POINTER);
 
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, right.name, IRType::POINTER));
         bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
