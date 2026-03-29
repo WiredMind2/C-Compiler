@@ -176,8 +176,6 @@ int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_n
             return ctx->expr().empty();
 
         case StandardLibraryFunction::PUTCHAR: {
-            // Only consider putchar as standard if <stdio.h> was included
-            if (!visitor->has_stdio()) return 0;
             if (ctx->expr().size() != 1) {
                 return 0;
             }
