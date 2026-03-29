@@ -169,8 +169,30 @@ void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string des
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
-    // Arguments are already placed in the correct registers (w1-w6, d1-d6) by LoadStackInstr in the IR
-    // So we just need to call the function and move the return value if needed
+    // Internal calls use the compiler's current convention (ARG0->w1/d1).
+    // External calls (libc / declared-only) must follow ARM64 ABI (arg0 in w0/d0).
+    auto* sig = cfg->get_function(funcLabel);
+    bool isExternalCall = (sig == nullptr) || (sig->entryBB == nullptr);
+    if (isExternalCall) {
+        int numArgs = static_cast<int>(args.size());
+        for (int i = 0; i < numArgs && i < 6; i++) {
+            string src = args[i];
+            if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
+                string dst = "d" + to_string(i);
+                if (src != dst)
+                    o << "    fmov " << dst << ", " << src << "\n";
+            } else if (!src.empty() && src[0] == 'x') {
+                string dst = "x" + to_string(i);
+                if (src != dst)
+                    o << "    mov " << dst << ", " << src << "\n";
+            } else {
+                string dst = "w" + to_string(i);
+                if (src != dst)
+                    o << "    mov " << dst << ", " << src << "\n";
+            }
+        }
+    }
+
     o << "    bl _" << funcLabel << "\n";
     // Move return value from w0/d0 to destination when needed
     if (!dest.empty() && dest[0] == 'd') {
@@ -181,8 +203,28 @@ void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector
 }
 
 void AsmGeneratorARM64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
-    // Arguments are already placed in the correct registers (w1-w6, d1-d6) by LoadStackInstr in the IR
-    // So we just need to call the function and move the return value if needed
+    auto* sig = cfg->get_function(funcLabel);
+    bool isExternalCall = (sig == nullptr) || (sig->entryBB == nullptr);
+    if (isExternalCall) {
+        int numArgs = static_cast<int>(args.size());
+        for (int i = 0; i < numArgs && i < 6; i++) {
+            string src = args[i];
+            if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
+                string dst = "d" + to_string(i);
+                if (src != dst)
+                    o << "    fmov " << dst << ", " << src << "\n";
+            } else if (!src.empty() && src[0] == 'x') {
+                string dst = "x" + to_string(i);
+                if (src != dst)
+                    o << "    mov " << dst << ", " << src << "\n";
+            } else {
+                string dst = "w" + to_string(i);
+                if (src != dst)
+                    o << "    mov " << dst << ", " << src << "\n";
+            }
+        }
+    }
+
     o << "    bl _" << funcLabel << "\n";
     if (!dest.empty() && dest[0] == 'd') {
         if (dest != "d0") o << "    fmov " << dest << ", d0\n";
