@@ -24,7 +24,7 @@ Each test directory contains C source files that test specific language features
 
 ### Run All Tests
 
-From projetct root directory:
+From project root directory:
 
 ```bash
 make
@@ -127,7 +127,7 @@ This ensures tests are numbered sequentially within each directory.
 
 ## Architecture-Specific Tests
 
-You can force the target plateform (x86-64 or ARM64):
+You can force the target platform (x86-64 or ARM64):
 
 ```bash
 make test-x86-01

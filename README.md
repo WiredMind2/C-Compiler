@@ -18,8 +18,8 @@ Compiler built with **ANTLR4** and **C++20**.
 
 ## Installation
 
-For Antlr installation and setup, see [Antlr installation](docs/antlr4-installation.md).
-Once you have Antlr installed and `compiler/config.mk` configured, you can build ifcc.
+For ANTLR installation and setup, see [ANTLR installation](docs/antlr4-installation.md).
+Once you have ANTLR installed and `compiler/config.mk` configured, you can build ifcc.
 
 ## Build
 
