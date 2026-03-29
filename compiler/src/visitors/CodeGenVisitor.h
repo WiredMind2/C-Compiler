@@ -120,7 +120,8 @@ public:
     CFG *getCFG() { return cfg; }
 
 private:
-    
+    void generateLoopBody(ifccParser::ScopeContext* scopeCtx, BasicBlock* bodyBB, BasicBlock* continueTargetBB, BasicBlock* breakTargetBB);
+
 private:
     CFG *cfg;
     bool include_stdio = false;

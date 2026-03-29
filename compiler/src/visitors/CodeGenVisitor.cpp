@@ -2,6 +2,7 @@
 #include "CodeGenArithmetic.h"
 #include "../ir/IRInstr.h"
 #include <limits>
+#include <cassert>
 
 namespace {
 // Simple tokenizer and recursive-descent evaluator for case label expression text.
@@ -620,6 +621,34 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
     return 0;
 }
 
+void CodeGenVisitor::generateLoopBody(ifccParser::ScopeContext* scopeCtx, BasicBlock* bodyBB, BasicBlock* continueTargetBB, BasicBlock* breakTargetBB) {
+    // Store break/continue targets on bodyBB via dedicated fields
+    bodyBB->loop_continue_target = continueTargetBB;
+    bodyBB->loop_break_target    = breakTargetBB;
+
+    cfg->current_bb = bodyBB;
+    BasicBlock* oldBreak = cfg->current_break_bb;
+    BasicBlock* oldContinue = cfg->current_continue_bb;
+    
+    cfg->current_break_bb = breakTargetBB;
+    cfg->current_continue_bb = continueTargetBB;
+    
+    cfg->getStackBBs().push_back(bodyBB); // Push loop body onto stack so break/continue can find it
+    if (scopeCtx) {
+        this->visit(scopeCtx);
+    }
+    cfg->getStackBBs().pop_back(); // Pop loop body after visiting
+    
+    cfg->current_break_bb = oldBreak;
+    cfg->current_continue_bb = oldContinue;
+
+    // Automatically jump to condition/update block if not already jumping
+    if (cfg->current_bb->exit_true == nullptr &&
+        (cfg->current_bb->instrs.empty() || dynamic_cast<RetInstr*>(cfg->current_bb->instrs.back()) == nullptr)) {
+        cfg->current_bb->exit_true = continueTargetBB;
+    }
+}
+
 // While loop handler
 antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx)
 {
@@ -651,33 +680,8 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
     condBB->exit_true = bodyBB;
     condBB->exit_false = afterBB;
 
-    // Store break/continue targets on bodyBB via dedicated fields (not exit_true/exit_false,
-    // which will be overwritten if the body starts with an if-statement).
-    bodyBB->loop_continue_target = condBB;
-    bodyBB->loop_break_target    = afterBB;
-
     // Generate code for loop body
-    cfg->current_bb = bodyBB;
-    BasicBlock* oldBreak = cfg->current_break_bb;
-    BasicBlock* oldContinue = cfg->current_continue_bb;
-    cfg->current_break_bb = afterBB;
-    cfg->current_continue_bb = condBB;
-    cfg->getStackBBs().push_back(bodyBB);  // Push loop body onto stack so break/continue can find it
-    if (ctx->scope()) {
-        this->visit(ctx->scope());
-    }
-    cfg->getStackBBs().pop_back();  // Pop loop body after visiting
-    cfg->current_break_bb = oldBreak;
-    cfg->current_continue_bb = oldContinue;
-
-    // cfg->current_bb is now the last BB generated inside the loop body
-    // (could be bodyBB itself, or a mergeBB from a nested if).
-    // Only set exit_true (back to condBB) if this BB hasn't already been
-    // redirected by a break/continue statement.
-    BasicBlock* lastBodyBB = cfg->current_bb;
-    if (lastBodyBB->exit_true == nullptr) {
-        lastBodyBB->exit_true = condBB;
-    }
+    generateLoopBody(ctx->scope(), bodyBB, condBB, afterBB);
 
     // Continue from after loop
     cfg->current_bb = afterBB;
@@ -761,27 +765,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     }
 
     // body
-    bodyBB->loop_continue_target = updateBB;
-    bodyBB->loop_break_target = afterBB;
-
-    cfg->current_bb = bodyBB;
-    BasicBlock* oldBreak = cfg->current_break_bb;
-    BasicBlock* oldContinue = cfg->current_continue_bb;
-    cfg->current_break_bb = afterBB;
-    cfg->current_continue_bb = updateBB;
-    cfg->getStackBBs().push_back(bodyBB);
-    if (ctx->scope()) {
-        this->visit(ctx->scope());
-    }
-    cfg->getStackBBs().pop_back();
-    cfg->current_break_bb = oldBreak;
-    cfg->current_continue_bb = oldContinue;
-
-    BasicBlock* lastBodyBB = cfg->current_bb;
-    if (lastBodyBB->exit_true == nullptr &&
-        (lastBodyBB->instrs.empty() || dynamic_cast<RetInstr*>(lastBodyBB->instrs.back()) == nullptr)) {
-        lastBodyBB->exit_true = updateBB;
-    }
+    generateLoopBody(ctx->scope(), bodyBB, updateBB, afterBB);
 
     // update
     cfg->current_bb = updateBB;
@@ -964,38 +948,16 @@ antlrcpp::Any CodeGenVisitor::visitDo_while_loop(ifccParser::Do_while_loopContex
     // Set up current block to unconditionally jump to loop body initially
     currentBB->exit_true = bodyBB;
 
-    // Store break/continue targets on bodyBB via dedicated fields
-    bodyBB->loop_continue_target = condBB;
-    bodyBB->loop_break_target    = afterBB;
-
     // Generate code for loop body
-    cfg->current_bb = bodyBB;
-    BasicBlock* oldBreak = cfg->current_break_bb;
-    BasicBlock* oldContinue = cfg->current_continue_bb;
-    cfg->current_break_bb = afterBB;
-    cfg->current_continue_bb = condBB;
-    
-    cfg->getStackBBs().push_back(bodyBB);  // Push loop body onto stack so break/continue can find it
-    if (ctx->scope()) {
-        this->visit(ctx->scope());
-    }
-    cfg->getStackBBs().pop_back();  // Pop loop body after visiting
-    
-    cfg->current_break_bb = oldBreak;
-    cfg->current_continue_bb = oldContinue;
-
-    // cfg->current_bb is now the last BB generated inside the loop body
-    BasicBlock* lastBodyBB = cfg->current_bb;
-    if (lastBodyBB->exit_true == nullptr) {
-        lastBodyBB->exit_true = condBB;
-    }
+    generateLoopBody(ctx->scope(), bodyBB, condBB, afterBB);
 
     // Set up condition block
     cfg->current_bb = condBB;
-    StackParam condResult("!tmp0", IRType::INT32);
-    if (ctx->expr()) {
-        condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
-    }
+
+    // The do-while grammar guarantees expr() is always present; treat null as a hard error.
+    assert(ctx->expr() && "do-while condition expression must not be null");
+    StackParam condResult =
+        any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
     // Condition result determines whether to loop again or exit
     condBB->test_var_name = condResult.name;
