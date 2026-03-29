@@ -9,12 +9,12 @@
  * RegParam (INT32 → 32-bit view, INT64 → 64-bit view, etc.).
  *
  * Naming:
- *   W0..W3     = general-purpose working registers
+ *   W0..W5     = general-purpose working registers
  *   ARG0..ARG5 = argument-passing registers
  *   RET        = return-value register
  */
 enum class Reg {
-    W0, W1, W2, W3,
+    W0, W1, W2, W3, W4, W5,
     ARG0, ARG1, ARG2, ARG3, ARG4, ARG5,
     RET,
 };
@@ -26,6 +26,8 @@ inline std::string reg_name(Reg r) {
         case Reg::W1:   return "W1";
         case Reg::W2:   return "W2";
         case Reg::W3:   return "W3";
+        case Reg::W4:   return "W4";
+        case Reg::W5:   return "W5";
         case Reg::ARG0: return "ARG0";
         case Reg::ARG1: return "ARG1";
         case Reg::ARG2: return "ARG2";

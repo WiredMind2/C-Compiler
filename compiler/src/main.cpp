@@ -84,8 +84,8 @@ int main(int argn, const char **argv) {
 
     // Run optimizations
     optim::OptimizationManager optimizer;
-        optimizer.addPass(std::make_unique<optim::StoreLoadStackFoldPass>());
     if (!no_optim) {
+        optimizer.addPass(std::make_unique<optim::StoreLoadStackFoldPass>());
         optimizer.addPass(std::make_unique<optim::StoreLoadToRegisterPass>());
         // optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
         // optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());

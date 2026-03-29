@@ -26,6 +26,8 @@ string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
             case Reg::W1:                return "d8";
             case Reg::W2:                return "d9";
             case Reg::W3:                return "d10";
+            case Reg::W4:                return "d11";
+            case Reg::W5:                return "d12";
         }
     }
     bool is64 = (p.type == IRType::INT64);
@@ -41,6 +43,8 @@ string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
         case Reg::W1:                  return string(prefix) + "9";
         case Reg::W2:                  return string(prefix) + "10";
         case Reg::W3:                  return string(prefix) + "11";
+        case Reg::W4:                  return string(prefix) + "12";
+        case Reg::W5:                  return string(prefix) + "13";
     }
     throw std::invalid_argument("reg_to_asm: unknown Reg");
 }

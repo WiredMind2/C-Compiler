@@ -21,6 +21,8 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
             case Reg::W1:                  return "%xmm1";
             case Reg::W2:                  return "%xmm2";
             case Reg::W3:                  return "%xmm3";
+            case Reg::W4:                  return "%xmm6";
+            case Reg::W5:                  return "%xmm7";
             case Reg::ARG0:                return "%xmm0";
             case Reg::ARG1:                return "%xmm1";
             case Reg::ARG2:                return "%xmm2";
@@ -40,6 +42,10 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
             return is64 ? "%rdx" : "%edx";
         case Reg::W3:
             return is64 ? "%rbx" : "%ebx";
+        case Reg::W4:
+            return is64 ? "%r10" : "%r10d";
+        case Reg::W5:
+            return is64 ? "%r11" : "%r11d";
         case Reg::ARG0:
             return is64 ? "%rdi" : "%edi";
         case Reg::ARG1:

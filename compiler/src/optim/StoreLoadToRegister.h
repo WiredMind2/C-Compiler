@@ -21,8 +21,9 @@ namespace optim {
  * - no call is allowed between the first candidate store and the last matched load,
  * - the slot must not be read from other basic blocks of the same function.
  *
- * Uses W2/W3 as cache registers and tracks register availability per function
- * (slot-to-register assignment is kept per function during the pass).
+ * Uses W2..W5 as cache registers and tracks register availability per function.
+ * Allocation policy reserves W2 for temporary slots (name starts with '!');
+ * non-temporary slots are assigned from W3..W5.
  */
 class StoreLoadToRegisterPass : public OptimizationPass {
 public:
@@ -54,7 +55,7 @@ private:
             size_t lastLoadIdx;
         };
 
-        std::set<Reg> availableRegs{Reg::W2, Reg::W3};
+        std::set<Reg> availableRegs{Reg::W2, Reg::W3, Reg::W4, Reg::W5};
         std::unordered_map<std::string, Reg> slotToReg;
         std::unordered_map<std::string, SlotCacheInfo> slotCacheInfo;
     };

@@ -208,6 +208,7 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
                                                        size_t lastLoadIdx, Reg& outReg) {
     const std::string funcName = getFunctionName(bb);
     auto& state = functionRegisterState_[funcName];
+    const bool isTemporarySlot = (!slot.empty() && slot[0] == '!');
 
 
     const auto cacheInfo = state.slotCacheInfo.find(slot);
@@ -226,12 +227,33 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
         state.slotToReg.erase(cached);
     }
 
-    if (state.availableRegs.empty()) {
+    auto tryTakeRegister = [&](Reg candidate) {
+        const auto it = state.availableRegs.find(candidate);
+        if (it == state.availableRegs.end()) {
+            return false;
+        }
+        outReg = candidate;
+        state.availableRegs.erase(it);
+        return true;
+    };
+
+    bool allocated = false;
+    if (isTemporarySlot) {
+        allocated = tryTakeRegister(Reg::W2)
+                 || tryTakeRegister(Reg::W3)
+                 || tryTakeRegister(Reg::W4)
+                 || tryTakeRegister(Reg::W5);
+    } else {
+        // W2 is reserved for temp variables to make sure there is always one register for temps.
+        allocated = tryTakeRegister(Reg::W3)
+                 || tryTakeRegister(Reg::W4)
+                 || tryTakeRegister(Reg::W5);
+    }
+
+    if (!allocated) {
         return false;
     }
 
-    outReg = *state.availableRegs.begin();
-    state.availableRegs.erase(state.availableRegs.begin());
     state.slotToReg[slot] = outReg;
     state.slotCacheInfo[slot] = FunctionRegisterState::SlotCacheInfo{outReg, bb, lastLoadIdx};
     return true;
