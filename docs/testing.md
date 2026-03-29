@@ -24,8 +24,10 @@ Each test directory contains C source files that test specific language features
 
 ### Run All Tests
 
+From project root directory:
+
 ```bash
-make test-all
+make
 ```
 
 This runs the test runner (`ifcc-test.py`) on all test files in `testfiles/`.
@@ -43,6 +45,12 @@ make test-03          # Run test suite 03 (arithmetic)
 ```bash
 make test-x86-01     # Run test suite 01 with x86-64 target
 make test-arm-01     # Run test suite 01 with ARM64 target
+```
+
+### Run one specific test file
+
+```bash
+make path/to/test_file.c
 ```
 
 ## How Tests Work
@@ -72,36 +80,8 @@ The test runner expects:
 
 ## Adding New Tests
 
-### Step 1: Create Test File
+Add a new C file in the appropriate test directory.
 
-Add a new C file in the appropriate test directory:
-
-```bash
-# Example: adding a test for new functionality
-echo 'int main() { return 5; }' > testfiles/03_arithmetic/34_new_test.c
-```
-
-### Step 2: Run the Test
-
-```bash
-make test-03
-```
-
-### Step 3: Verify Output
-
-The test runner will show:
-- PASS: if the exit code matches expected
-- FAIL: if the exit code doesn't match
-
-## Test Suites
-
-| Suite | Description |
-|-------|-------------|
-| `00_base` | Basic functionality (return values) |
-| `01_variables` | Variable declaration and assignment |
-| `02_preprocessor` | Comments and directives |
-| `03_arithmetic` | Arithmetic operations |
-| `04_*` | (Additional feature tests) |
 
 ## Manual Testing
 
@@ -135,30 +115,6 @@ gcc -o gcc_program test.c
 ./gcc_program; echo $?        # gcc return code
 ```
 
-## Troubleshooting
-
-### Test fails with "segmentation fault"
-
-Check the generated assembly for obvious issues:
-
-```bash
-./compiler/ifcc test.c > output.s
-cat output.s
-```
-
-### Test returns wrong value
-
-Verify the compiler generates correct instructions for your test case.
-
-### "Test file not found"
-
-Ensure you're running from the project root directory:
-
-```bash
-cd /home/william/Documents/C-Compiler
-make test-all
-```
-
 ## Renumbering Tests
 
 To automatically renumber test files in all directories:
@@ -171,12 +127,10 @@ This ensures tests are numbered sequentially within each directory.
 
 ## Architecture-Specific Tests
 
-Some tests may behave differently on x86-64 vs ARM64:
+You can force the target platform (x86-64 or ARM64):
 
 ```bash
-# Force x86-64 architecture
 make test-x86-01
 
-# Force ARM64 architecture
 make test-arm-01
 ```
