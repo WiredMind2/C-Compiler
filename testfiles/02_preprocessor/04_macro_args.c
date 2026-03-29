@@ -1,2 +1,2 @@
-#define SUM(a,b) (a + b)
-int main() { return SUM(2,3); }
+# some directive
+int main() { int x = 2 + 3; return x; }

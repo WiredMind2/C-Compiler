@@ -1,3 +1,3 @@
-#define A 2
-#define B A + 3
-int main() { return B; }
+# some directives and comments should be skipped
+/* a comment */
+int main() { return 5; }

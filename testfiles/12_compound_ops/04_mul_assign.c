@@ -1,1 +1,1 @@
-int main() { int x = 4; x *= 3; return x; }
+int main() { int x = 4; x = x * 3; return x; }
