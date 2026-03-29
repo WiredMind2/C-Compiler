@@ -95,12 +95,15 @@ void AsmGeneratorX86_64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) 
         // Copy parameters from ABI registers to stack slots (System V ABI)
         // Parameters are stored at positive offsets: 16(%rbp), 24(%rbp), ...
         static const string integer_arg_register[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        static const string byte_arg_register[]    = {"%dil", "%sil", "%dl",  "%cl",  "%r8b", "%r9b"};
         static const string double_arg_register[] = {"%xmm0", "%xmm1", "%xmm2", "%xmm3","%xmm4", "%xmm5"};
         if (sig) {
             int numParams = (int)sig->paramNames.size();
             for (int i = 0; i < numParams && i < 6; i++) {
                 int offset = 16 + i * 8;
-                if (sig->paramTypes[i] == IRType::INT32) {
+                if (sig->paramTypes[i] == IRType::INT8) {
+                    o << "    movb " << byte_arg_register[i] << ", " << offset << "(%rbp)\n";
+                } else if (sig->paramTypes[i] == IRType::INT32) {
                     o << "    movq " << integer_arg_register[i] << ", " << offset << "(%rbp)\n";
                 } else if (sig->paramTypes[i] == IRType::FLOAT64) {
                     o << "    movsd " << double_arg_register[i] << ", " << offset << "(%rbp)\n";
