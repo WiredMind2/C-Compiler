@@ -30,7 +30,8 @@ struct ConstParam : Param {
         switch (t) {
             case IRType::INT8:   value = static_cast<int8_t>(v);  break;
             case IRType::INT32:  value = static_cast<int32_t>(v); break;
-            case IRType::INT64:  value = v;                        break;
+            case IRType::INT64:
+            case IRType::POINTER: value = v;                        break;
             default: throw std::invalid_argument("ConstParam: use float constructor for FLOAT types");
         }
     }
@@ -57,7 +58,8 @@ struct ConstParam : Param {
         switch (type) {
             case IRType::INT8:   return as_i8();
             case IRType::INT32:  return as_i32();
-            case IRType::INT64:  return as_i64();
+            case IRType::INT64:
+            case IRType::POINTER: return as_i64();
             default: throw std::invalid_argument("raw_int() called on float constant");
         }
     }
@@ -67,6 +69,7 @@ struct ConstParam : Param {
             case IRType::INT8:    return std::to_string(as_i8());
             case IRType::INT32:   return std::to_string(as_i32());
             case IRType::INT64:   return std::to_string(as_i64()) + "L";
+            case IRType::POINTER: return std::to_string(as_i64());
             case IRType::FLOAT32: return std::to_string(as_f32()) + "f";
             case IRType::FLOAT64: return std::to_string(as_f64());
         }

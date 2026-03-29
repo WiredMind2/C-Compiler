@@ -89,8 +89,19 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
                 std::vector<std::string>());
             function_signature = visitor->getCFG()->get_function(func_name);
         } else {
-            std::cerr << "Error: call to undeclared function '" << func_name << "'." << std::endl;
-            exit(1);
+            // Implicitly declare the function as returning INT32
+            // and taking INT32 arguments based on what is passed.
+            visitor->called_undeclared_functions.push_back(func_name);
+            std::vector<IRType> implicitParamTypes;
+            for (auto exprCtx : ctx->expr()) {
+                implicitParamTypes.push_back(IRType::INT32);
+            }
+            visitor->getCFG()->add_function(
+                func_name,
+                IRType::INT32,
+                implicitParamTypes,
+                std::vector<std::string>());
+            function_signature = visitor->getCFG()->get_function(func_name);
         }
     }
 

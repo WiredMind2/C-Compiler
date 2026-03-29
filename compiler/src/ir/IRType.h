@@ -11,6 +11,7 @@ enum class IRType {
     INT64,    ///< 64-bit signed integer  (C long)
     FLOAT32,  ///< 32-bit float           (C float)
     FLOAT64,  ///< 64-bit float           (C double)
+    POINTER,  ///< pointer-sized integer
 };
 
 inline std::string irtype_name(IRType t) {
@@ -25,13 +26,16 @@ inline std::string irtype_name(IRType t) {
             return "f32";
         case IRType::FLOAT64:
             return "f64";
+        case IRType::POINTER:
+            return "ptr";
     }
     return "?";
 }
 
 inline int irtype_size(IRType t) {
     switch (t) {
-        case IRType::VOID:    throw std::runtime_error("Void has no size");
+        case IRType::VOID:
+            throw std::runtime_error("Void has no size");
         case IRType::INT8:
             return 1;
         case IRType::INT32:
@@ -41,6 +45,8 @@ inline int irtype_size(IRType t) {
         case IRType::FLOAT32:
             return 4;
         case IRType::FLOAT64:
+            return 8;
+        case IRType::POINTER:
             return 8;
     }
     return 4;

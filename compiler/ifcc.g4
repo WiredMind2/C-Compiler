@@ -4,25 +4,15 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';')
-    | scope
-    | function_definition
-    | function_declaration
-    | condition
-    | while_loop
-    | for_loop
-    | switch_stmt
-    | break_stmt
-    | continue_stmt
-    | declaration
-    ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | var_decl_list | var_decl_with_init ;
 
 return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
-declaration : type_specifier declaration_instance (',' declaration_instance)* ';' ;
-declaration_instance : VAR ('=' expr)? ;
+declarator : '*'* VAR ('[' CONST ']')? ;
+var_decl_list : type_specifier declarator (',' declarator)* ';' ;
+var_decl_with_init : type_specifier declarator '=' expr ';' ;
 
 param : type_specifier VAR ;
 param_list : param (',' param)* ;
@@ -41,6 +31,8 @@ continue_stmt : 'continue' ';' ;
 
 scope : '{' statement* '}' ;
 
+lvalue: primitive ('[' expr ']')? | '*' lvalue ; 
+
 expr : sequential ;
 
 sequential : compoundAssignment # sequentialExprRef
@@ -48,9 +40,9 @@ sequential : compoundAssignment # sequentialExprRef
     ;
 
 compoundAssignment : logicalOR # compoundAssignmentRef
-    | VAR '=' compoundAssignment # Assignment
-    | VAR '+=' compoundAssignment # AddAssignment
-    | VAR '-=' compoundAssignment # SubAssignment
+    | lvalue '=' compoundAssignment # Assignment
+    | lvalue '+=' compoundAssignment # AddAssignment
+    | lvalue '-=' compoundAssignment # SubAssignment
     ;
 
 logicalOR : logicalAND # logicalORRef
@@ -62,7 +54,7 @@ logicalAND : bitwiseOR # logicalANDRef
     ;
 
 bitwiseOR : bitwiseXOR         # bitwiseORRef
-    | bitwiseOR '|' bitwiseXOR # bitwiseORRule
+    | bitwiseOR '^' bitwiseXOR # bitwiseORRule
     ;
 
 bitwiseXOR : bitwiseAND         # bitwiseXORRef
@@ -86,32 +78,35 @@ relational : additive # relationalExprRef
     ;
 
 additive
-    : multiplicative             # multiplicativeExprRef
+    : multiplicative              # multiplicativeExprRef
     | additive '+' multiplicative # addition
     | additive '-' multiplicative # substraction
     ;
 
 multiplicative
-    : unary                      # unaryExprRef
+    : unary                       # unaryExprRef
     | multiplicative '*' unary    # multiplication
     | multiplicative '/' unary    # division
     | multiplicative '%' unary    # modulo
     ;
 
 unary
-    : '++' VAR                   # preIncrement
-    | '--' VAR                   # preDecrement
-    | VAR '++'                   # postIncrement
-    | VAR '--'                   # postDecrement
-    | '-' primitive              # unaryMinus
-    | '+' primitive              # unaryPlus
-    | '!' primitive              # unaryNot
+    : '++' lvalue                # preIncrement
+    | '--' lvalue                # preDecrement
+    | lvalue '++'                # postIncrement
+    | lvalue '--'                # postDecrement
+    | '-' unary                  # unaryMinus
+    | '+' unary                  # unaryPlus
+    | '!' unary                  # unaryNot
+    | '*' unary                  # dereference
+    | '&' unary                  # addressOf
     | primitive                  # primitiveExprRef
     ;
 
 primitive
     : '(' expr ')'               # parenthesis
     | function_call              # functionCall
+    | primitive '[' expr ']'     # array_subscript
     | VAR                        # variable
     | CONST                      # constant
     | DOUBLE_CONST               # double_constant

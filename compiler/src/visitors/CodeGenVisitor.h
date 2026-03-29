@@ -11,10 +11,9 @@
 #include "CodeGenFunction.h"
 #include "CodeGenRelational.h"
 #include "CodeGenLogical.h"
+#include "CodeGenControlFlow.h"
 #include <map>
 #include <string>
-#include <algorithm>
-
 
 // Other function are declared in the visitors/ folder
 
@@ -39,14 +38,9 @@ public:
 
     virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 
-    virtual antlrcpp::Any visitDeclaration(ifccParser::DeclarationContext *ctx) override;
+    virtual antlrcpp::Any visitVar_decl_list(ifccParser::Var_decl_listContext *ctx) override;
+    virtual antlrcpp::Any visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx) override;
     virtual antlrcpp::Any visitAssignment(ifccParser::AssignmentContext *ctx) override;
-    virtual antlrcpp::Any visitAddAssignment(ifccParser::AddAssignmentContext *ctx) override;
-    virtual antlrcpp::Any visitSubAssignment(ifccParser::SubAssignmentContext *ctx) override;
-    virtual antlrcpp::Any visitPreIncrement(ifccParser::PreIncrementContext *ctx) override;
-    virtual antlrcpp::Any visitPreDecrement(ifccParser::PreDecrementContext *ctx) override;
-    virtual antlrcpp::Any visitPostIncrement(ifccParser::PostIncrementContext *ctx) override;
-    virtual antlrcpp::Any visitPostDecrement(ifccParser::PostDecrementContext *ctx) override;
 
     // Arithmetic expression handlers
     virtual antlrcpp::Any visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx) override;
@@ -58,8 +52,11 @@ public:
     virtual antlrcpp::Any visitUnaryMinus(ifccParser::UnaryMinusContext *ctx) override;
     virtual antlrcpp::Any visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) override;
     virtual antlrcpp::Any visitUnaryNot(ifccParser::UnaryNotContext *ctx) override;
+    virtual antlrcpp::Any visitDereference(ifccParser::DereferenceContext *ctx) override;
+    virtual antlrcpp::Any visitAddressOf(ifccParser::AddressOfContext *ctx) override;
     virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
     virtual antlrcpp::Any visitFunctionCall(ifccParser::FunctionCallContext *ctx) override;
+    virtual antlrcpp::Any visitArray_subscript(ifccParser::Array_subscriptContext *ctx) override;
 
     // Sequential / compound-assignment pass-throughs
     virtual antlrcpp::Any visitSequentialExprRef(ifccParser::SequentialExprRefContext *ctx) override;
@@ -92,6 +89,10 @@ public:
     virtual antlrcpp::Any visitLogicalANDRef(ifccParser::LogicalANDRefContext *ctx) override;
     virtual antlrcpp::Any visitLogicalANDRule(ifccParser::LogicalANDRuleContext *ctx) override;
 
+    // Control flow handlers
+    virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
+    virtual antlrcpp::Any visitWhile_loop(ifccParser::While_loopContext *ctx) override;
+
     // Function handlers
     virtual antlrcpp::Any visitFunction_definition(ifccParser::Function_definitionContext *ctx) override;
     virtual antlrcpp::Any visitFunction_declaration(ifccParser::Function_declarationContext *ctx) override;
@@ -103,15 +104,14 @@ public:
     // Statement handler
     virtual antlrcpp::Any visitStatement(ifccParser::StatementContext *ctx) override;
 
-    // Control flow handlers
-    virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
-    virtual antlrcpp::Any visitWhile_loop(ifccParser::While_loopContext *ctx) override;
+    // (Duplicates removed)
     virtual antlrcpp::Any visitFor_loop(ifccParser::For_loopContext *ctx) override;
     virtual antlrcpp::Any visitBreak_stmt(ifccParser::Break_stmtContext *ctx) override;
     virtual antlrcpp::Any visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) override;
     virtual antlrcpp::Any visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) override;
-
     CFG *getCFG() { return cfg; }
+
+    std::vector<std::string> called_undeclared_functions;
 
 private:
     CFG *cfg;
@@ -120,4 +120,11 @@ private:
 public:
     bool has_stdio() const { return include_stdio; }
     bool has_stdlib() const { return include_stdlib; }
+
+    virtual antlrcpp::Any visitAddAssignment(ifccParser::AddAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitSubAssignment(ifccParser::SubAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitPreIncrement(ifccParser::PreIncrementContext *ctx) override;
+    virtual antlrcpp::Any visitPreDecrement(ifccParser::PreDecrementContext *ctx) override;
+    virtual antlrcpp::Any visitPostIncrement(ifccParser::PostIncrementContext *ctx) override;
+    virtual antlrcpp::Any visitPostDecrement(ifccParser::PostDecrementContext *ctx) override;
 };
