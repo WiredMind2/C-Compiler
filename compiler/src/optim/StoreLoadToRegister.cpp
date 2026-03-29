@@ -26,6 +26,8 @@ bool StoreLoadToRegisterPass::optimizeBasicBlock(BasicBlock* bb) {
 
     size_t i = 0;
     while (i < instrs.size()) {
+        releaseExpiredCaches(bb, i);
+
         if (dynamic_cast<StoreStackInstr*>(instrs[i])) {
             if (tryOptimizeStoreLoad(bb, i)) {
                 modified = true;
@@ -43,8 +45,7 @@ bool StoreLoadToRegisterPass::tryOptimizeStoreLoad(BasicBlock* bb, size_t storeI
     auto* store = dynamic_cast<StoreStackInstr*>(instrs[storeIdx]);
     if (!store) return false;
 
-    const std::string& slot = store->dest.name;
-    const Reg srcReg = store->src.reg;
+    const std::string slot = store->dest.name;
     const IRType storeType = store->type;
 
     const int loadIdx = findLoadAfterStore(bb, storeIdx + 1, slot);
@@ -66,7 +67,7 @@ bool StoreLoadToRegisterPass::tryOptimizeStoreLoad(BasicBlock* bb, size_t storeI
     }
 
     Reg workReg = Reg::W2;
-    if (!getAvailableWorkRegister(bb, slot, workReg)) {
+    if (!getAvailableWorkRegister(bb, slot, static_cast<size_t>(lastLoadIdx), workReg)) {
         return false;
     }
 
@@ -177,14 +178,52 @@ bool StoreLoadToRegisterPass::isSlotUsedOutsideBBInSameFunction(BasicBlock* bb, 
     return false;
 }
 
-bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std::string& slot, Reg& outReg) {
+void StoreLoadToRegisterPass::releaseExpiredCaches(BasicBlock* bb, size_t currentIdx) {
+    const std::string funcName = getFunctionName(bb);
+    auto stateIt = functionRegisterState_.find(funcName);
+    if (stateIt == functionRegisterState_.end()) {
+        return;
+    }
+
+    auto& state = stateIt->second;
+
+    for (auto it = state.slotCacheInfo.begin(); it != state.slotCacheInfo.end(); ) {
+        const auto& info = it->second;
+
+        // Caches are local to one BB in current safety model.
+        const bool differentBB = (info.bb != bb);
+        const bool expiredInBB = (info.bb == bb && info.lastLoadIdx < currentIdx);
+
+        if (differentBB || expiredInBB) {
+            state.availableRegs.insert(info.reg);
+            state.slotToReg.erase(it->first);
+            it = state.slotCacheInfo.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std::string& slot,
+                                                       size_t lastLoadIdx, Reg& outReg) {
     const std::string funcName = getFunctionName(bb);
     auto& state = functionRegisterState_[funcName];
 
+
+    const auto cacheInfo = state.slotCacheInfo.find(slot);
+    if (cacheInfo != state.slotCacheInfo.end() && cacheInfo->second.bb == bb) {
+        outReg = cacheInfo->second.reg;
+        if (lastLoadIdx > cacheInfo->second.lastLoadIdx) {
+            cacheInfo->second.lastLoadIdx = lastLoadIdx;
+        }
+        state.slotToReg[slot] = outReg;
+        return true;
+    }
+
     const auto cached = state.slotToReg.find(slot);
     if (cached != state.slotToReg.end()) {
-        outReg = cached->second;
-        return true;
+        // Stale mapping (e.g. from a different BB) should be dropped.
+        state.slotToReg.erase(cached);
     }
 
     if (state.availableRegs.empty()) {
@@ -194,6 +233,7 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
     outReg = *state.availableRegs.begin();
     state.availableRegs.erase(state.availableRegs.begin());
     state.slotToReg[slot] = outReg;
+    state.slotCacheInfo[slot] = FunctionRegisterState::SlotCacheInfo{outReg, bb, lastLoadIdx};
     return true;
 }
 

@@ -5,6 +5,7 @@
 #include <string>
 #include <set>
 #include <unordered_map>
+#include <cstddef>
 
 namespace optim {
 
@@ -47,8 +48,15 @@ public:
 
 private:
     struct FunctionRegisterState {
+        struct SlotCacheInfo {
+            Reg reg;
+            const BasicBlock* bb;
+            size_t lastLoadIdx;
+        };
+
         std::set<Reg> availableRegs{Reg::W2, Reg::W3};
         std::unordered_map<std::string, Reg> slotToReg;
+        std::unordered_map<std::string, SlotCacheInfo> slotCacheInfo;
     };
 
     bool optimizeBasicBlock(BasicBlock* bb);
@@ -58,7 +66,9 @@ private:
     bool hasCallBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx);
     bool hasCallInBlock(BasicBlock* bb);
     bool isSlotUsedOutsideBBInSameFunction(BasicBlock* bb, const std::string& slot);
-    bool getAvailableWorkRegister(BasicBlock* bb, const std::string& slot, Reg& outReg);
+    void releaseExpiredCaches(BasicBlock* bb, size_t currentIdx);
+    bool getAvailableWorkRegister(BasicBlock* bb, const std::string& slot,
+                                  size_t lastLoadIdx, Reg& outReg);
     std::string getFunctionName(BasicBlock* bb) const;
 
     std::unordered_map<std::string, FunctionRegisterState> functionRegisterState_;
