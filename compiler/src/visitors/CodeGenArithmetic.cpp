@@ -36,10 +36,6 @@ antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext
         return StackParam(tmp, IRType::POINTER);
     }
 
-    if (left.type != right.type) {
-        std::cerr << "type not identical. Not supported right now: " << static_cast<int>(left.type) << " vs " << static_cast<int>(right.type) << std::endl;
-        exit(1);
-    }
     return bb->emit_binop<AddInstr>(left, right);
 }
 
@@ -64,10 +60,6 @@ antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::Substractio
         return StackParam(tmp, IRType::POINTER);
     }
 
-    if (left.type != right.type) {
-        std::cerr << "type not identical. Not supported right now: " << static_cast<int>(left.type) << " vs " << static_cast<int>(right.type) << std::endl;
-        exit(1);
-    }
     return bb->emit_binop<SubInstr>(left, right);
 }
 

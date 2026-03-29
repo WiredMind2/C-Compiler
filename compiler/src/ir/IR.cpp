@@ -86,8 +86,13 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
     int size = irtype_size(t);
     int alloc = (size < 4) ? 4 : size;
     SymbolType[name] = t;
-    SymbolIndex[name] = cfg ? cfg->getNextFreeSymbolIndex() : -alloc;
-    if (cfg) cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - alloc);
+    if (cfg) {
+        int idx = cfg->getNextFreeSymbolIndex() - alloc;
+        SymbolIndex[name] = idx;
+        cfg->setNextFreeSymbolIndex(idx);
+    } else {
+        SymbolIndex[name] = -alloc;
+    }
 }
 
 int BasicBlock::allocate_bytes_on_symbol_table(int size) {

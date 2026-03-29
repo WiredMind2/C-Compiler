@@ -138,8 +138,20 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
 {
     // Handle declaration with initialization: int x = expr;
     string var = ctx->declarator()->VAR()->getText();
-    IRType variable_type = irtype_from_string(ctx->type_specifier()->getText());
+    IRType baseType = irtype_from_string(ctx->type_specifier()->getText());
+    int pointerDepth = 0;
+    if (ctx->declarator()->children.size() > 0) {
+        for (auto* ch : ctx->declarator()->children) {
+            auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
+            if (t && t->getText() == "*") pointerDepth++;
+        }
+    }
+    IRType variable_type = pointerDepth > 0 ? IRType::POINTER : baseType;
     visitor->getCFG()->current_bb->add_var_to_symbol_table(var, variable_type);
+
+    if (pointerDepth > 0) {
+        visitor->getCFG()->set_array_element_type(var, baseType);
+    }
 
     StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr()));
 
@@ -277,7 +289,28 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     // Reload the stable address and perform the store
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
-    bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, src.type));
+    // Determine the target variable type to insert any needed conversion
+    IRType targetType = IRType::INT32;
+    if (ctx->lvalue() && ctx->lvalue()->primitive()) {
+        ifccParser::PrimitiveContext* prim = ctx->lvalue()->primitive();
+        if (prim) {
+            ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(prim);
+            if (varCtx) {
+                string varName = varCtx->VAR()->getText();
+                targetType = bb->get_var_type(varName);
+            }
+            ifccParser::Array_subscriptContext* arrCtx = dynamic_cast<ifccParser::Array_subscriptContext*>(prim);
+            if (arrCtx) {
+                // base element type for array subscripts
+                StackParam base = std::any_cast<StackParam>(visitor->visit(arrCtx->primitive()));
+                if (bb->cfg->has_array_element_type(base.name)) targetType = bb->cfg->get_array_element_type(base.name);
+            }
+        }
+    }
+    if (src.type != targetType) {
+        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W0, targetType);
+    }
+    bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     return src;
 }
 
