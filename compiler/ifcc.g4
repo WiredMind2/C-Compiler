@@ -11,7 +11,7 @@ return_stmt: RETURN expr? ;
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
 declarator : '*'* VAR ('[' CONST ']')? ;
-init_declarator : declarator ('=' expr)? ;
+init_declarator : declarator ('=' (expr | initializer))? ;
 
 declaration_no_semi : type_specifier init_declarator (',' init_declarator)* ;
 declaration : declaration_no_semi ';' ;
@@ -121,6 +121,9 @@ primitive
 
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
+initializer
+    : '{' (expr (',' expr)*)? '}'
+    ;
 RETURN : 'return' ;
 CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;

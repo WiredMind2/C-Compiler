@@ -91,14 +91,27 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
 
     // First register all variables
     for (auto init_decl : ctx->init_declarator()) {
-        // init_declarator: declarator ('=' expr)? ;
+        // init_declarator: declarator ('=' expr | '=' initializer)? ;
         auto* decl = init_decl->declarator();
         string var = decl->VAR()->getText();
         int pointerDepth = 0;
+        int arraySize = 0;
+        bool isArray = false;
         if (decl->children.size() > 0) {
-            for (auto* ch : decl->children) {
+            for (size_t i = 0; i < decl->children.size(); ++i) {
+                auto* ch = decl->children[i];
                 auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
                 if (t && t->getText() == "*") pointerDepth++;
+                if (t && t->getText() == "[") {
+                    // expect next child to be CONST then ']'
+                    if (i + 1 < decl->children.size()) {
+                        auto* next = dynamic_cast<antlr4::tree::TerminalNode*>(decl->children[i+1]);
+                        if (next) {
+                            arraySize = std::stoi(next->getText());
+                            isArray = true;
+                        }
+                    }
+                }
             }
         }
         bool isPointer = pointerDepth > 0;
@@ -107,11 +120,22 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
         if (!targetBB) targetBB = visitor->getCFG()->current_bb;
         targetBB->add_var_to_symbol_table(var, type);
         if (isPointer) visitor->getCFG()->set_array_element_type(var, baseType);
+        if (isArray) {
+            targetBB->set_is_array(var, true);
+            visitor->getCFG()->set_array_element_type(var, baseType);
+            int elemSize = irtype_size(baseType);
+            int totalSize = elemSize * arraySize;
+            if (totalSize > elemSize) {
+                // allocate the extra bytes needed for the remaining elements
+                targetBB->allocate_bytes_on_symbol_table(totalSize - elemSize);
+            }
+        }
     }
 
     // Then, for single-init forms, handle initializer if present
     if (ctx->init_declarator().size() == 1) {
         auto* init_decl = ctx->init_declarator()[0];
+        auto* bb = visitor->getCFG()->current_bb;
         if (init_decl->expr() != nullptr) {
             auto* decl = init_decl->declarator();
             string var = decl->VAR()->getText();
@@ -136,6 +160,49 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
                 bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, variable_type));
                 bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W0, variable_type));
             }
+            return StackParam(mangled_var, variable_type);
+        }
+        else if (init_decl->initializer() != nullptr) {
+            // Handle brace initializer for arrays: write each expr into successive slots
+            auto* decl = init_decl->declarator();
+            string var = decl->VAR()->getText();
+            int pointerDepth = 0;
+            if (decl->children.size() > 0) {
+                for (auto* ch : decl->children) {
+                    auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
+                    if (t && t->getText() == "*") pointerDepth++;
+                }
+            }
+            IRType variable_type = pointerDepth > 0 ? IRType::POINTER : baseType;
+            string mangled_var = bb->resolve_var_name(var);
+            IRType elemType = baseType;
+            int elemSize = irtype_size(elemType);
+            auto inits = init_decl->initializer()->expr();
+
+            // Create a stable base address temp
+            string baseAddr = bb->create_new_tempvar(IRType::POINTER);
+            bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, mangled_var));
+            bb->add_IRInstr(new StoreStackInstr(bb, baseAddr, Reg::W0, IRType::POINTER));
+
+            for (size_t i = 0; i < inits.size(); ++i) {
+                StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(inits[i]));
+
+                // compute element address: addr = base + i * elemSize
+                string addrTmp = bb->create_new_tempvar(IRType::POINTER);
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, baseAddr, IRType::POINTER));
+                bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)(i * elemSize)));
+                bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
+                bb->add_IRInstr(new StoreStackInstr(bb, addrTmp, Reg::W0, IRType::POINTER));
+
+                // load value and store through pointer
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
+                if (src.type != elemType) {
+                    bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W0, elemType);
+                }
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrTmp, IRType::POINTER));
+                bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, elemType));
+            }
+
             return StackParam(mangled_var, variable_type);
         }
     }
@@ -378,8 +445,12 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
     
-    // Add to base
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
+    // Add to base: if base is an array symbol, take its address, otherwise load pointer value
+    if (bb->cfg->has_array_element_type(base.name)) {
+        bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, base.name, IRType::POINTER));
+    } else {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
+    }
     bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp1, Reg::W0, IRType::POINTER));
 
