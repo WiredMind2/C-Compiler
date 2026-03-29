@@ -211,7 +211,8 @@ CFG::CFG(TargetArch arch) {
 void CFG::add_bb(BasicBlock* bb) {
     bbs.push_back(bb);
     // Also add to current function's bbs if we have a current function
-    string funcName = (current_bb && !current_bb->functionName.empty()) ? current_bb->functionName : currentFunctionName; if (funcName.empty()) funcName = currentFunctionName; if (!funcName.empty()) {
+    string funcName = !bb->functionName.empty() ? bb->functionName : currentFunctionName;
+    if (!funcName.empty()) {
         FunctionSignature* sig = get_function(funcName);
         if (sig) sig->bbs.push_back(bb);
     }
@@ -320,10 +321,11 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     BasicBlock* entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();
 
-    int paramOffset = 16;
+    // Parameters are treated as regular local symbols.
+    // The prologue in visitFunction_definition stores incoming arg registers
+    // into these stack slots.
     for (size_t i = 0; i < paramNames.size(); i++) {
-        entryBB->add_param_to_symbol_table(paramNames[i], paramTypes[i], paramOffset);
-        paramOffset += 8;
+        entryBB->add_var_to_symbol_table(paramNames[i], paramTypes[i]);
     }
 
     current_bb = entryBB;
