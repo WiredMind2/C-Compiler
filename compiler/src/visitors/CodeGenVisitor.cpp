@@ -163,6 +163,10 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
     for (const string& func : called_undeclared_functions) {
         auto* sig = cfg->get_function(func);
         if (sig && sig->bbs.empty()) {
+            // Allow calls to known standard library functions even when not defined
+            // (tests expect e.g. `putchar` to be accepted). Skip throwing for
+            // standard functions; still throw for truly undeclared functions.
+            if (getStandardLibraryFunction(func) != StandardLibraryFunction::UNKNOWN) continue;
             throw std::runtime_error("call to undeclared function '" + func + "' which is never defined");
         }
     }
