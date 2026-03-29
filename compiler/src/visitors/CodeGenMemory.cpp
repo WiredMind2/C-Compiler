@@ -64,7 +64,9 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
     IRType type = bb->get_var_type(name);
     
     // Arrays decay to pointers when evaluated as rvalues
-    if (bb->is_array(name)) {
+    // Use is_array_with_global to check both local and global arrays
+    bool isArray = bb->is_array_with_global(name, visitor->getCFG()->getGlobalBB());
+    if (isArray) {
         string tmp = bb->create_new_tempvar(IRType::POINTER);
         bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, name));
         bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
@@ -139,9 +141,9 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
         }
     }
 
-    // Then, for single-init forms, handle initializer if present
-    if (ctx->init_declarator().size() == 1) {
-        auto* init_decl = ctx->init_declarator()[0];
+    // Then handle initializers for each declarator (supports multiple declarators like: int i=0, j=10;)
+    for (size_t declIdx = 0; declIdx < ctx->init_declarator().size(); ++declIdx) {
+        auto* init_decl = ctx->init_declarator()[declIdx];
         auto* bb = visitor->getCFG()->current_bb;
         if (init_decl->expr() != nullptr) {
             auto* decl_for_init = init_decl->declarator();
@@ -157,7 +159,7 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
                 if (isDigits) {
                     int64_t val = std::stoll(txt);
                     visitor->getCFG()->globalInitializers[var_for_init] = val;
-                    return 0;
+                    continue;
                 }
             }
             auto* decl = init_decl->declarator();
@@ -183,17 +185,29 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
                 bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, variable_type));
                 bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W0, variable_type));
             }
-            return StackParam(mangled_var, variable_type);
         }
         else if (init_decl->initializer() != nullptr) {
             // Handle brace initializer for arrays: write each expr into successive slots
             auto* decl = init_decl->declarator();
             string var = decl->VAR()->getText();
             int pointerDepth = 0;
+            int arraySize = 0;
+            bool isArray = false;
             if (decl->children.size() > 0) {
-                for (auto* ch : decl->children) {
+                for (size_t i = 0; i < decl->children.size(); ++i) {
+                    auto* ch = decl->children[i];
                     auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
                     if (t && t->getText() == "*") pointerDepth++;
+                    if (t && t->getText() == "[") {
+                        // expect next child to be CONST then ']'
+                        if (i + 1 < decl->children.size()) {
+                            auto* next = dynamic_cast<antlr4::tree::TerminalNode*>(decl->children[i+1]);
+                            if (next) {
+                                arraySize = std::stoi(next->getText());
+                                isArray = true;
+                            }
+                        }
+                    }
                 }
             }
             IRType variable_type = pointerDepth > 0 ? IRType::POINTER : baseType;
@@ -201,12 +215,54 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
             IRType elemType = baseType;
             int elemSize = irtype_size(elemType);
             auto inits = init_decl->initializer()->expr();
+            
+            // Check if this is a global array (declared in global_bb)
+            BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
+            if (!targetBB) targetBB = visitor->getCFG()->current_bb;
+            bool isGlobal = (targetBB == visitor->getCFG()->global_bb);
+            
+            // For global arrays, collect initializer values and store them for assembler
+            // Use original variable name (not mangled) for global symbol table
+            if (isGlobal && isArray) {
+                std::vector<int64_t> initValues;
+                for (auto* e : inits) {
+                    std::string txt = e->getText();
+                    bool isDigits = !txt.empty() && std::all_of(txt.begin(), txt.end(), ::isdigit);
+                    if (isDigits) {
+                        initValues.push_back(std::stoll(txt));
+                    }
+                }
+                // Pad with zeros if partial initialization
+                while ((size_t)initValues.size() < (size_t)arraySize) {
+                    initValues.push_back(0);
+                }
+                visitor->getCFG()->globalArrayInitializers[var] = initValues;
+                continue; // Skip runtime initialization for global arrays
+            }
 
+            // For local arrays, generate runtime initialization
             // Create a stable base address temp
             string baseAddr = bb->create_new_tempvar(IRType::POINTER);
             bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, mangled_var));
             bb->add_IRInstr(new StoreStackInstr(bb, baseAddr, Reg::W0, IRType::POINTER));
 
+            // First, zero-initialize ALL elements (C standard)
+            if (isArray && arraySize > 0) {
+                string zeroAddr = bb->create_new_tempvar(IRType::POINTER);
+                for (int i = 0; i < arraySize; ++i) {
+                    // compute element address: addr = base + i * elemSize
+                    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, baseAddr, IRType::POINTER));
+                    bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)(i * elemSize)));
+                    bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
+                    bb->add_IRInstr(new StoreStackInstr(bb, zeroAddr, Reg::W0, IRType::POINTER));
+                    // store zero
+                    bb->add_IRInstr(new LdConstInstr(bb, Reg::W1, IRType::INT32, (int64_t)0));
+                    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, zeroAddr, IRType::POINTER));
+                    bb->add_IRInstr(new StorePointerInstr(bb, Reg::W0, Reg::W1, elemType));
+                }
+            }
+
+            // Then overwrite with provided initializer values
             for (size_t i = 0; i < inits.size(); ++i) {
                 StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(inits[i]));
 
@@ -225,8 +281,6 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
                 bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrTmp, IRType::POINTER));
                 bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, elemType));
             }
-
-            return StackParam(mangled_var, variable_type);
         }
     }
 

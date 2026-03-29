@@ -105,9 +105,24 @@ static string reg32_to_reg8(const string& reg32) {
 void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
     // Emit global data for simple constant-initialized globals.
     auto globals = cfg->get_global_symbols();
-    if (!globals.empty()) {
+    auto arrayInits = cfg->get_global_array_initializers();
+    
+    if (!globals.empty() || !arrayInits.empty()) {
         o << ".data\n";
         for (const auto &name : globals) {
+            // Check if this is an array with initializers
+            auto arrIt = arrayInits.find(name);
+            if (arrIt != arrayInits.end()) {
+                // Emit array: .long for each element
+                o << ".globl " << name << "\n";
+                o << ".align 4\n";
+                o << name << ":\n";
+                for (int64_t val : arrIt->second) {
+                    o << "    .long " << val << "\n";
+                }
+                continue;
+            }
+            // Scalar global
             o << ".globl " << name << "\n";
             o << ".align 4\n";
             o << name << ":\n";
