@@ -21,7 +21,21 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
     } else {
         text = ctx->getText();
     }
-    int64_t val = std::stoll(text, nullptr, 0);
+    int64_t val = 0;
+    try {
+        // base = 0 lets stoll auto-detect hex/dec as before
+        val = std::stoll(text, nullptr, 0);
+    } catch (const std::invalid_argument&) {
+        throw std::runtime_error("invalid integer literal: '" + text + "'");
+    } catch (const std::out_of_range&) {
+        throw std::runtime_error("integer literal out of range for 64-bit: '" + text + "'");
+    }
+
+    if (val < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) ||
+        val > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
+        throw std::runtime_error("integer literal out of range for 32-bit type: '" + text + "'");
+    }
+
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
     return StackParam(tmp, IRType::INT32);
@@ -30,7 +44,17 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
 antlrcpp::Any visitDoubleConstant(CodeGenVisitor* visitor, ifccParser::DoubleConstantContext *ctx) {
     auto* bb = visitor->getCFG()->current_bb;
     string tmp = bb->create_new_tempvar(IRType::FLOAT64);
-    double val = std::stod(ctx->DOUBLE_CONST()->getText());
+    const std::string text = ctx->DOUBLE_CONST()->getText();
+
+    double val = 0.0;
+    try {
+        val = std::stod(text);
+    } catch (const std::invalid_argument&) {
+        throw std::runtime_error("invalid floating-point literal: '" + text + "'");
+    } catch (const std::out_of_range&) {
+        throw std::runtime_error("floating-point literal out of range: '" + text + "'");
+    }
+
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::FLOAT64, val));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::FLOAT64));
     return StackParam(tmp, IRType::FLOAT64);
@@ -112,10 +136,20 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
                 // Parse number of elements and compute allocation size with overflow checks
                 auto* cctx = decl->constant();
                 std::string declText;
-                if (auto* dec = dynamic_cast<ifccParser::DecimalConstantContext*>(cctx)) declText = dec->DEC_CONST()->getText();
-                else if (auto* hex = dynamic_cast<ifccParser::HexConstantContext*>(cctx)) declText = hex->HEX_CONST()->getText();
-                else declText = cctx->getText();
-                long long numElementsLL = std::stoll(declText, nullptr, 0);
+                if (auto* dec = dynamic_cast<ifccParser::DecimalConstantContext*>(cctx)) {
+                    declText = dec->DEC_CONST()->getText();
+                } else if (auto* hex = dynamic_cast<ifccParser::HexConstantContext*>(cctx)) {
+                    declText = hex->HEX_CONST()->getText();
+                } else {
+                    throw std::runtime_error("Array size must be an integer constant for '" + var + "'");
+                }
+                
+                long long numElementsLL = 0;
+                try {
+                    numElementsLL = std::stoll(declText, nullptr, 0);
+                } catch (...) {
+                    throw std::runtime_error("Invalid or out-of-range array size for '" + var + "': " + declText);
+                }
             const long long elemSizeLL = static_cast<long long>(irtype_size(baseType));
 
             if (numElementsLL <= 0) {
