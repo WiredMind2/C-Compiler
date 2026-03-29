@@ -160,16 +160,7 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
     if (!cfg->get_function("main")) {
         throw std::runtime_error("Program does not contain a 'main' function.");
     }
-    for (const string& func : called_undeclared_functions) {
-        auto* sig = cfg->get_function(func);
-        if (sig && sig->bbs.empty()) {
-            // Allow calls to known standard library functions even when not defined
-            // (tests expect e.g. `putchar` to be accepted). Skip throwing for
-            // standard functions; still throw for truly undeclared functions.
-            if (getStandardLibraryFunction(func) != StandardLibraryFunction::UNKNOWN) continue;
-            throw std::runtime_error("call to undeclared function '" + func + "' which is never defined");
-        }
-    }
+    // No implicit function declarations: calls to undeclared functions are rejected
     return "0";
 }
 
@@ -186,10 +177,8 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type == IRType::VOID) {
-            std::cerr << "Warning: 'return' with a value, in function returning void" << std::endl;
-            // Evaluated the expression, but we just discard the result and return nothing.
-            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
-            return 0;
+            std::cerr << "Error: 'return' with a value, in function returning void" << std::endl;
+            exit(1);
         }
 
         if (var.type != current_function_return_type) {

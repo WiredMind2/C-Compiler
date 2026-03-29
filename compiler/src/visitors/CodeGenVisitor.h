@@ -118,8 +118,8 @@ public:
     virtual antlrcpp::Any visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) override;
     CFG *getCFG() { return cfg; }
 
-    std::vector<std::string> called_undeclared_functions;
-
+private:
+    
 private:
     CFG *cfg;
     bool include_stdio = false;
