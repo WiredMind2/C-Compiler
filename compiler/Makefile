@@ -30,7 +30,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/OptimizationManager.o \
 	build/PassRegistry.o \
 	build/LoadConstantToRegister.o \
-	build/ConstantPropagation.o
+	build/ConstantPropagation.o \
+	build/UnusedVariableElimination.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build

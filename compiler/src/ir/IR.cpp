@@ -28,6 +28,19 @@ void BasicBlock::reset_symbol_index() {
     if (cfg) cfg->setNextFreeSymbolIndex(-8);
 }
 
+std::vector<std::string> BasicBlock::get_symbol_names() const {
+    std::vector<std::string> names;
+    for (const auto &p : SymbolIndex) names.push_back(p.first);
+    return names;
+}
+
+void BasicBlock::remove_symbol(const std::string &name) {
+    SymbolIndex.erase(name);
+    SymbolType.erase(name);
+    isArrayMap.erase(name);
+    arrayElementType.erase(name);
+}
+
 void BasicBlock::gen_asm(ostream &o) {
     o << label << ":\n";
     for (auto instr: instrs)

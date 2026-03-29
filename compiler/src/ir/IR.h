@@ -118,6 +118,10 @@ public:
 
     void reset_symbol_index();
 
+    // Symbol table helpers exposed for optimizer passes
+    std::vector<std::string> get_symbol_names() const;
+    void remove_symbol(const std::string& name);
+
     void generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type);
 
     BasicBlock* exit_true;
