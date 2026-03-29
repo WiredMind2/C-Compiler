@@ -78,9 +78,6 @@ antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationC
                 bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
                 bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
             }
-
-            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
-            bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
         }
     }
     return nullptr;
@@ -92,8 +89,14 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     IRType varType = bb->get_var_type(var);
 
     StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->compoundAssignment()));
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, varType));
-    bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, varType));
+    if (src.type != varType) {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
+        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, varType);
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, varType));
+    } else {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, varType));
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, varType));
+    }
 
     return new StackParam(var, varType);
 }
