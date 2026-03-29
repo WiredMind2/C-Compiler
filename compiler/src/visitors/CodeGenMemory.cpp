@@ -681,7 +681,8 @@ antlrcpp::Any visitAddAssignment(CodeGenVisitor* visitor, ifccParser::AddAssignm
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
         bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
 
-        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+        IRType opType = (targetType == IRType::INT8) ? IRType::INT32 : targetType;
+        bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W3, Reg::W2, opType));
     }
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     
@@ -883,7 +884,8 @@ antlrcpp::Any visitSubAssignment(CodeGenVisitor* visitor, ifccParser::SubAssignm
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, addrHolder, IRType::POINTER));
         bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W3, Reg::W1, targetType));
 
-        bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, targetType));
+        IRType opType = (targetType == IRType::INT8) ? IRType::INT32 : targetType;
+        bb->add_IRInstr(new SubInstr(bb, Reg::W0, Reg::W3, Reg::W2, opType));
     }
     bb->add_IRInstr(new StorePointerInstr(bb, Reg::W1, Reg::W0, targetType));
     

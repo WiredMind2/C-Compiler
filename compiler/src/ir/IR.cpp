@@ -278,7 +278,7 @@ void CFG::gen_control_flow(ostream &o, BasicBlock *bb) { asmGenerator->gen_contr
 
 void CFG::dump_symbol_table(std::ostream &o) {
     o << "Symbol table (entry BB):\n";
-    BasicBlock *bb = entry_bb;
+    BasicBlock *bb = getBBs()[1];
     for (auto &p : bb->SymbolIndex) {
         o << "  " << p.first << " -> index=" << p.second
           << " type=" << irtype_name(bb->SymbolType[p.first]) << "\n";

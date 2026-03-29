@@ -692,10 +692,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
         // if there are exactly 2 semicolons, we can determine the expressions based on their positions
         for (auto* exprCtx : ctx->expr()) {
             int exprStart = exprCtx->getStart()->getTokenIndex();
-            if (exprStart < semicolonTokenIndices[0]) {
-                // This is the initialization expression (before the first semicolon)
-                initExpr = exprCtx;
-            } else if (exprStart < semicolonTokenIndices[1]) {
+            if (exprStart < semicolonTokenIndices[1]) {
                 // This is the condition expression (between the first and second semicolon)
                 condExpr = exprCtx;
             } else {
@@ -705,9 +702,8 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
         }
     } else {
         auto exprs = ctx->expr();
-        if (exprs.size() > 0) initExpr = exprs[0];
-        if (exprs.size() > 1) condExpr = exprs[1];
-        if (exprs.size() > 2) updateExpr = exprs[2];
+        if (exprs.size() > 0) condExpr = exprs[0];
+        if (exprs.size() > 1) updateExpr = exprs[1];
     }
 
     //  init: either a declaration like 'int i = 0' (now in for_init) or an expression
@@ -716,8 +712,8 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
         cfg->decl_target_bb = cfg->current_bb;
         this->visit(ctx->for_init()->declaration_no_semi());
         cfg->decl_target_bb = oldDeclTarget;
-    } else if (initExpr != nullptr) {
-        this->visit(initExpr);
+    } else if (ctx->for_init() && ctx->for_init()->expr()) {
+        this->visit(ctx->for_init()->expr());
     }
 
     // If init created extra blocks (for example a short-circuit expr), continue from the actual current BB.
