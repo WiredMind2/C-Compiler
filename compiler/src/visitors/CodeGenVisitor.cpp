@@ -7,6 +7,12 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
+
+    if (cfg->get_function("main") == nullptr) {
+        std::cerr << "error: 'main' function not defined" << std::endl;
+        exit(1);
+    }
+
     std::cerr << "BBs: " << cfg->getBBs().size() << std::endl; for(auto bb : cfg->getBBs()) { std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl; } return "0";
 }
 
