@@ -40,9 +40,6 @@ public:
         return PassKind::IR_OPT;
     }
 
-    PassTiming getTiming() const override {
-        return PassTiming::EARLY;
-    }
 
     bool optimize(CFG* cfg) override;
 

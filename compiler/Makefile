@@ -30,7 +30,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/PassRegistry.o \
 	build/StoreLoadStackFold.o \
 	build/StoreLoadToRegister.o \
-	build/LoadConstantToRegister.o \
+	build/DeadRegDefElimination.o \
+	build/CopyRegChainPropagation.o \
 	build/ConstantPropagation.o
 
 ifcc: $(OBJECTS)

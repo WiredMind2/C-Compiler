@@ -6,10 +6,11 @@
 #include "generated/ifccLexer.h"
 #include "generated/ifccParser.h"
 #include "optim/OptimizationManager.h"
-#include "optim/LoadConstantToRegister.h"
 #include "optim/ConstantPropagation.h"
 #include "optim/StoreLoadStackFold.h"
 #include "optim/StoreLoadToRegister.h"
+#include "optim/DeadRegDefElimination.h"
+#include "optim/CopyRegChainPropagation.h"
 
 #include "visitors/CodeGenVisitor.h"
 #include "ir/IR.h"
@@ -87,8 +88,9 @@ int main(int argn, const char **argv) {
     if (!no_optim) {
         optimizer.addPass(std::make_unique<optim::StoreLoadStackFoldPass>());
         optimizer.addPass(std::make_unique<optim::StoreLoadToRegisterPass>());
-        // optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
-        // optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+        optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+        optimizer.addPass(std::make_unique<optim::DeadRegDefEliminationPass>());
+        optimizer.addPass(std::make_unique<optim::CopyRegChainPropagationPass>());
     }
     optimizer.runOptimizations(cfg);
 
