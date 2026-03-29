@@ -8,8 +8,7 @@ test-x86-%:
 	python3 ifcc-test.py --arch x86 testfiles/$*_*
 
 # Usage:
-#   make test-09              -> run all tests matching testfiles/09_*
-#   make test-09_break_continue -> run tests in testfiles/09_break_continue exactly
+#   make test-09 -> run all tests matching testfiles/09_*
 test-%:
 	@if [ -d testfiles/$* ]; then \
 		python3 ifcc-test.py testfiles/$*; \

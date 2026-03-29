@@ -108,8 +108,10 @@ public:
     virtual antlrcpp::Any visitFor_loop(ifccParser::For_loopContext *ctx) override;
     virtual antlrcpp::Any visitBreak_stmt(ifccParser::Break_stmtContext *ctx) override;
     virtual antlrcpp::Any visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) override;
-
+    virtual antlrcpp::Any visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) override;
     CFG *getCFG() { return cfg; }
+
+    std::vector<std::string> called_undeclared_functions;
 
 private:
     CFG *cfg;
@@ -118,4 +120,11 @@ private:
 public:
     bool has_stdio() const { return include_stdio; }
     bool has_stdlib() const { return include_stdlib; }
+
+    virtual antlrcpp::Any visitAddAssignment(ifccParser::AddAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitSubAssignment(ifccParser::SubAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitPreIncrement(ifccParser::PreIncrementContext *ctx) override;
+    virtual antlrcpp::Any visitPreDecrement(ifccParser::PreDecrementContext *ctx) override;
+    virtual antlrcpp::Any visitPostIncrement(ifccParser::PostIncrementContext *ctx) override;
+    virtual antlrcpp::Any visitPostDecrement(ifccParser::PostDecrementContext *ctx) override;
 };

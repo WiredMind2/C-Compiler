@@ -62,22 +62,28 @@ string AsmGeneratorX86_64::var_to_asm(const string& varName) {
 
 // Small helper: map 32-bit register name to its low byte name
 static string reg32_to_reg8(const string& reg32) {
-    if (reg32 == "%eax")  return "%al";
-    if (reg32 == "%ecx")  return "%cl";
-    if (reg32 == "%edx")  return "%dl";
-    if (reg32 == "%ebx")  return "%bl";
-    if (reg32 == "%edi")  return "%dil";
-    if (reg32 == "%esi")  return "%sil";
-    if (reg32 == "%ebp")  return "%bpl";
-    if (reg32 == "%esp")  return "%spl";
-    if (reg32 == "%r8d")  return "%r8b";
-    if (reg32 == "%r9d")  return "%r9b";
-    if (reg32 == "%r10d") return "%r10b";
-    if (reg32 == "%r11d") return "%r11b";
-    if (reg32 == "%r12d") return "%r12b";
-    if (reg32 == "%r13d") return "%r13b";
-    if (reg32 == "%r14d") return "%r14b";
-    if (reg32 == "%r15d") return "%r15b";
+    if (reg32 == "%eax" || reg32 == "%rax")  return "%al";
+    if (reg32 == "%ecx" || reg32 == "%rcx")  return "%cl";
+    if (reg32 == "%edx" || reg32 == "%rdx")  return "%dl";
+    if (reg32 == "%ebx" || reg32 == "%rbx")  return "%bl";
+    if (reg32 == "%edi" || reg32 == "%rdi")  return "%dil";
+    if (reg32 == "%esi" || reg32 == "%rsi")  return "%sil";
+    if (reg32 == "%ebp" || reg32 == "%rbp")  return "%bpl";
+    if (reg32 == "%esp" || reg32 == "%rsp")  return "%spl";
+    if (reg32 == "%r8d"  || reg32 == "%r8")  return "%r8b";
+    if (reg32 == "%r9d"  || reg32 == "%r9")  return "%r9b";
+    if (reg32 == "%r10d" || reg32 == "%r10") return "%r10b";
+    if (reg32 == "%r11d" || reg32 == "%r11") return "%r11b";
+    if (reg32 == "%r12d" || reg32 == "%r12") return "%r12b";
+    if (reg32 == "%r13d" || reg32 == "%r13") return "%r13b";
+    if (reg32 == "%r14d" || reg32 == "%r14") return "%r14b";
+    if (reg32 == "%r15d" || reg32 == "%r15") return "%r15b";
+    
+    if (reg32 == "%al" || reg32 == "%cl" || reg32 == "%dl" || reg32 == "%bl" ||
+        reg32 == "%dil" || reg32 == "%sil" || reg32 == "%bpl" || reg32 == "%spl" ||
+        reg32 == "%r8b" || reg32 == "%r9b" || reg32 == "%r10b" || reg32 == "%r11b" ||
+        reg32 == "%r12b" || reg32 == "%r13b" || reg32 == "%r14b" || reg32 == "%r15b") return reg32;
+
     throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
 }
 
@@ -110,10 +116,20 @@ void AsmGeneratorX86_64::gen_asm_bb(std::ostream& o, BasicBlock* bb, bool /*isFi
         o << "    subq $" << stackSpace << ", %rsp\n";
 
         static const string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+        static const string argRegsXMM[] = {"%xmm0", "%xmm1", "%xmm2", "%xmm3", "%xmm4", "%xmm5", "%xmm6", "%xmm7"};
         int numParams = (sig) ? (int)sig->paramNames.size() : 0;
-        for (int i = 0; i < numParams && i < 6; i++) {
+        int intIdx = 0, floatIdx = 0;
+        for (int i = 0; i < numParams; i++) {
             int offset = bb->get_var_index(sig->paramNames[i]);
-            o << "    movq " << argRegs64[i] << ", " << offset << "(%rbp)\n";
+            if (sig->paramTypes[i] == IRType::FLOAT32 || sig->paramTypes[i] == IRType::FLOAT64) {
+                if (floatIdx < 8) {
+                    o << "    movsd " << argRegsXMM[floatIdx++] << ", " << offset << "(%rbp)\n";
+                }
+            } else {
+                if (intIdx < 6) {
+                    o << "    movq " << argRegs64[intIdx++] << ", " << offset << "(%rbp)\n";
+                }
+            }
         }
     } else {
         o << bb->label << ":\n";
@@ -209,11 +225,14 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LoadStackInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << var_to_asm(instr.src.name)
           << ", "        << reg_to_asm(instr.dest) << "\n";
-        } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-                // Always load the full 64-bit value from stack into the register's 64-bit view
-                RegParam dest64(instr.dest.reg, IRType::POINTER);
-                o << "    movq " << var_to_asm(instr.src.name)
-                    << ", "       << reg_to_asm(dest64) << "\n";
+    } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        // Always load the full 64-bit value from stack into the register's 64-bit view
+        RegParam dest64(instr.dest.reg, IRType::POINTER);
+        o << "    movq " << var_to_asm(instr.src.name)
+            << ", "       << reg_to_asm(dest64) << "\n";
+    } else if (instr.type == IRType::INT8) {
+        o << "    movsbl " << var_to_asm(instr.src.name)
+          << ", "       << reg_to_asm(instr.dest) << "\n";
     } else {
         o << "    movl " << var_to_asm(instr.src.name)
           << ", "       << reg_to_asm(instr.dest) << "\n";
@@ -380,7 +399,10 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LogicalOrInstr& instr) {
 void AsmGeneratorX86_64::visit(std::ostream& o, CallInstr& instr) {
     int numArgs = (int) instr.args.size();
     std::vector<std::string> args;
-    for (int i = 0; i < numArgs; ++i) args.push_back(reg_to_asm(instr.args[i]));
+    for (int i = 0; i < numArgs; ++i) {
+        args.push_back(reg_to_asm(instr.args[i]));
+    }
+    
     if (instr.dest.type == IRType::FLOAT64)
         CallWithFLOAT64Return(o, instr.funcLabel, args, reg_to_asm(instr.dest));
     else
@@ -513,8 +535,9 @@ void AsmGeneratorX86_64::ModINT32(std::ostream& o, const std::string& lhs, const
 }
 
 void AsmGeneratorX86_64::BitNot(std::ostream& o, const std::string& src, const std::string& dest) {
-    if (dest != src) o << "    movl " << src << ", " << dest << "\n";
-    o << "    notl " << dest << "\n";
+    o << "    cmpl $0, " << src << "\n";
+    o << "    sete " << reg32_to_reg8(dest) << "\n";
+    o << "    movzbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
 }
 void AsmGeneratorX86_64::BitAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
@@ -663,22 +686,66 @@ void AsmGeneratorX86_64::I32ToI8(std::ostream& o, const std::string& src, const 
 
 void AsmGeneratorX86_64::CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
     static const std::string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
-    for (size_t i = 0; i < args.size() && i < 6; i++) {
-        const std::string& r32 = args[i];
-        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+    int intArgCount = 0;
+    int floatArgCount = 0;
+    for (size_t i = 0; i < args.size(); i++) {
+        const std::string& arg = args[i];
+        if (arg.size() > 4 && arg.substr(0, 4) == "%xmm") {
+            if (floatArgCount < 8) {
+                if (arg != "%xmm" + std::to_string(floatArgCount)) {
+                    o << "    movsd " << arg << ", %xmm" << floatArgCount << "\n";
+                }
+                floatArgCount++;
+            }
+        } else {
+            if (intArgCount < 6) {
+                // Determine if it's 64-bit or 32-bit register from the name
+                if (arg.size() >= 3 && arg[1] == 'r') {
+                    o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
+                } else if (arg == "%rax" || arg == "%rbx" || arg == "%rcx" || arg == "%rdx" || arg == "%rsp" || arg == "%rbp" || arg == "%rsi" || arg == "%rdi") {
+                    o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
+                } else {
+                    o << "    movslq " << arg << ", " << argRegs64[intArgCount] << "\n";
+                }
+                intArgCount++;
+            }
+        }
     }
+    // o << "    movl $" << floatArgCount << ", %eax\n"; // Removed to avoid clobbering eax for double main()
     o << "    call " << funcLabel << "\n";
-    if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
+    if (dest != "%eax" && !dest.empty()) o << "    movl %eax, " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
     static const std::string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
-    for (size_t i = 0; i < args.size() && i < 6; i++) {
-        const std::string& r32 = args[i];
-        o << "    movslq " << r32 << ", " << argRegs64[i] << "\n";
+    int intArgCount = 0;
+    int floatArgCount = 0;
+    for (size_t i = 0; i < args.size(); i++) {
+        const std::string& arg = args[i];
+        if (arg.size() > 4 && arg.substr(0, 4) == "%xmm") {
+            if (floatArgCount < 8) {
+                if (arg != "%xmm" + std::to_string(floatArgCount)) {
+                    o << "    movsd " << arg << ", %xmm" << floatArgCount << "\n";
+                }
+                floatArgCount++;
+            }
+        } else {
+            if (intArgCount < 6) {
+                // Determine if it's 64-bit or 32-bit register from the name
+                if (arg.size() >= 3 && arg[1] == 'r') {
+                    o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
+                } else if (arg == "%rax" || arg == "%rbx" || arg == "%rcx" || arg == "%rdx" || arg == "%rsp" || arg == "%rbp" || arg == "%rsi" || arg == "%rdi") {
+                    o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
+                } else {
+                    o << "    movslq " << arg << ", " << argRegs64[intArgCount] << "\n";
+                }
+                intArgCount++;
+            }
+        }
     }
+    // o << "    movl $" << floatArgCount << ", %eax\n";
     o << "    call " << funcLabel << "\n";
-    if (dest != "%xmm0") o << "    movsd %xmm0, " << dest << "\n";
+    if (dest != "%xmm0" && !dest.empty()) o << "    movsd %xmm0, " << dest << "\n";
 }
 
 void AsmGeneratorX86_64::Ret(std::ostream& o) {
@@ -694,6 +761,9 @@ void AsmGeneratorX86_64::gen_prologue(std::ostream& o) {
     o << "    pushq %rbp\n";
     o << "    movq %rsp, %rbp\n";
     o << "    subq $" << stackSpace << ", %rsp\n";
+    if (funcName == "main") {
+        o << "    xorl %eax, %eax\n"; // Ensure 0 exit code if main doesn't return int!
+    }
 }
 
 void AsmGeneratorX86_64::gen_epilogue(std::ostream& o) {

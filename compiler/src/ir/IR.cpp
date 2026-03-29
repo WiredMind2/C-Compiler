@@ -100,7 +100,7 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
 
 void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
     if (name.substr(0,4) != "!tmp") {
-        if (cfg && cfg->findBBByVariable(name) != nullptr) {
+        if (this->get_var_index_or_none(name) != INT_MIN) {
             cerr << "Error: Variable " << name << " already defined in a former or current scope." << endl;
             exit(1);
         }
@@ -108,22 +108,25 @@ void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
     int size = irtype_size(t);
     int alloc = (size < 4) ? 4 : size;
     SymbolType[name] = t;
+    SymbolType[name + "@" + this->label] = t;
     if (cfg) {
         // Ensure 8-byte types start on an 8-byte boundary to avoid overlapping
         // neighboring 4-byte slots when emitting 64-bit stores/loads.
+        int cur = cfg->getNextFreeSymbolIndex();
         if (alloc >= 8) {
-            int cur = cfg->getNextFreeSymbolIndex();
             if (cur % 8 != 0) {
                 // insert 4-byte padding to align to 8 bytes
                 cur -= 4;
                 cfg->setNextFreeSymbolIndex(cur);
             }
         }
-        int idx = cfg->getNextFreeSymbolIndex() - alloc;
+        int idx = cur - alloc;
         SymbolIndex[name] = idx;
+        SymbolIndex[name + "@" + this->label] = idx;
         cfg->setNextFreeSymbolIndex(idx);
     } else {
         SymbolIndex[name] = -alloc;
+        SymbolIndex[name + "@" + this->label] = -alloc;
     }
 }
 
@@ -154,17 +157,22 @@ string BasicBlock::create_new_tempvar(IRType t) {
 int BasicBlock::get_var_index(string name) {
     if (SymbolIndex.find(name) != SymbolIndex.end()) return SymbolIndex[name];
     if (cfg) {
-        for (auto bb : cfg->getStackBBs()) {
-            if (bb != this && bb->get_var_index_or_none(name) != INT_MIN)
-                return bb->get_var_index_or_none(name);
+        // Search stack BBs in REVERSE order (innermost first)
+        const auto& bbStack = cfg->getStackBBs();
+        for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
+            BasicBlock* bb = *it;
+            int idx = bb->get_var_index_or_none(name);
+            if (idx != INT_MIN) return idx;
         }
+
         string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
         if (!funcName.empty()) {
             auto* sig = cfg->get_function(funcName);
             if (sig) {
+                // Check all blocks in the function as a fallback (like before)
                 for (auto bb : sig->bbs) {
-                    if (bb != this && bb->get_var_index_or_none(name) != INT_MIN)
-                        return bb->get_var_index_or_none(name);
+                    int idx = bb->get_var_index_or_none(name);
+                    if (idx != INT_MIN) return idx;
                 }
             }
         }
@@ -173,19 +181,44 @@ int BasicBlock::get_var_index(string name) {
     exit(1);
 }
 
-IRType BasicBlock::get_var_type(string name) {
-    if (SymbolType.find(name) != SymbolType.end()) return SymbolType[name];
+BasicBlock* BasicBlock::get_var_owner_bb(string name) {
+    if (SymbolIndex.find(name) != SymbolIndex.end()) return this;
     if (cfg) {
-        for (auto bb : cfg->getStackBBs()) {
-            if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end())
-                return bb->SymbolType[name];
+        const auto& bbStack = cfg->getStackBBs();
+        for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
+            BasicBlock* bb = *it;
+            if (bb->get_var_index_or_none(name) != INT_MIN) return bb;
         }
+
         string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
         if (!funcName.empty()) {
             auto* sig = cfg->get_function(funcName);
             if (sig) {
                 for (auto bb : sig->bbs) {
-                    if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end())
+                    if (bb->get_var_index_or_none(name) != INT_MIN) return bb;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+IRType BasicBlock::get_var_type(string name) {
+    if (SymbolType.find(name) != SymbolType.end()) return SymbolType[name];
+    if (cfg) {
+        const auto& bbStack = cfg->getStackBBs();
+        for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
+            BasicBlock* bb = *it;
+            if (bb->SymbolType.find(name) != bb->SymbolType.end())
+                return bb->SymbolType[name];
+        }
+
+        string funcName = functionName.empty() ? cfg->getCurrentFunction() : functionName;
+        if (!funcName.empty()) {
+            auto* sig = cfg->get_function(funcName);
+            if (sig) {
+                for (auto bb : sig->bbs) {
+                    if (bb->SymbolType.find(name) != bb->SymbolType.end())
                         return bb->SymbolType[name];
                 }
             }
