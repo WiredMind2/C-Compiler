@@ -30,15 +30,19 @@ void BasicBlock::reset_symbol_index() {
 
 std::vector<std::string> BasicBlock::get_symbol_names() const {
     std::vector<std::string> names;
+    names.reserve(SymbolIndex.size());
     for (const auto &p : SymbolIndex) names.push_back(p.first);
     return names;
 }
 
-void BasicBlock::remove_symbol(const std::string &name) {
-    SymbolIndex.erase(name);
+bool BasicBlock::remove_symbol(const std::string &name) {
+    auto it = SymbolIndex.find(name);
+    if (it == SymbolIndex.end()) return false;
+    SymbolIndex.erase(it);
     SymbolType.erase(name);
     isArrayMap.erase(name);
     arrayElementType.erase(name);
+    return true;
 }
 
 void BasicBlock::gen_asm(ostream &o) {

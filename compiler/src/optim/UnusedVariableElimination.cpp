@@ -2,6 +2,7 @@
 #include "PassRegistry.h"
 #include <set>
 #include <algorithm>
+#include <climits>
 
 using namespace std;
 
@@ -77,13 +78,9 @@ bool UnusedVariableEliminationPass::optimize(CFG* cfg) {
                     }
                 }
 
-                // Remove symbol table entries if present
-                // use public helper
-                auto names = bb->get_symbol_names();
-                if (std::find(names.begin(), names.end(), var) != names.end()) {
-                    bb->remove_symbol(var);
-                    modified = true;
-                }
+                // Remove symbol table entries if present; remove_symbol returns
+                // whether something was actually erased so we can update `modified`.
+                if (bb->remove_symbol(var)) modified = true;
             }
         }
     }
