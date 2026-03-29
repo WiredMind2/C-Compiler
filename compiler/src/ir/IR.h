@@ -111,33 +111,32 @@ public:
 
     IRType get_var_type(string name);
     
-    bool is_array(const string& name) const {
+    bool is_array(string name) {
         auto it = isArrayMap.find(name);
         if (it != isArrayMap.end() && it->second) return true;
-        // Check global_bb as fallback for global arrays
-        // Note: Use check_global_array method to avoid incomplete type issues
-        // The caller should use cfg->getGlobalBB() to get global_bb
+        size_t atPos = name.find('@');
+        string baseName = (atPos != std::string::npos) ? name.substr(0, atPos) : name;
+        BasicBlock* owner = get_var_owner_bb(baseName);
+        if (owner && owner != this) return owner->is_array(baseName);
         return false;
     }
-    
+
     // Helper method to check if array including global arrays (callable when CFG is fully defined)
-    bool is_array_with_global(const string& name, BasicBlock* global_bb) const {
+    bool is_array_with_global(const string& name, BasicBlock* global_bb) {
         auto it = isArrayMap.find(name);
         if (it != isArrayMap.end() && it->second) return true;
         if (global_bb) {
             auto it2 = global_bb->isArrayMap.find(name);
             if (it2 != global_bb->isArrayMap.end() && it2->second) return true;
         }
+        BasicBlock* owner = get_var_owner_bb(name);
+        if (owner && owner != this) return owner->is_array_with_global(name, global_bb);
         return false;
     }
 
-    // Helper to check if array, including global arrays
     bool is_array_or_global_array(const string& name) const {
         auto it = isArrayMap.find(name);
         if (it != isArrayMap.end() && it->second) return true;
-        // Check in global_bb (if available)
-        // Note: cfg is a pointer but we can't use its members due to incomplete type here
-        // Use direct access to global_bb via CFG's public member
         return false;
     }
 
@@ -146,6 +145,7 @@ public:
         if (!global_bb) return false;
         auto it2 = global_bb->isArrayMap.find(name);
         return it2 != global_bb->isArrayMap.end() && it2->second;
+
     }
 
     void add_param_to_symbol_table(string name, IRType t, int offset) {
@@ -161,6 +161,11 @@ public:
     }
 
     void reset_symbol_index();
+
+    // Symbol table helpers exposed for optimizer passes
+    std::vector<std::string> get_symbol_names() const;
+    // Remove a symbol from this BB. Returns true if a symbol was removed.
+    bool remove_symbol(const std::string& name);
 
     void generate_conversion_instruction(Reg initial_register, IRType initial_type, Reg dest_register, IRType dest_type);
 
@@ -196,6 +201,13 @@ protected:
 class CFG {
 public:
     explicit CFG(TargetArch arch);
+
+    std::vector<std::string> stringLiterals;
+    int registerStringLiteral(const std::string& str) {
+        int idx = stringLiterals.size();
+        stringLiterals.push_back(str);
+        return idx;
+    }
 
     void add_bb(BasicBlock* bb);
 

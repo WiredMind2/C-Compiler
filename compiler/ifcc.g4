@@ -4,19 +4,19 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | declaration ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | do_while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | declaration ;
 
 return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
-declarator : '*'* VAR ('[' CONST ']')? ;
+declarator : '*'* VAR ('[' constant ']')? ;
 init_declarator : declarator ('=' (expr | initializer))? ;
 
 declaration_no_semi : type_specifier init_declarator (',' init_declarator)* ;
 declaration : declaration_no_semi ';' ;
 
-param : type_specifier VAR ;
+param : type_specifier '*'* VAR ;
 param_list : param (',' param)* ;
 
 function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
@@ -24,6 +24,7 @@ function_definition  : type_specifier VAR '(' param_list? ')' scope;
 condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
+do_while_loop : 'do' scope 'while' '(' expr ')' ';' ;
 for_init : declaration_no_semi
          | expr
          | // empty
@@ -76,11 +77,17 @@ equality : relational          # equalityExprRef
     | equality '!=' relational # different
     ;
 
-relational : additive # relationalExprRef
-    | relational '<' additive # smallerStrictThan
-    | relational '>' additive # greaterStrictThan
-    | relational '<=' additive # smallerThan
-    | relational '>=' additive # greaterThan
+relational : shift # relationalExprRef
+    | relational '<' shift # smallerStrictThan
+    | relational '>' shift # greaterStrictThan
+    | relational '<=' shift # smallerThan
+    | relational '>=' shift # greaterThan
+    ;
+
+shift
+    : additive                 # shiftExprRef
+    | shift '<<' additive      # shiftLeft
+    | shift '>>' additive      # shiftRight
     ;
 
 additive
@@ -104,6 +111,7 @@ unary
     | '-' unary                  # unaryMinus
     | '+' unary                  # unaryPlus
     | '!' unary                  # unaryNot
+    | '~' unary                  # unaryBitNot
     | '*' unary                  # dereference
     | '&' unary                  # addressOf
     | primitive                  # primitiveExprRef
@@ -114,9 +122,15 @@ primitive
     | function_call              # functionCall
     | primitive '[' expr ']'     # array_subscript
     | VAR                        # variable
-    | CONST                      # constant
-    | DOUBLE_CONST               # double_constant
-    | CHAR_CONST                 # char_constant
+    | constant                   # constantLiteral
+    ;
+
+constant
+    : DEC_CONST            # decimalConstant
+    | HEX_CONST        # hexConstant
+    | DOUBLE_CONST     # doubleConstant
+    | CHAR_CONST       # charConstant
+    | STRING_CONST     # stringConstant
     ;
 
 
@@ -125,9 +139,11 @@ initializer
     : '{' (expr (',' expr)*)? '}'
     ;
 RETURN : 'return' ;
-CONST : [0-9]+ ;
+HEX_CONST : '0' [xX] [0-9a-fA-F]+ ;
+DEC_CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
+STRING_CONST : '"' (~['"\\] | '\\' .)* '"' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

@@ -31,6 +31,7 @@ OBJECTS=build/ifccBaseVisitor.o \
         build/PassRegistry.o \
         build/LoadConstantToRegister.o \
         build/ConstantPropagation.o \
+	build/UnusedVariableElimination.o \
         build/StackLayoutPass.o
 
 ifcc: $(OBJECTS)

@@ -103,6 +103,15 @@ static string reg32_to_reg8(const string& reg32) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
+    if (!cfg->stringLiterals.empty()) {
+        o << "    .section .rodata\n";
+        for (size_t i = 0; i < cfg->stringLiterals.size(); ++i) {
+            o << ".LC" << i << ":\n";
+            o << "    .string " << cfg->stringLiterals[i] << "\n";
+        }
+        o << "    .text\n";
+    }
+
     // Emit global data for simple constant-initialized globals.
     auto globals = cfg->get_global_symbols();
     auto arrayInits = cfg->get_global_array_initializers();
@@ -198,6 +207,10 @@ void AsmGeneratorX86_64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
 // Visitor wrappers: delegate to typed helpers
 // ---------------------------------------------------------------------------
 
+void AsmGeneratorX86_64::visit(std::ostream& o, LdStringInstr& instr) {
+    o << "    leaq .LC" << instr.strIndex << "(%rip), " << reg_to_asm(instr.dest) << "\n";
+}
+
 void AsmGeneratorX86_64::visit(std::ostream& o, LdConstInstr& instr) {
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT8) {
@@ -291,6 +304,10 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LoadPointerInstr& instr) {
         o << "    movq (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
+    } else if (instr.type == IRType::INT8) {
+        // Note: We currently treat char/INT8 as signed (movsbl).
+        // If unsigned types are added later, this will need a UINT8 type and movzbl.
+        o << "    movsbl (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else {
         o << "    movl (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     }
@@ -301,6 +318,9 @@ void AsmGeneratorX86_64::visit(std::ostream& o, StorePointerInstr& instr) {
         o << "    movq " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
+    } else if (instr.type == IRType::INT8) {
+        // Truncates to 8-bit. Consistent with char being a signed 8-bit int.
+        o << "    movb " << reg32_to_reg8(reg_to_asm(instr.src)) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else {
         o << "    movl " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     }
@@ -393,6 +413,50 @@ void AsmGeneratorX86_64::visit(std::ostream& o, BitOrInstr& instr) {
 
 void AsmGeneratorX86_64::visit(std::ostream& o, BitXorInstr& instr) {
     BitXor(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, ShlInstr& instr) {
+    std::string lhs = reg_to_asm(instr.lhs);
+    std::string rhs = reg_to_asm(instr.rhs);
+    std::string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
+        if (rhs != "%rcx" && rhs != "%ecx") {
+            if (instr.rhs.type == IRType::INT32)
+                o << "    movl " << rhs << ", %ecx\n";
+            else
+                o << "    movq " << rhs << ", %rcx\n";
+        }
+        o << "    salq %cl, " << dest << "\n";
+    } else {
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+        if (rhs != "%ecx") {
+            o << "    movl " << rhs << ", %ecx\n";
+        }
+        o << "    sall %cl, " << dest << "\n";
+    }
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, ShrInstr& instr) {
+    std::string lhs = reg_to_asm(instr.lhs);
+    std::string rhs = reg_to_asm(instr.rhs);
+    std::string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
+        if (rhs != "%rcx" && rhs != "%ecx") {
+            if (instr.rhs.type == IRType::INT32)
+                o << "    movl " << rhs << ", %ecx\n";
+            else
+                o << "    movq " << rhs << ", %rcx\n";
+        }
+        o << "    sarq %cl, " << dest << "\n";
+    } else {
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+        if (rhs != "%ecx") {
+            o << "    movl " << rhs << ", %ecx\n";
+        }
+        o << "    sarl %cl, " << dest << "\n";
+    }
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, CmpEqInstr& instr) {
@@ -577,9 +641,8 @@ void AsmGeneratorX86_64::ModINT32(std::ostream& o, const std::string& lhs, const
 }
 
 void AsmGeneratorX86_64::BitNot(std::ostream& o, const std::string& src, const std::string& dest) {
-    o << "    cmpl $0, " << src << "\n";
-    o << "    sete " << reg32_to_reg8(dest) << "\n";
-    o << "    movzbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
+    if (dest != src) o << "    movl " << src << ", " << dest << "\n";
+    o << "    notl " << dest << "\n";
 }
 void AsmGeneratorX86_64::BitAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";

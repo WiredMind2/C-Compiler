@@ -21,8 +21,9 @@
 class CodeGenVisitor;
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx);
-antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext *ctx);
-antlrcpp::Any visitChar_constant(CodeGenVisitor* visitor, ifccParser::Char_constantContext *ctx);
+antlrcpp::Any visitDoubleConstant(CodeGenVisitor* visitor, ifccParser::DoubleConstantContext *ctx);
+antlrcpp::Any visitStringConstant(CodeGenVisitor* visitor, ifccParser::StringConstantContext *ctx);
+antlrcpp::Any visitCharConstant(CodeGenVisitor* visitor, ifccParser::CharConstantContext *ctx);
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx);
 // legacy var_decl_* functions removed; use declaration handlers below
 antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Declaration_no_semiContext *ctx);

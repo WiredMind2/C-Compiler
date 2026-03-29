@@ -20,6 +20,7 @@ public:
     void gen_asm_instr(std::ostream& o, IRInstr* instr) override;
 
     //---------------- Visitor methods ----------------
+    void visit(std::ostream& o, LdStringInstr&   instr) override;
     void visit(std::ostream& o, LdConstInstr&    instr) override;
     void visit(std::ostream& o, CopyRegInstr&    instr) override;
     void visit(std::ostream& o, StoreStackInstr& instr) override;
@@ -36,6 +37,8 @@ public:
     void visit(std::ostream& o, BitAndInstr& instr) override;
     void visit(std::ostream& o, BitOrInstr&  instr) override;
     void visit(std::ostream& o, BitXorInstr& instr) override;
+    void visit(std::ostream& o, ShlInstr& instr) override;
+    void visit(std::ostream& o, ShrInstr& instr) override;
     void visit(std::ostream& o, CmpEqInstr&  instr) override;
     void visit(std::ostream& o, CmpLtInstr&  instr) override;
     void visit(std::ostream& o, CmpLeInstr&  instr) override;

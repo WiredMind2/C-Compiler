@@ -5,6 +5,7 @@
 void IRInstr::gen_asm(ostream& o) {
     bb->cfg->asmGenerator->gen_asm_instr(o, this);
 }
+void LdStringInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void LdConstInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void CopyRegInstr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void StoreStackInstr::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
@@ -35,3 +36,5 @@ void F64ToI32Instr  ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void I32ToF64Instr  ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void I8ToI32Instr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
 void I32ToI8Instr   ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void ShlInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }
+void ShrInstr       ::accept(AsmGenerator& g, ostream& o) { g.visit(o, *this); }

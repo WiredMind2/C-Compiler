@@ -32,9 +32,11 @@ public:
 
     virtual antlrcpp::Any visitParenthesis(ifccParser::ParenthesisContext *ctx) override;
 
-    virtual antlrcpp::Any visitConstant(ifccParser::ConstantContext *ctx) override;
-    virtual antlrcpp::Any visitDouble_constant(ifccParser::Double_constantContext *ctx) override;
-    virtual antlrcpp::Any visitChar_constant(ifccParser::Char_constantContext *ctx) override;
+    virtual antlrcpp::Any visitDecimalConstant(ifccParser::DecimalConstantContext *ctx) override;
+    virtual antlrcpp::Any visitHexConstant(ifccParser::HexConstantContext *ctx) override;
+    virtual antlrcpp::Any visitDoubleConstant(ifccParser::DoubleConstantContext *ctx) override;
+    virtual antlrcpp::Any visitStringConstant(ifccParser::StringConstantContext *ctx) override;
+    virtual antlrcpp::Any visitCharConstant(ifccParser::CharConstantContext *ctx) override;
 
     virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;
 
@@ -52,6 +54,7 @@ public:
     virtual antlrcpp::Any visitUnaryMinus(ifccParser::UnaryMinusContext *ctx) override;
     virtual antlrcpp::Any visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) override;
     virtual antlrcpp::Any visitUnaryNot(ifccParser::UnaryNotContext *ctx) override;
+    virtual antlrcpp::Any visitUnaryBitNot(ifccParser::UnaryBitNotContext *ctx) override;
     virtual antlrcpp::Any visitDereference(ifccParser::DereferenceContext *ctx) override;
     virtual antlrcpp::Any visitAddressOf(ifccParser::AddressOfContext *ctx) override;
     virtual antlrcpp::Any visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) override;
@@ -82,6 +85,11 @@ public:
     virtual antlrcpp::Any visitGreaterStrictThan(ifccParser::GreaterStrictThanContext *ctx) override;
     virtual antlrcpp::Any visitSmallerThan(ifccParser::SmallerThanContext *ctx) override;
     virtual antlrcpp::Any visitGreaterThan(ifccParser::GreaterThanContext *ctx) override;
+    
+    // Shift expression handlers
+    virtual antlrcpp::Any visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx) override;
+    virtual antlrcpp::Any visitShiftLeft(ifccParser::ShiftLeftContext *ctx) override;
+    virtual antlrcpp::Any visitShiftRight(ifccParser::ShiftRightContext *ctx) override;
 
     // Logical expression handlers
     virtual antlrcpp::Any visitLogicalORRef(ifccParser::LogicalORRefContext *ctx) override;
@@ -92,6 +100,7 @@ public:
     // Control flow handlers
     virtual antlrcpp::Any visitCondition(ifccParser::ConditionContext *ctx) override;
     virtual antlrcpp::Any visitWhile_loop(ifccParser::While_loopContext *ctx) override;
+    virtual antlrcpp::Any visitDo_while_loop(ifccParser::Do_while_loopContext *ctx) override;
 
     // Function handlers
     virtual antlrcpp::Any visitFunction_definition(ifccParser::Function_definitionContext *ctx) override;
@@ -111,7 +120,8 @@ public:
     virtual antlrcpp::Any visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) override;
     CFG *getCFG() { return cfg; }
 
-    std::vector<std::string> called_undeclared_functions;
+private:
+    void generateLoopBody(ifccParser::ScopeContext* scopeCtx, BasicBlock* bodyBB, BasicBlock* continueTargetBB, BasicBlock* breakTargetBB);
 
 private:
     CFG *cfg;
