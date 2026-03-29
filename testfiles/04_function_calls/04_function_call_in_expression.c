@@ -1,3 +1,4 @@
+int three();
 int five() {
     return 5;
 }

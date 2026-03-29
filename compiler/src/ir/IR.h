@@ -113,12 +113,39 @@ public:
     
     bool is_array(string name) {
         auto it = isArrayMap.find(name);
-        if (it != isArrayMap.end()) return it->second;
+        if (it != isArrayMap.end() && it->second) return true;
         size_t atPos = name.find('@');
-        if (atPos != std::string::npos) name = name.substr(0, atPos);
-        BasicBlock* owner = get_var_owner_bb(name);
-        if (owner && owner != this) return owner->is_array(name);
+        string baseName = (atPos != std::string::npos) ? name.substr(0, atPos) : name;
+        BasicBlock* owner = get_var_owner_bb(baseName);
+        if (owner && owner != this) return owner->is_array(baseName);
         return false;
+    }
+
+    // Helper method to check if array including global arrays (callable when CFG is fully defined)
+    bool is_array_with_global(const string& name, BasicBlock* global_bb) {
+        auto it = isArrayMap.find(name);
+        if (it != isArrayMap.end() && it->second) return true;
+        if (global_bb) {
+            auto it2 = global_bb->isArrayMap.find(name);
+            if (it2 != global_bb->isArrayMap.end() && it2->second) return true;
+        }
+        BasicBlock* owner = get_var_owner_bb(name);
+        if (owner && owner != this) return owner->is_array_with_global(name, global_bb);
+        return false;
+    }
+
+    bool is_array_or_global_array(const string& name) const {
+        auto it = isArrayMap.find(name);
+        if (it != isArrayMap.end() && it->second) return true;
+        return false;
+    }
+
+    // Separate method that can be called when CFG is fully defined
+    bool check_global_array(const string& name, BasicBlock* global_bb) const {
+        if (!global_bb) return false;
+        auto it2 = global_bb->isArrayMap.find(name);
+        return it2 != global_bb->isArrayMap.end() && it2->second;
+
     }
 
     void add_param_to_symbol_table(string name, IRType t, int offset) {
@@ -219,6 +246,8 @@ public:
 
     BasicBlock* current_bb;
     BasicBlock* entry_bb;
+    BasicBlock* global_bb;
+    BasicBlock* getGlobalBB() const { return global_bb; }
     BasicBlock* decl_target_bb = nullptr;
     BasicBlock* current_break_bb = nullptr;
     BasicBlock* current_continue_bb = nullptr;
@@ -235,6 +264,25 @@ public:
 
     void               add_function(string name, IRType returnType,
                                     vector<IRType> paramTypes, vector<string> paramNames);
+
+    // Global initializers: for simple constant-initialized globals (int),
+    // store the initial value here so the assembler can emit a .data section.
+    std::map<std::string, int64_t> globalInitializers;
+    
+    // Global array initializers: for constant-initialized global arrays,
+    // store the element values so the assembler can emit them in .data section.
+    std::map<std::string, std::vector<int64_t>> globalArrayInitializers;
+
+    // Return a list of global symbol names (unmangled) recorded in entry_bb.
+    std::vector<std::string> get_global_symbols() const;
+    
+    // Return global array initializers
+    const std::map<std::string, std::vector<int64_t>>& get_global_array_initializers() const {
+        return globalArrayInitializers;
+    }
+
+    // Track declared global symbol names (top-level variables)
+    std::vector<std::string> globalSymbols;
     FunctionSignature* get_function(string name);
     vector<FunctionSignature>& get_functions() { return functions; }
     BasicBlock*        create_function_entry(string name, IRType returnType,

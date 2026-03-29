@@ -3,6 +3,7 @@
 #include "../../ir/IRInstr.h"
 #include <iostream>
 #include <stdexcept>
+#include <algorithm>
 
 using namespace std;
 
@@ -56,6 +57,16 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
 }
 
 string AsmGeneratorX86_64::var_to_asm(const string& varName) {
+    // If this variable is a global (declared in global_bb), reference it
+    // via RIP-relative addressing: `name(%rip)`.
+    std::string base = varName;
+    auto atPos = varName.find('@');
+    if (atPos != std::string::npos) base = varName.substr(0, atPos);
+    auto globals = cfg->get_global_symbols();
+    if (std::find(globals.begin(), globals.end(), base) != globals.end()) {
+        return base + "(%rip)";
+    }
+
     int index = cfg->current_bb->get_var_index(varName);
     return to_string(index) + "(%rbp)";
 }
@@ -101,12 +112,43 @@ void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
         o << "    .text\n";
     }
 
-    for (auto bb : cfg->getBBs()) {
-        o << ".globl " << bb->label << "\n";
+    // Emit global data for simple constant-initialized globals.
+    auto globals = cfg->get_global_symbols();
+    auto arrayInits = cfg->get_global_array_initializers();
+    
+    if (!globals.empty() || !arrayInits.empty()) {
+        o << ".data\n";
+        for (const auto &name : globals) {
+            // Check if this is an array with initializers
+            auto arrIt = arrayInits.find(name);
+            if (arrIt != arrayInits.end()) {
+                // Emit array: .long for each element
+                o << ".globl " << name << "\n";
+                o << ".align 4\n";
+                o << name << ":\n";
+                for (int64_t val : arrIt->second) {
+                    o << "    .long " << val << "\n";
+                }
+                continue;
+            }
+            // Scalar global
+            o << ".globl " << name << "\n";
+            o << ".align 4\n";
+            o << name << ":\n";
+            int64_t val = 0;
+            auto it = cfg->globalInitializers.find(name);
+            if (it != cfg->globalInitializers.end()) val = it->second;
+            o << "    .long " << val << "\n";
+        }
+        o << ".text\n";
     }
 
+    // Emit code for basic blocks (functions)
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
+        // Only emit .globl for function entries (functions are in CFG::functions)
+        auto* sig = cfg->get_function(bb->label);
+        if (sig) o << ".globl " << bb->label << "\n";
         gen_asm_bb(o, bb, isFirstBB);
         isFirstBB = false;
     }
@@ -842,14 +884,25 @@ void AsmGeneratorX86_64::gen_control_flow(std::ostream& o, BasicBlock* bb) {
     } else {
         if (!bb->test_var_name.empty()) {
             string test_asm = var_to_asm(bb->test_var_name);
-            o << "    movl " << test_asm << ", %eax\n";
+            // If the test variable is a pointer, load 64-bit and compare 64-bit
+            if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
+                o << "    movq " << test_asm << ", %rax\n";
+                o << "    cmpq $0, %rax\n";
+            } else {
+                o << "    movl " << test_asm << ", %eax\n";
+                o << "    cmpl $0, %eax\n";
+            }
         } else {
             cerr << "Internal Error: Conditional branch in " << bb->label
                  << " has no test_var_name." << endl;
             exit(1);
         }
-        o << "    cmpl $0, %eax\n";
-        o << "    je "  << bb->exit_false->label << "\n";
-        o << "    jmp " << bb->exit_true->label << "\n";
+        if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
+            o << "    je "  << bb->exit_false->label << "\n";
+            o << "    jmp " << bb->exit_true->label << "\n";
+        } else {
+            o << "    je "  << bb->exit_false->label << "\n";
+            o << "    jmp " << bb->exit_true->label << "\n";
+        }
     }
 }

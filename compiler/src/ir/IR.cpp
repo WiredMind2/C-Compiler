@@ -85,8 +85,9 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
         add_IRInstr(new I8ToI32Instr(this, initial_register, initial_register));
         add_IRInstr(new I32ToF64Instr(this, dest_register, initial_register));
     } else if (initial_type == IRType::INT32 && dest_type == IRType::POINTER) {
-        // zero-extend 32->64 by emitting a 32-bit copy into the 64-bit dest register
-        auto* instr = new CopyRegInstr(this, initial_register, initial_register, IRType::INT32);
+        // zero-extend 32->64 by copying the 32-bit source into the requested
+        // destination register and treating that destination as POINTER-sized.
+        auto* instr = new CopyRegInstr(this, dest_register, initial_register, IRType::INT32);
         instr->dest.type = IRType::POINTER; // ensure destination register is treated as 64-bit
         add_IRInstr(instr);
     } else {
@@ -176,6 +177,11 @@ int BasicBlock::get_var_index(string name) {
                 }
             }
         }
+        // Finally, check for globals in the entry basic block
+        if (cfg->global_bb) {
+            int idx = cfg->global_bb->get_var_index_or_none(name);
+            if (idx != INT_MIN) return idx;
+        }
     }
     cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
     exit(1);
@@ -199,6 +205,8 @@ BasicBlock* BasicBlock::get_var_owner_bb(string name) {
                 }
             }
         }
+        // Check entry basic block for globals
+        if (cfg->global_bb && cfg->global_bb->get_var_index_or_none(name) != INT_MIN) return cfg->global_bb;
     }
     return nullptr;
 }
@@ -223,6 +231,16 @@ IRType BasicBlock::get_var_type(string name) {
                 }
             }
         }
+        // Finally, check the entry basic block for globals
+            if (cfg->global_bb) {
+                if (cfg->global_bb->SymbolType.find(name) != cfg->global_bb->SymbolType.end()) {
+                    return cfg->global_bb->SymbolType[name];
+                }
+                std::string mangled = name + "@" + cfg->global_bb->label;
+                if (cfg->global_bb->SymbolType.find(mangled) != cfg->global_bb->SymbolType.end()) {
+                    return cfg->global_bb->SymbolType[mangled];
+                }
+            }
     }
     cerr << "Error: Symbol " << name << " not found in symbol table (type lookup)." << endl;
     exit(1);
@@ -249,6 +267,7 @@ CFG::CFG(TargetArch arch) {
     nextFreeSymbolIndex = -8;
     current_bb   = new BasicBlock(this, new_BB_name());
     entry_bb = current_bb;
+    global_bb = current_bb;
     add_bb(current_bb);
     nextTempVarNumber = 0;
 
@@ -275,8 +294,8 @@ void CFG::gen_asm(ostream &o) { asmGenerator->gen_asm(o); }
 void CFG::gen_control_flow(ostream &o, BasicBlock *bb) { asmGenerator->gen_control_flow(o, bb); }
 
 void CFG::dump_symbol_table(std::ostream &o) {
-    o << "Symbol table (entry BB):\n";
-    BasicBlock *bb = entry_bb;
+    o << "Symbol table (global BB):\n";
+    BasicBlock *bb = global_bb;
     for (auto &p : bb->SymbolIndex) {
         o << "  " << p.first << " -> index=" << p.second
           << " type=" << irtype_name(bb->SymbolType[p.first]) << "\n";
@@ -380,6 +399,10 @@ void CFG::add_function(string name, IRType returnType,
 CFG::FunctionSignature *CFG::get_function(string name) {
     auto it = functionIndex.find(name);
     return (it != functionIndex.end()) ? &functions[it->second] : nullptr;
+}
+
+std::vector<std::string> CFG::get_global_symbols() const {
+    return globalSymbols;
 }
 
 BasicBlock* CFG::create_function_entry(string name, IRType returnType,

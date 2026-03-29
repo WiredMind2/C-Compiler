@@ -178,28 +178,27 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type == IRType::VOID) {
-            std::cerr << "Error: 'return' with a value, in function returning void" << std::endl;
-            exit(1);
-        }
-
-        if (var.type != current_function_return_type) {
-            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
-            bb->generate_conversion_instruction(Reg::W0, var.type, Reg::W1, current_function_return_type);
-            bb->add_IRInstr(new CopyRegInstr(bb, Reg::RET, Reg::W1, current_function_return_type));
+            std::cerr << "Warning: 'return' with a value, in function returning void" << std::endl;
+            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
         } else {
-            bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+            if (var.type != current_function_return_type) {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
+                bb->generate_conversion_instruction(Reg::W0, var.type, Reg::W1, current_function_return_type);
+                bb->add_IRInstr(new CopyRegInstr(bb, Reg::RET, Reg::W1, current_function_return_type));
+            } else {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+            }
+            bb->add_IRInstr(new RetInstr(bb, var.type));
         }
-        bb->add_IRInstr(new RetInstr(bb, var.type));
     } else {
         const string current_function_name = cfg->getCurrentFunction();
         CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type != IRType::VOID) {
-            std::cerr << "Cannot return no value for a non void returning function" << std::endl;
-            exit(1);
+            std::cerr << "Warning: Cannot return no value for a non void returning function" << std::endl;
         }
-        bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
+        bb->add_IRInstr(new RetInstr(bb, current_function_return_type));
     }
 
     // Set exit_true to nullptr to indicate this block ends in a return
@@ -249,14 +248,15 @@ antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
     return ::visitVariable(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitVar_decl_list(ifccParser::Var_decl_listContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDeclaration_no_semi(ifccParser::Declaration_no_semiContext *ctx)
 {
-    return ::visitVar_decl_list(this, ctx);
+    return ::visitDeclaration_no_semi(this, ctx);
 }
-
-antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
 {
-    return ::visitVar_decl_with_init(this, ctx);
+    // delegate to the no-semi handler for shared logic
+    if (ctx->declaration_no_semi()) return ::visitDeclaration_no_semi(this, ctx->declaration_no_semi());
+    return 0;
 }
 antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
 {
@@ -716,10 +716,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
         // if there are exactly 2 semicolons, we can determine the expressions based on their positions
         for (auto* exprCtx : ctx->expr()) {
             int exprStart = exprCtx->getStart()->getTokenIndex();
-            if (exprStart < semicolonTokenIndices[0]) {
-                // This is the initialization expression (before the first semicolon)
-                initExpr = exprCtx;
-            } else if (exprStart < semicolonTokenIndices[1]) {
+            if (exprStart < semicolonTokenIndices[1]) {
                 // This is the condition expression (between the first and second semicolon)
                 condExpr = exprCtx;
             } else {
@@ -729,14 +726,18 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
         }
     } else {
         auto exprs = ctx->expr();
-        if (exprs.size() > 0) initExpr = exprs[0];
-        if (exprs.size() > 1) condExpr = exprs[1];
-        if (exprs.size() > 2) updateExpr = exprs[2];
+        if (exprs.size() > 0) condExpr = exprs[0];
+        if (exprs.size() > 1) updateExpr = exprs[1];
     }
 
-    //  init
-    if (initExpr != nullptr) {
-        this->visit(initExpr);
+    //  init: either a declaration like 'int i = 0' (now in for_init) or an expression
+    if (ctx->for_init() && ctx->for_init()->declaration_no_semi()) {
+        BasicBlock* oldDeclTarget = cfg->decl_target_bb;
+        cfg->decl_target_bb = cfg->current_bb;
+        this->visit(ctx->for_init()->declaration_no_semi());
+        cfg->decl_target_bb = oldDeclTarget;
+    } else if (ctx->for_init() && ctx->for_init()->expr()) {
+        this->visit(ctx->for_init()->expr());
     }
 
     // If init created extra blocks (for example a short-circuit expr), continue from the actual current BB.
