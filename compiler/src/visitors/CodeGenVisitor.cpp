@@ -945,3 +945,65 @@ antlrcpp::Any CodeGenVisitor::visitPreIncrement(ifccParser::PreIncrementContext 
 antlrcpp::Any CodeGenVisitor::visitPreDecrement(ifccParser::PreDecrementContext *ctx) { return ::visitPreDecrement(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitPostIncrement(ifccParser::PostIncrementContext *ctx) { return ::visitPostIncrement(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitPostDecrement(ifccParser::PostDecrementContext *ctx) { return ::visitPostDecrement(this, ctx); }
+// Do while loop handler
+antlrcpp::Any CodeGenVisitor::visitDo_while_loop(ifccParser::Do_while_loopContext *ctx)
+{
+    CFG* cfg = this->cfg;
+    BasicBlock* currentBB = cfg->current_bb;
+
+    // Create blocks for loop body, condition check, and after loop
+    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true); // Mark bodyBB as a loop block for break/continue handling
+    BasicBlock* condBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+
+    // Add blocks to CFG
+    cfg->add_bb(bodyBB);
+    cfg->add_bb(condBB);
+    cfg->add_bb(afterBB);
+
+    // Set up current block to unconditionally jump to loop body initially
+    currentBB->exit_true = bodyBB;
+
+    // Store break/continue targets on bodyBB via dedicated fields
+    bodyBB->loop_continue_target = condBB;
+    bodyBB->loop_break_target    = afterBB;
+
+    // Generate code for loop body
+    cfg->current_bb = bodyBB;
+    BasicBlock* oldBreak = cfg->current_break_bb;
+    BasicBlock* oldContinue = cfg->current_continue_bb;
+    cfg->current_break_bb = afterBB;
+    cfg->current_continue_bb = condBB;
+    
+    cfg->getStackBBs().push_back(bodyBB);  // Push loop body onto stack so break/continue can find it
+    if (ctx->scope()) {
+        this->visit(ctx->scope());
+    }
+    cfg->getStackBBs().pop_back();  // Pop loop body after visiting
+    
+    cfg->current_break_bb = oldBreak;
+    cfg->current_continue_bb = oldContinue;
+
+    // cfg->current_bb is now the last BB generated inside the loop body
+    BasicBlock* lastBodyBB = cfg->current_bb;
+    if (lastBodyBB->exit_true == nullptr) {
+        lastBodyBB->exit_true = condBB;
+    }
+
+    // Set up condition block
+    cfg->current_bb = condBB;
+    StackParam condResult("!tmp0", IRType::INT32);
+    if (ctx->expr()) {
+        condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
+    }
+
+    // Condition result determines whether to loop again or exit
+    condBB->test_var_name = condResult.name;
+    condBB->exit_true = bodyBB;
+    condBB->exit_false = afterBB;
+
+    // Set the current block to the block after the loop
+    cfg->current_bb = afterBB;
+
+    return 0;
+}
