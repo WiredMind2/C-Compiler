@@ -8,6 +8,8 @@
 #include "optim/OptimizationManager.h"
 #include "optim/LoadConstantToRegister.h"
 #include "optim/ConstantPropagation.h"
+#include "optim/StoreLoadStackFold.h"
+#include "optim/StoreLoadToRegister.h"
 
 #include "visitors/CodeGenVisitor.h"
 #include "ir/IR.h"
@@ -81,12 +83,14 @@ int main(int argn, const char **argv) {
     CFG *cfg = v.getCFG();
 
     // Run optimizations
+    optim::OptimizationManager optimizer;
     if (!no_optim) {
-        optim::OptimizationManager optimizer;
-        optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
-        optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
-        optimizer.runOptimizations(cfg);
+        optimizer.addPass(std::make_unique<optim::StoreLoadStackFoldPass>());
+        //optimizer.addPass(std::make_unique<optim::StoreLoadToRegisterPass>());
+        // optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
+        // optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
     }
+    optimizer.runOptimizations(cfg);
 
     cfg->gen_asm(cout);
 

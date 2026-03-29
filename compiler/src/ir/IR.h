@@ -42,13 +42,11 @@ public:
         IRType target_operation_type = operation_type_from_operand_types(lhs, rhs);
 
         if (lhs.type != target_operation_type) {
-            generate_conversion_instruction(lhs_register, lhs.type, Reg::W2, target_operation_type);
-            lhs_register = Reg::W2;
+            generate_conversion_instruction(lhs_register, lhs.type, lhs_register, target_operation_type);
         }
 
         if (rhs.type != target_operation_type) {
-            generate_conversion_instruction(rhs_register, rhs.type, Reg::W3, target_operation_type);
-            rhs_register = Reg::W3;
+            generate_conversion_instruction(rhs_register, rhs.type, rhs_register, target_operation_type);
         }
 
 
@@ -69,13 +67,11 @@ public:
         IRType target_operation_type = operation_type_from_operand_types(lhs, rhs);
 
         if (lhs.type != target_operation_type) {
-            generate_conversion_instruction(lhs_register, lhs.type, Reg::W2, target_operation_type);
-            lhs_register = Reg::W2;
+            generate_conversion_instruction(lhs_register, lhs.type, lhs_register, target_operation_type);
         }
 
         if (rhs.type != target_operation_type) {
-            generate_conversion_instruction(rhs_register, rhs.type, Reg::W3, target_operation_type);
-            rhs_register = Reg::W3;
+            generate_conversion_instruction(rhs_register, rhs.type, rhs_register, target_operation_type);
         }
 
         add_IRInstr(new BinInstr(this, lhs_register, lhs_register, rhs_register, target_operation_type));

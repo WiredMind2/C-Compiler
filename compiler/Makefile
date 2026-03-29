@@ -28,6 +28,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/AsmGeneratorARM64.o \
 	build/OptimizationManager.o \
 	build/PassRegistry.o \
+	build/StoreLoadStackFold.o \
+	build/StoreLoadToRegister.o \
 	build/LoadConstantToRegister.o \
 	build/ConstantPropagation.o
 
