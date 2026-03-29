@@ -120,4 +120,11 @@ private:
 public:
     bool has_stdio() const { return include_stdio; }
     bool has_stdlib() const { return include_stdlib; }
+
+    virtual antlrcpp::Any visitAddAssignment(ifccParser::AddAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitSubAssignment(ifccParser::SubAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitPreIncrement(ifccParser::PreIncrementContext *ctx) override;
+    virtual antlrcpp::Any visitPreDecrement(ifccParser::PreDecrementContext *ctx) override;
+    virtual antlrcpp::Any visitPostIncrement(ifccParser::PostIncrementContext *ctx) override;
+    virtual antlrcpp::Any visitPostDecrement(ifccParser::PostDecrementContext *ctx) override;
 };
