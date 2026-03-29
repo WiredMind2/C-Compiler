@@ -118,6 +118,7 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
         IRType type = isPointer ? IRType::POINTER : baseType;
         BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
         if (!targetBB) targetBB = visitor->getCFG()->current_bb;
+        
         targetBB->add_var_to_symbol_table(var, type);
         if (isPointer) visitor->getCFG()->set_array_element_type(var, baseType);
         if (isArray) {
@@ -137,6 +138,22 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
         auto* init_decl = ctx->init_declarator()[0];
         auto* bb = visitor->getCFG()->current_bb;
         if (init_decl->expr() != nullptr) {
+            auto* decl_for_init = init_decl->declarator();
+            string var_for_init = decl_for_init->VAR()->getText();
+            // If this is a global (declared in entry_bb) and the initializer is
+            // a simple integer constant, record it for assembler emission and
+            // skip generating runtime stores.
+            BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
+            if (!targetBB) targetBB = visitor->getCFG()->current_bb;
+            if (targetBB == visitor->getCFG()->entry_bb) {
+                std::string txt = init_decl->expr()->getText();
+                bool isDigits = !txt.empty() && std::all_of(txt.begin(), txt.end(), ::isdigit);
+                if (isDigits) {
+                    int64_t val = std::stoll(txt);
+                    visitor->getCFG()->globalInitializers[var_for_init] = val;
+                    return 0;
+                }
+            }
             auto* decl = init_decl->declarator();
             string var = decl->VAR()->getText();
             int pointerDepth = 0;

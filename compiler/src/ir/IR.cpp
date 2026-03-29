@@ -159,6 +159,11 @@ int BasicBlock::get_var_index(string name) {
                 }
             }
         }
+        // Finally, check for globals in the entry basic block
+        if (cfg->entry_bb) {
+            int idx = cfg->entry_bb->get_var_index_or_none(name);
+            if (idx != INT_MIN) return idx;
+        }
     }
     cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
     exit(1);
@@ -182,6 +187,8 @@ BasicBlock* BasicBlock::get_var_owner_bb(string name) {
                 }
             }
         }
+        // Check entry basic block for globals
+        if (cfg->entry_bb && cfg->entry_bb->get_var_index_or_none(name) != INT_MIN) return cfg->entry_bb;
     }
     return nullptr;
 }
@@ -206,6 +213,16 @@ IRType BasicBlock::get_var_type(string name) {
                 }
             }
         }
+        // Finally, check the entry basic block for globals
+            if (cfg->entry_bb) {
+                if (cfg->entry_bb->SymbolType.find(name) != cfg->entry_bb->SymbolType.end()) {
+                    return cfg->entry_bb->SymbolType[name];
+                }
+                std::string mangled = name + "@" + cfg->entry_bb->label;
+                if (cfg->entry_bb->SymbolType.find(mangled) != cfg->entry_bb->SymbolType.end()) {
+                    return cfg->entry_bb->SymbolType[mangled];
+                }
+            }
     }
     cerr << "Error: Symbol " << name << " not found in symbol table (type lookup)." << endl;
     exit(1);
@@ -365,6 +382,18 @@ CFG::FunctionSignature *CFG::get_function(string name) {
     return (it != functionIndex.end()) ? &functions[it->second] : nullptr;
 }
 
+std::vector<std::string> CFG::get_global_symbols() const {
+    std::vector<std::string> out;
+    if (!entry_bb) return out;
+    for (const auto &p : entry_bb->SymbolType) {
+        const std::string &name = p.first;
+        if (name.find("@") != std::string::npos) continue;
+        if (name.rfind("!tmp", 0) == 0) continue;
+        out.push_back(name);
+    }
+    return out;
+}
+
 BasicBlock* CFG::create_function_entry(string name, IRType returnType,
                                        vector<IRType> paramTypes, vector<string> paramNames) {
     currentFunctionName = name;
@@ -381,7 +410,7 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     }
 
     current_bb = entryBB;
-    entry_bb = current_bb;
+    // Do not overwrite CFG::entry_bb here — it represents the global scope.
 
     // Add to data structures
     if (sig) {

@@ -218,6 +218,13 @@ public:
 
     void               add_function(string name, IRType returnType,
                                     vector<IRType> paramTypes, vector<string> paramNames);
+
+    // Global initializers: for simple constant-initialized globals (int),
+    // store the initial value here so the assembler can emit a .data section.
+    std::map<std::string, int64_t> globalInitializers;
+
+    // Return a list of global symbol names (unmangled) recorded in entry_bb.
+    std::vector<std::string> get_global_symbols() const;
     FunctionSignature* get_function(string name);
     vector<FunctionSignature>& get_functions() { return functions; }
     BasicBlock*        create_function_entry(string name, IRType returnType,

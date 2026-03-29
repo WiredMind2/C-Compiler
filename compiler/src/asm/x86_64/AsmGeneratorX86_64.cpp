@@ -3,6 +3,7 @@
 #include "../../ir/IRInstr.h"
 #include <iostream>
 #include <stdexcept>
+#include <algorithm>
 
 using namespace std;
 
@@ -56,6 +57,16 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
 }
 
 string AsmGeneratorX86_64::var_to_asm(const string& varName) {
+    // If this variable is a global (declared in entry_bb), reference it
+    // via RIP-relative addressing: `name(%rip)`.
+    std::string base = varName;
+    auto atPos = varName.find('@');
+    if (atPos != std::string::npos) base = varName.substr(0, atPos);
+    auto globals = cfg->get_global_symbols();
+    if (std::find(globals.begin(), globals.end(), base) != globals.end()) {
+        return base + "(%rip)";
+    }
+
     int index = cfg->current_bb->get_var_index(varName);
     return to_string(index) + "(%rbp)";
 }
@@ -92,12 +103,28 @@ static string reg32_to_reg8(const string& reg32) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
-    for (auto bb : cfg->getBBs()) {
-        o << ".globl " << bb->label << "\n";
+    // Emit global data for simple constant-initialized globals.
+    auto globals = cfg->get_global_symbols();
+    if (!globals.empty()) {
+        o << ".data\n";
+        for (const auto &name : globals) {
+            o << ".globl " << name << "\n";
+            o << ".align 4\n";
+            o << name << ":\n";
+            int64_t val = 0;
+            auto it = cfg->globalInitializers.find(name);
+            if (it != cfg->globalInitializers.end()) val = it->second;
+            o << "    .long " << val << "\n";
+        }
+        o << ".text\n";
     }
 
+    // Emit code for basic blocks (functions)
     bool isFirstBB = true;
     for (auto bb : cfg->getBBs()) {
+        // Only emit .globl for function entries (functions are in CFG::functions)
+        auto* sig = cfg->get_function(bb->label);
+        if (sig) o << ".globl " << bb->label << "\n";
         gen_asm_bb(o, bb, isFirstBB);
         isFirstBB = false;
     }
