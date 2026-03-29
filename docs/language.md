@@ -222,5 +222,4 @@ int main() {
 
 - Supported types: `int`, `double`, `char`, no `float` or unsigned types.
 - No standard library functions provided by the compiler (link externally)
-- No increment/decrement operators (`++` / `--`) or compound assignments (`+=`, `-=`...)
 - No bit-shift operators (`<<`, `>>`)

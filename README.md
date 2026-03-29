@@ -54,11 +54,11 @@ gcc -o program output.s
 
 You will find in the `docs/` folder the following files:
 
-| Document | Description |
-|----------|-------------|
-| [Installation Guide](antlr4-installation.md) | How to install ANTLR4 on Ubuntu/WSL |
-| [Build Instructions](build.md) | Detailed build configuration and troubleshooting |
-| [Language Reference](language.md) | Supported C language features and syntax |
-| [Architecture](architecture.md) | Compiler design and internal components |
-| [Testing](testing.md) | Test framework and running tests |
+| Document                                          | Description |
+|---------------------------------------------------|-------------|
+| [Installation Guide](docs/antlr4-installation.md) | How to install ANTLR4 on Ubuntu/WSL |
+| [Build Instructions](docs/build.md)                    | Detailed build configuration and troubleshooting |
+| [Language Reference](docs/language.md)                 | Supported C language features and syntax |
+| [Architecture](docs/architecture.md)                   | Compiler design and internal components |
+| [Testing](docs/testing.md)                             | Test framework and running tests |
 
