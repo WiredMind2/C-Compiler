@@ -673,7 +673,6 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
     for (int i = 0; i < nCases; i++) {
         BasicBlock* bb = new BasicBlock(cfg, cfg->new_BB_name());
         bb->functionName = scopeBB->functionName;
-        bb->loop_break_target = afterBB;
         cfg->add_bb(bb);
         caseBBs.push_back(bb);
     }
@@ -682,7 +681,6 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
     if (hasDefault) {
         defaultBB = new BasicBlock(cfg, cfg->new_BB_name());
         defaultBB->functionName = scopeBB->functionName;
-        defaultBB->loop_break_target = afterBB;
         cfg->add_bb(defaultBB);
     }
 
