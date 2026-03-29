@@ -30,7 +30,7 @@ optim-compares-%:
 		echo "No matching test directory for pattern '$*'"; \
 		exit 1; \
 	fi; \
-	out_root=tfcc-optim-compare/$*; \
+	out_root=ifcc-optim-compare/$*; \
 	rm -rf "$$out_root"; \
 	mkdir -p "$$out_root"; \
 	fails=0; \
@@ -38,17 +38,20 @@ optim-compares-%:
 		echo "==> $$dir"; \
 		for src in $$(find "$$dir" -type f -name '*.c' | sort); do \
 			name=$$(basename "$$src" .c); \
+			src_base=$$(basename "$$src"); \
 			case_out="$$out_root/$${name}"; \
 			mkdir -p "$$case_out"; \
+			src_copy="$$case_out/$$src_base"; \
+			cp "$$src" "$$src_copy"; \
 			asm_opt="$$case_out/opt.s"; \
 			asm_noopt="$$case_out/noopt.s"; \
 			diff_out="$$case_out/$${name}.diff"; \
-			if ! compiler/ifcc "$$src" > "$$asm_opt" 2> "$$case_out/opt.compile.log"; then \
+			if ! compiler/ifcc "$$src_copy" > "$$asm_opt" 2> "$$case_out/opt.compile.log"; then \
 				echo "  FAIL $$name (compile opt)"; \
 				fails=$$((fails + 1)); \
 				continue; \
 			fi; \
-			if ! compiler/ifcc --nooptim "$$src" > "$$asm_noopt" 2> "$$case_out/noopt.compile.log"; then \
+			if ! compiler/ifcc --nooptim "$$src_copy" > "$$asm_noopt" 2> "$$case_out/noopt.compile.log"; then \
 				echo "  FAIL $$name (compile noopt)"; \
 				fails=$$((fails + 1)); \
 				continue; \

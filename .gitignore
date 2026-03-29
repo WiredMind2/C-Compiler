@@ -3,6 +3,7 @@ compiler/generated/
 compiler/src/generated/
 ifcc
 ifcc-test-output/
+ifcc-optim-compare/
 test
 compiler/config.mk
 test.*
