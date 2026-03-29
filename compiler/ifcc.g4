@@ -60,7 +60,7 @@ logicalAND : bitwiseOR # logicalANDRef
     ;
 
 bitwiseOR : bitwiseXOR         # bitwiseORRef
-    | bitwiseOR '^' bitwiseXOR # bitwiseORRule
+    | bitwiseOR '|' bitwiseXOR # bitwiseORRule
     ;
 
 bitwiseXOR : bitwiseAND         # bitwiseXORRef

@@ -161,8 +161,8 @@ int BasicBlock::get_var_index(string name) {
             }
         }
         // Finally, check for globals in the entry basic block
-        if (cfg->entry_bb) {
-            int idx = cfg->entry_bb->get_var_index_or_none(name);
+        if (cfg->global_bb) {
+            int idx = cfg->global_bb->get_var_index_or_none(name);
             if (idx != INT_MIN) return idx;
         }
     }
@@ -189,7 +189,7 @@ BasicBlock* BasicBlock::get_var_owner_bb(string name) {
             }
         }
         // Check entry basic block for globals
-        if (cfg->entry_bb && cfg->entry_bb->get_var_index_or_none(name) != INT_MIN) return cfg->entry_bb;
+        if (cfg->global_bb && cfg->global_bb->get_var_index_or_none(name) != INT_MIN) return cfg->global_bb;
     }
     return nullptr;
 }
@@ -215,13 +215,13 @@ IRType BasicBlock::get_var_type(string name) {
             }
         }
         // Finally, check the entry basic block for globals
-            if (cfg->entry_bb) {
-                if (cfg->entry_bb->SymbolType.find(name) != cfg->entry_bb->SymbolType.end()) {
-                    return cfg->entry_bb->SymbolType[name];
+            if (cfg->global_bb) {
+                if (cfg->global_bb->SymbolType.find(name) != cfg->global_bb->SymbolType.end()) {
+                    return cfg->global_bb->SymbolType[name];
                 }
-                std::string mangled = name + "@" + cfg->entry_bb->label;
-                if (cfg->entry_bb->SymbolType.find(mangled) != cfg->entry_bb->SymbolType.end()) {
-                    return cfg->entry_bb->SymbolType[mangled];
+                std::string mangled = name + "@" + cfg->global_bb->label;
+                if (cfg->global_bb->SymbolType.find(mangled) != cfg->global_bb->SymbolType.end()) {
+                    return cfg->global_bb->SymbolType[mangled];
                 }
             }
     }
@@ -250,6 +250,7 @@ CFG::CFG(TargetArch arch) {
     nextFreeSymbolIndex = -8;
     current_bb   = new BasicBlock(this, new_BB_name());
     entry_bb = current_bb;
+    global_bb = current_bb;
     add_bb(current_bb);
     nextTempVarNumber = 0;
 

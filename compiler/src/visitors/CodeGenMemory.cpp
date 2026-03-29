@@ -122,7 +122,7 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
         targetBB->add_var_to_symbol_table(var, type);
         // If this is a top-level declaration (global), record its name
         // in the CFG globalSymbols so the assembler can emit it later.
-        if (targetBB == visitor->getCFG()->entry_bb) {
+        if (targetBB == visitor->getCFG()->global_bb) {
             auto &globals = visitor->getCFG()->globalSymbols;
             if (std::find(globals.begin(), globals.end(), var) == globals.end()) globals.push_back(var);
         }
@@ -151,7 +151,7 @@ antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Decl
             // skip generating runtime stores.
             BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
             if (!targetBB) targetBB = visitor->getCFG()->current_bb;
-            if (targetBB == visitor->getCFG()->entry_bb) {
+            if (targetBB == visitor->getCFG()->global_bb) {
                 std::string txt = init_decl->expr()->getText();
                 bool isDigits = !txt.empty() && std::all_of(txt.begin(), txt.end(), ::isdigit);
                 if (isDigits) {

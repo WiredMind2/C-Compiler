@@ -57,7 +57,7 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
 }
 
 string AsmGeneratorX86_64::var_to_asm(const string& varName) {
-    // If this variable is a global (declared in entry_bb), reference it
+    // If this variable is a global (declared in global_bb), reference it
     // via RIP-relative addressing: `name(%rip)`.
     std::string base = varName;
     auto atPos = varName.find('@');

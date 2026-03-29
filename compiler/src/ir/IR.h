@@ -202,6 +202,7 @@ public:
 
     BasicBlock* current_bb;
     BasicBlock* entry_bb;
+    BasicBlock* global_bb;
     BasicBlock* decl_target_bb = nullptr;
     BasicBlock* current_break_bb = nullptr;
     BasicBlock* current_continue_bb = nullptr;
