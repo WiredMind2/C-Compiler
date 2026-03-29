@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 int main() {
     putchar(72); // 'H'

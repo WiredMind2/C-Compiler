@@ -19,92 +19,127 @@ public:
     void gen_asm_bb(std::ostream& o, BasicBlock* bb, bool isFirstBB = false) override;
     void gen_asm_instr(std::ostream& o, IRInstr* instr) override;
 
+    //---------------- Visitor methods ----------------
+    void visit(std::ostream& o, LdStringInstr&   instr) override;
+    void visit(std::ostream& o, LdConstInstr&    instr) override;
+    void visit(std::ostream& o, CopyRegInstr&    instr) override;
+    void visit(std::ostream& o, StoreStackInstr& instr) override;
+    void visit(std::ostream& o, LoadStackInstr&  instr) override;
+    void visit(std::ostream& o, AddressOfSymbolInstr& instr) override;
+    void visit(std::ostream& o, LoadPointerInstr& instr) override;
+    void visit(std::ostream& o, StorePointerInstr& instr) override;
+    void visit(std::ostream& o, AddInstr&    instr) override;
+    void visit(std::ostream& o, SubInstr&    instr) override;
+    void visit(std::ostream& o, MulInstr&    instr) override;
+    void visit(std::ostream& o, DivInstr&    instr) override;
+    void visit(std::ostream& o, ModInstr&    instr) override;
+    void visit(std::ostream& o, BitNotInstr& instr) override;
+    void visit(std::ostream& o, BitAndInstr& instr) override;
+    void visit(std::ostream& o, BitOrInstr&  instr) override;
+    void visit(std::ostream& o, BitXorInstr& instr) override;
+    void visit(std::ostream& o, ShlInstr& instr) override;
+    void visit(std::ostream& o, ShrInstr& instr) override;
+    void visit(std::ostream& o, CmpEqInstr&  instr) override;
+    void visit(std::ostream& o, CmpLtInstr&  instr) override;
+    void visit(std::ostream& o, CmpLeInstr&  instr) override;
+    void visit(std::ostream& o, CmpGtInstr&  instr) override;
+    void visit(std::ostream& o, CmpGeInstr&  instr) override;
+    void visit(std::ostream& o, LogicalAndInstr&  instr) override;
+    void visit(std::ostream& o, LogicalOrInstr&  instr) override;
+    void visit(std::ostream& o, CallInstr&   instr) override;
+    void visit(std::ostream& o, F64ToI32Instr& instr) override;
+    void visit(std::ostream& o, I32ToF64Instr& instr) override;
+    void visit(std::ostream& o, FToIInstr&   instr) override;
+    void visit(std::ostream& o, I8ToI32Instr& instr) override;
+    void visit(std::ostream& o, I32ToI8Instr& instr) override;
+    void visit(std::ostream& o, RetInstr&    instr) override;
+
     //---------------------------------------------------------------------------
-    // Load Constants
+    // Load Constants (typed helpers)
     //---------------------------------------------------------------------------
-    void ldConstInstrINT8(std::ostream& o, ConstParam src, std::string dest) override;
-    void ldConstInstrINT32(std::ostream& o, ConstParam src, std::string dest) override;
-    void ldConstInstrINT64(std::ostream& o, ConstParam src, std::string dest) override;
-    void ldConstInstrFLOAT64(std::ostream& o, double src, std::string dest) override;
+    void ldConstInstrINT8(std::ostream& o, ConstParam src, const std::string& dest) override;
+    void ldConstInstrINT32(std::ostream& o, ConstParam src, const std::string& dest) override;
+    void ldConstInstrINT64(std::ostream& o, ConstParam src, const std::string& dest) override;
+    void ldConstInstrFLOAT64(std::ostream& o, double src, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Register Copy
     //---------------------------------------------------------------------------
-    void CopyRegINT8(ostream& o, string src, string dest) override;
-    void CopyRegINT32(ostream& o, string src, string dest) override;
-    void CopyRegFLOAT64(ostream& o, string src, string dest) override;
+    void CopyRegINT8(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void CopyRegINT32(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void CopyRegFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Stack Operations (Store/Load)
     //---------------------------------------------------------------------------
-    void StoreStackInstrINT8(ostream& o, string src, string dest) override;
-    void StoreStackInstrINT32(ostream& o, string src, string dest) override;
-    void StoreStackInstrFLOAT64(ostream& o, string src, string dest) override;
-    void LoadStackInstrINT8(ostream& o, string src, string dest) override;
-    void LoadStackInstrINT32(ostream& o, string src, string dest) override;
-    void LoadStackInstrFLOAT64(ostream& o, string src, string dest) override;
+    void StoreStackInstrINT8(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void StoreStackInstrINT32(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void StoreStackInstrFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void LoadStackInstrINT8(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void LoadStackInstrINT32(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void LoadStackInstrFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Arithmetic Operations
     //---------------------------------------------------------------------------
-    void AddINT32(std::ostream& o, std::string lhs, std::string rhs, std::string dest) override;
-    void AddFLOAT64(std::ostream& o, std::string lhs, std::string rhs, std::string dest) override;
+    void AddINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void AddFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
-    void SubINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void SubFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
-    void MulINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void MulFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+    void SubINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void SubFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void MulINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void MulFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
-    void DivINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void DivFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+    void DivINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void DivFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
-    void ModINT32(ostream& o, string lhs, string rhs, string dest) override;
+    void ModINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Bitwise Operations
     //---------------------------------------------------------------------------
-    void BitNot(ostream& o, string src, string dest) override;
-    void BitAnd(ostream& o, string lhs, string rhs, string dest) override;
-    void BitOr(ostream& o, string lhs, string rhs, string dest) override;
-    void BitXor(ostream& o, string lhs, string rhs, string dest) override;
+    void BitNot(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void BitAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void BitOr(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void BitXor(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Comparison Operations
     //---------------------------------------------------------------------------
-    void CmpEqINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpEqFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+    void CmpEqINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void CmpEqFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
-    void CmpLtINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpLtFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpLeINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpLeFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+    void CmpLtINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void CmpLtFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void CmpLeINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void CmpLeFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
-    void CmpGtINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpGtFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+    void CmpGtINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void CmpGtFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
-    void CmpGeINT32(ostream& o, string lhs, string rhs, string dest) override;
-    void CmpGeFLOAT64(ostream& o, string lhs, string rhs, string dest) override;
+    void CmpGeINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void CmpGeFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Logical Operations
     //---------------------------------------------------------------------------
-    void LogicalAnd(ostream& o, string lhs, string rhs, string dest) override;
-    void LogicalOr(ostream& o, string lhs, string rhs, string dest) override;
+    void LogicalAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
+    void LogicalOr(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Function Call / Return
     //---------------------------------------------------------------------------
-    void CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) override;
-    void CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) override;
-    void Ret(ostream& o) override;
+    void CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) override;
+    void CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) override;
+    void Ret(std::ostream& o) override;
 
     //---------------------------------------------------------------------------
     // Type Conversion
     //---------------------------------------------------------------------------
-    void FToI(ostream& o, string src, string dest) override;
-    void I32ToF64(ostream& o, string src, string dest) override;
-    void I8ToI32(ostream& o, string src, string dest) override;
-    void I32ToI8(ostream& o, string src, string dest) override;
+    void FToI(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void I32ToF64(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void I8ToI32(std::ostream& o, const std::string& src, const std::string& dest) override;
+    void I32ToI8(std::ostream& o, const std::string& src, const std::string& dest) override;
 
     //---------------------------------------------------------------------------
     // Helpers

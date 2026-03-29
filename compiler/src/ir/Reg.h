@@ -16,6 +16,7 @@
 enum class Reg {
     W0, W1, W2, W3, W4, W5,
     ARG0, ARG1, ARG2, ARG3, ARG4, ARG5,
+    FRAME_PTR,
     RET,
 };
 

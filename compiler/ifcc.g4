@@ -4,27 +4,19 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';')
-    | scope
-    | function_definition
-    | function_declaration
-    | condition
-    | while_loop
-    | for_loop
-    | switch_stmt
-    | break_stmt
-    | continue_stmt
-    | declaration
-    ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | do_while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | declaration ;
 
 return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
-declaration : type_specifier declaration_instance (',' declaration_instance)* ';' ;
-declaration_instance : VAR ('=' expr)? ;
+declarator : '*'* VAR ('[' constant ']')? ;
+init_declarator : declarator ('=' (expr | initializer))? ;
 
-param : type_specifier VAR ;
+declaration_no_semi : type_specifier init_declarator (',' init_declarator)* ;
+declaration : declaration_no_semi ';' ;
+
+param : type_specifier '*'* VAR ;
 param_list : param (',' param)* ;
 
 function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
@@ -32,7 +24,12 @@ function_definition  : type_specifier VAR '(' param_list? ')' scope;
 condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
-for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+do_while_loop : 'do' scope 'while' '(' expr ')' ';' ;
+for_init : declaration_no_semi
+         | expr
+         | // empty
+         ;
+for_loop: 'for' '(' for_init ';' expr? ';' expr? ')' scope ;
 switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
 case_block : 'case' expr ':' (statement* | scope) ;
 default_block : 'default' ':' (statement* | scope) ;
@@ -41,6 +38,8 @@ continue_stmt : 'continue' ';' ;
 
 scope : '{' statement* '}' ;
 
+lvalue: primitive ('[' expr ']')? | '*' lvalue ; 
+
 expr : sequential ;
 
 sequential : compoundAssignment # sequentialExprRef
@@ -48,9 +47,9 @@ sequential : compoundAssignment # sequentialExprRef
     ;
 
 compoundAssignment : logicalOR # compoundAssignmentRef
-    | VAR '=' compoundAssignment # Assignment
-    | VAR '+=' compoundAssignment # AddAssignment
-    | VAR '-=' compoundAssignment # SubAssignment
+    | lvalue '=' compoundAssignment # Assignment
+    | lvalue '+=' compoundAssignment # AddAssignment
+    | lvalue '-=' compoundAssignment # SubAssignment
     ;
 
 logicalOR : logicalAND # logicalORRef
@@ -78,52 +77,73 @@ equality : relational          # equalityExprRef
     | equality '!=' relational # different
     ;
 
-relational : additive # relationalExprRef
-    | relational '<' additive # smallerStrictThan
-    | relational '>' additive # greaterStrictThan
-    | relational '<=' additive # smallerThan
-    | relational '>=' additive # greaterThan
+relational : shift # relationalExprRef
+    | relational '<' shift # smallerStrictThan
+    | relational '>' shift # greaterStrictThan
+    | relational '<=' shift # smallerThan
+    | relational '>=' shift # greaterThan
+    ;
+
+shift
+    : additive                 # shiftExprRef
+    | shift '<<' additive      # shiftLeft
+    | shift '>>' additive      # shiftRight
     ;
 
 additive
-    : multiplicative             # multiplicativeExprRef
+    : multiplicative              # multiplicativeExprRef
     | additive '+' multiplicative # addition
     | additive '-' multiplicative # substraction
     ;
 
 multiplicative
-    : unary                      # unaryExprRef
+    : unary                       # unaryExprRef
     | multiplicative '*' unary    # multiplication
     | multiplicative '/' unary    # division
     | multiplicative '%' unary    # modulo
     ;
 
 unary
-    : '++' VAR                   # preIncrement
-    | '--' VAR                   # preDecrement
-    | VAR '++'                   # postIncrement
-    | VAR '--'                   # postDecrement
-    | '-' primitive              # unaryMinus
-    | '+' primitive              # unaryPlus
-    | '!' primitive              # unaryNot
+    : '++' lvalue                # preIncrement
+    | '--' lvalue                # preDecrement
+    | lvalue '++'                # postIncrement
+    | lvalue '--'                # postDecrement
+    | '-' unary                  # unaryMinus
+    | '+' unary                  # unaryPlus
+    | '!' unary                  # unaryNot
+    | '~' unary                  # unaryBitNot
+    | '*' unary                  # dereference
+    | '&' unary                  # addressOf
     | primitive                  # primitiveExprRef
     ;
 
 primitive
     : '(' expr ')'               # parenthesis
     | function_call              # functionCall
+    | primitive '[' expr ']'     # array_subscript
     | VAR                        # variable
-    | CONST                      # constant
-    | DOUBLE_CONST               # double_constant
-    | CHAR_CONST                 # char_constant
+    | constant                   # constantLiteral
+    ;
+
+constant
+    : DEC_CONST            # decimalConstant
+    | HEX_CONST        # hexConstant
+    | DOUBLE_CONST     # doubleConstant
+    | CHAR_CONST       # charConstant
+    | STRING_CONST     # stringConstant
     ;
 
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
+initializer
+    : '{' (expr (',' expr)*)? '}'
+    ;
 RETURN : 'return' ;
-CONST : [0-9]+ ;
+HEX_CONST : '0' [xX] [0-9a-fA-F]+ ;
+DEC_CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
+STRING_CONST : '"' (~['"\\] | '\\' .)* '"' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstring>
 
 #include "antlr4-runtime.h"
 #include "generated/ifccLexer.h"
@@ -11,6 +12,8 @@
 #include "optim/StoreLoadToRegister.h"
 #include "optim/DeadRegDefElimination.h"
 #include "optim/CopyRegChainPropagation.h"
+#include "optim/StackLayoutPass.h"
+#include "optim/UnusedVariableElimination.h"
 
 #include "visitors/CodeGenVisitor.h"
 #include "ir/IR.h"
@@ -24,29 +27,35 @@ TargetArch DEFAULT_ARCH = TargetArch::ARM64;
 TargetArch DEFAULT_ARCH = TargetArch::X86_64;
 #endif
 
-int main(int argn, const char **argv) {
+int main(int argc, char** argv) {
     stringstream in;
     TargetArch arch = DEFAULT_ARCH;
     const char *filename = nullptr;
     bool no_optim = false;
+    bool dump_ir = false;
 
-    for (int i = 1; i < argn; i++) {
+    for (int i = 1; i < argc; i++) {
         string arg = argv[i];
-        if (arg == "--arch" && i + 1 < argn) {
+        if (arg == "--arch" && i + 1 < argc) {
             string archStr = argv[++i];
             if (archStr == "arm") {
                 arch = TargetArch::ARM64;
             } else if (archStr == "x86") {
                 arch = TargetArch::X86_64;
             }
+        } else if (arg == "--dump-ir") {
+            dump_ir = true;
         } else if (arg == "--nooptim") {
             no_optim = true;
+        } else if (!arg.empty() && arg[0] == '-') {
+            cerr << "Unknown option: " << arg << endl;
+            return 1;
         } else if (filename == nullptr) {
             filename = argv[i];
         }
     }
     if (filename == nullptr) {
-        cerr << "usage: ifcc [--arch arm|x86, --nooptim] path/to/file.c" << endl;
+        cerr << "usage: ifcc [--arch arm|x86, --nooptim, --dump-ir] path/to/file.c" << endl;
         exit(1);
     }
 
@@ -91,9 +100,16 @@ int main(int argn, const char **argv) {
         optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
         optimizer.addPass(std::make_unique<optim::DeadRegDefEliminationPass>());
         optimizer.addPass(std::make_unique<optim::CopyRegChainPropagationPass>());
+        optimizer.addPass(std::make_unique<optim::StackLayoutPass>());
+        optimizer.addPass(std::make_unique<optim::UnusedVariableEliminationPass>());
     }
     optimizer.runOptimizations(cfg);
-
+    // If the user passed --dump-ir, enable IR-as-assembly comments and dump
+    if (dump_ir) {
+        cfg->set_emit_ir_comments(true);
+        cfg->dump_symbol_table(std::cerr);
+        cfg->dump_instructions(std::cerr);
+    }
     cfg->gen_asm(cout);
 
     return 0;

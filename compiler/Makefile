@@ -22,6 +22,7 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/CodeGenFunction.o \
 	build/CodeGenRelational.o \
 	build/CodeGenLogical.o \
+    build/CodeGenControlFlow.o \
 	build/IR.o \
 	build/IRInstr.o \
 	build/AsmGeneratorX86_64.o \
@@ -33,6 +34,8 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/DeadRegDefElimination.o \
 	build/CopyRegChainPropagation.o \
 	build/ConstantPropagation.o
+	build/UnusedVariableElimination.o \
+    build/StackLayoutPass.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build
@@ -64,7 +67,6 @@ build/%.o: src/asm/x86_64/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
-
 build/%.o: src/optim/%.cpp src/generated/ifccParser.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
@@ -75,12 +77,10 @@ build/%.o: src/generated/%.cpp
 	@mkdir -p build
 	$(CC) $(CCFLAGS) -MMD -o $@ $<
 
-# automagic dependency management: `gcc -MMD` generates all the .d files for us
 -include build/*.d
 build/%.d:
 
 ##########################################
-# generate the C++ implementation of our Lexer/Parser/Visitor
 src/generated/ifccLexer.cpp: src/generated/ifccParser.cpp
 src/generated/ifccVisitor.cpp: src/generated/ifccParser.cpp
 src/generated/ifccBaseVisitor.cpp: src/generated/ifccParser.cpp
@@ -88,13 +88,8 @@ src/generated/ifccParser.cpp: ifcc.g4
 	@mkdir -p src/generated
 	java -jar $(ANTLRJAR) -visitor -no-listener -Dlanguage=Cpp -o src/generated ifcc.g4
 
-# prevent automatic cleanup of "intermediate" files like ifccLexer.cpp etc
 .PRECIOUS: src/generated/ifcc%.cpp
 
-##########################################
-# view the parse tree in a graphical window
-
-# Usage: `make gui FILE=path/to/your/file.c`
 FILE ?= ../tests/testfiles/00_base/00_return42.c
 
 gui:
@@ -103,8 +98,6 @@ gui:
 	javac -cp $(ANTLRJAR) -d build src/generated/*.java
 	java -cp $(ANTLRJAR):build org.antlr.v4.gui.TestRig ifcc axiom -gui $(FILE)
 
-##########################################
-# delete all machine-generated files
 clean:
 	rm -rf build src/generated
 	rm -f ifcc
