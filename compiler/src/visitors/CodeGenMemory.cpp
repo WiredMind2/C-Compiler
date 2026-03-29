@@ -1,4 +1,5 @@
 #include "CodeGenMemory.h"
+
 #include "CodeGenVisitor.h"
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext* ctx) {
@@ -67,6 +68,17 @@ antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationC
 
         if (assignement_ctx->expr()) {
             StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(assignement_ctx->expr()));
+            auto* bb = visitor->getCFG()->current_bb;
+
+            if (src.type != type) {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
+                bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, type);
+                bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, type));
+            } else {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
+                bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
+            }
+
             bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
             bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
         }
@@ -85,3 +97,5 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 
     return new StackParam(var, varType);
 }
+
+

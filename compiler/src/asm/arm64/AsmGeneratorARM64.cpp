@@ -8,13 +8,6 @@ using namespace std;
 
 AsmGeneratorARM64::AsmGeneratorARM64(CFG* cfg) : AsmGenerator(cfg) {}
 
-namespace {
-string macho_symbol(const string& name) {
-    if (name.empty() || name[0] == '_' || name[0] == '.') return name;
-    return "_" + name;
-}
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -62,7 +55,7 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
 void AsmGeneratorARM64::gen_asm(ostream& o) {
     // Export only real function symbols (not internal BB labels).
     for (auto& fn : cfg->get_functions()) {
-        o << ".globl " << macho_symbol(fn.label) << "\n";
+        o << ".globl _" << fn.label << "\n";
     }
 
     bool isFirstBB = true;
@@ -80,7 +73,7 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
 
     if (isFunctionEntry) {
         int stackSpace = cfg->calculateRequiredStackSpace();
-        o << macho_symbol(bb->label) << ":\n";
+        o << "_" << bb->label << ":\n";
         o << "    stp fp, lr, [sp, #-16]!\n";
         o << "    mov fp, sp\n";
         o << "    sub sp, sp, #" << stackSpace << "\n";
@@ -110,12 +103,12 @@ void AsmGeneratorARM64::gen_asm_instr(ostream& o, IRInstr* instr) {
 
 void AsmGeneratorARM64::gen_prologue(ostream& o) {
     int stackSpace = cfg->calculateRequiredStackSpace();
-    string funcName = "_main";
+    string funcName = "main";
     if (!cfg->get_functions().empty()) {
-        funcName = macho_symbol(cfg->get_functions()[0].label);
+        funcName = cfg->get_functions()[0].label;
     }
     // Skip .globl here since it's generated in gen_asm for all functions
-    o << funcName << ":\n";
+    o <<  " " << funcName << ":\n";
     o << "    stp fp, lr, [sp, #-16]!\n";  // Save frame pointer and link register
     o << "    mov fp, sp\n";
     o << "    sub sp, sp, #" << stackSpace << "\n";
@@ -193,7 +186,7 @@ void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector
                 o << "    mov " << dst << ", " << src << "\n";
         }
     }
-    o << "    bl " << funcLabel << "\n";
+    o << "    bl _" << funcLabel << "\n";
     // Move return value from w0/d0 to destination when needed
     if (!dest.empty() && dest[0] == 'd') {
         if (dest != "d0") o << "    fmov " << dest << ", d0\n";
@@ -220,7 +213,7 @@ void AsmGeneratorARM64::CallWithFLOAT64Return(ostream& o, string funcLabel, vect
                 o << "    mov " << dst << ", " << src << "\n";
         }
     }
-    o << "    bl " << macho_symbol(funcLabel) << "\n";
+    o << "    bl _" << funcLabel << "\n";
     if (!dest.empty() && dest[0] == 'd') {
         if (dest != "d0") o << "    fmov " << dest << ", d0\n";
     } else {
