@@ -2,6 +2,63 @@
 
 #include "CodeGenVisitor.h"
 
+namespace {
+
+StackParam load_var_value(CodeGenVisitor* visitor, const string& var, IRType type) {
+    auto* bb = visitor->getCFG()->current_bb;
+    string tmp = bb->create_new_tempvar(type);
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var, type));
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, type));
+    return StackParam(tmp, type);
+}
+
+StackParam assign_to_var(CodeGenVisitor* visitor, const string& var, IRType varType, const StackParam& src) {
+    auto* bb = visitor->getCFG()->current_bb;
+    if (src.type != varType) {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
+        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, varType);
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, varType));
+    } else {
+        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, varType));
+        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, varType));
+    }
+    return StackParam(var, varType);
+}
+
+StackParam one_of_type(CodeGenVisitor* visitor, IRType type) {
+    auto* bb = visitor->getCFG()->current_bb;
+    if (type == IRType::INT8) {
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT8, static_cast<int64_t>(1)));
+        string oneName = bb->create_new_tempvar(IRType::INT8);
+        bb->add_IRInstr(new StoreStackInstr(bb, oneName, Reg::W0, IRType::INT8));
+        return StackParam(oneName, IRType::INT8);
+    }
+
+    if (type == IRType::FLOAT64) {
+        bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::FLOAT64, 1.0));
+        string oneName = bb->create_new_tempvar(IRType::FLOAT64);
+        bb->add_IRInstr(new StoreStackInstr(bb, oneName, Reg::W0, IRType::FLOAT64));
+        return StackParam(oneName, IRType::FLOAT64);
+    }
+
+    // Default to INT32 for unsupported integer-like cases.
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, static_cast<int64_t>(1)));
+    string oneName = bb->create_new_tempvar(IRType::INT32);
+    bb->add_IRInstr(new StoreStackInstr(bb, oneName, Reg::W0, IRType::INT32));
+    return StackParam(oneName, IRType::INT32);
+}
+
+template<class BinInstr>
+StackParam apply_compound(CodeGenVisitor* visitor, const string& var, const StackParam& rhs) {
+    auto* bb = visitor->getCFG()->current_bb;
+    IRType varType = bb->get_var_type(var);
+    StackParam lhs(var, varType);
+    StackParam value = bb->emit_binop<BinInstr>(lhs, rhs);
+    return assign_to_var(visitor, var, varType, value);
+}
+
+} // namespace
+
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext* ctx) {
     int64_t val = stol(ctx->CONST()->getText());
     BasicBlock* bb = visitor->getCFG()->current_bb;
@@ -68,16 +125,7 @@ antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationC
 
         if (assignement_ctx->expr()) {
             StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(assignement_ctx->expr()));
-            auto* bb = visitor->getCFG()->current_bb;
-
-            if (src.type != type) {
-                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
-                bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, type);
-                bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, type));
-            } else {
-                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, type));
-                bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, type));
-            }
+            assign_to_var(visitor, var, type, src);
         }
     }
     return nullptr;
@@ -89,16 +137,57 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     IRType varType = bb->get_var_type(var);
 
     StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->compoundAssignment()));
-    if (src.type != varType) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
-        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, varType);
-        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, varType));
-    } else {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, varType));
-        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, varType));
-    }
+    return assign_to_var(visitor, var, varType, src);
+}
 
-    return new StackParam(var, varType);
+antlrcpp::Any visitAddAssignment(CodeGenVisitor* visitor, ifccParser::AddAssignmentContext *ctx) {
+    string var = ctx->VAR()->getText();
+    StackParam rhs = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->compoundAssignment()));
+    return apply_compound<AddInstr>(visitor, var, rhs);
+}
+
+antlrcpp::Any visitSubAssignment(CodeGenVisitor* visitor, ifccParser::SubAssignmentContext *ctx) {
+    string var = ctx->VAR()->getText();
+    StackParam rhs = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->compoundAssignment()));
+    return apply_compound<SubInstr>(visitor, var, rhs);
+}
+
+antlrcpp::Any visitPreIncrement(CodeGenVisitor* visitor, ifccParser::PreIncrementContext *ctx) {
+    auto* bb = visitor->getCFG()->current_bb;
+    string var = ctx->VAR()->getText();
+    IRType varType = bb->get_var_type(var);
+    StackParam one = one_of_type(visitor, varType);
+    return apply_compound<AddInstr>(visitor, var, one);
+}
+
+antlrcpp::Any visitPreDecrement(CodeGenVisitor* visitor, ifccParser::PreDecrementContext *ctx) {
+    auto* bb = visitor->getCFG()->current_bb;
+    string var = ctx->VAR()->getText();
+    IRType varType = bb->get_var_type(var);
+    StackParam one = one_of_type(visitor, varType);
+    return apply_compound<SubInstr>(visitor, var, one);
+}
+
+antlrcpp::Any visitPostIncrement(CodeGenVisitor* visitor, ifccParser::PostIncrementContext *ctx) {
+    auto* bb = visitor->getCFG()->current_bb;
+    string var = ctx->VAR()->getText();
+    IRType varType = bb->get_var_type(var);
+
+    StackParam oldValue = load_var_value(visitor, var, varType);
+    StackParam one = one_of_type(visitor, varType);
+    apply_compound<AddInstr>(visitor, var, one);
+    return oldValue;
+}
+
+antlrcpp::Any visitPostDecrement(CodeGenVisitor* visitor, ifccParser::PostDecrementContext *ctx) {
+    auto* bb = visitor->getCFG()->current_bb;
+    string var = ctx->VAR()->getText();
+    IRType varType = bb->get_var_type(var);
+
+    StackParam oldValue = load_var_value(visitor, var, varType);
+    StackParam one = one_of_type(visitor, varType);
+    apply_compound<SubInstr>(visitor, var, one);
+    return oldValue;
 }
 
 

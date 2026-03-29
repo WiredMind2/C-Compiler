@@ -45,6 +45,8 @@ sequential : compoundAssignment # sequentialExprRef
 
 compoundAssignment : logicalOR # compoundAssignmentRef
     | VAR '=' compoundAssignment # Assignment
+    | VAR '+=' compoundAssignment # AddAssignment
+    | VAR '-=' compoundAssignment # SubAssignment
     ;
 
 logicalOR : logicalAND # logicalORRef
@@ -93,7 +95,11 @@ multiplicative
     ;
 
 unary
-    : '-' primitive              # unaryMinus
+    : '++' VAR                   # preIncrement
+    | '--' VAR                   # preDecrement
+    | VAR '++'                   # postIncrement
+    | VAR '--'                   # postDecrement
+    | '-' primitive              # unaryMinus
     | '+' primitive              # unaryPlus
     | '!' primitive              # unaryNot
     | primitive                  # primitiveExprRef

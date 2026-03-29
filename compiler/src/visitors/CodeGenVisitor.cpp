@@ -85,6 +85,30 @@ antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx
     return ::visitAssignment(this, ctx);
 }
 
+antlrcpp::Any CodeGenVisitor::visitAddAssignment(ifccParser::AddAssignmentContext *ctx) {
+    return ::visitAddAssignment(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitSubAssignment(ifccParser::SubAssignmentContext *ctx) {
+    return ::visitSubAssignment(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPreIncrement(ifccParser::PreIncrementContext *ctx) {
+    return ::visitPreIncrement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPreDecrement(ifccParser::PreDecrementContext *ctx) {
+    return ::visitPreDecrement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPostIncrement(ifccParser::PostIncrementContext *ctx) {
+    return ::visitPostIncrement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPostDecrement(ifccParser::PostDecrementContext *ctx) {
+    return ::visitPostDecrement(this, ctx);
+}
+
 // Arithmetic expression handlers
 antlrcpp::Any CodeGenVisitor::visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx)
 {
