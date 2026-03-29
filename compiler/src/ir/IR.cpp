@@ -93,21 +93,19 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
 // ============================================================
 
 void BasicBlock::add_var_to_symbol_table(string name, IRType t) {
-    // Allow duplicate temp variables (they're local to each BB's computation)
-    // Temp variables start with "!tmp"
+    BasicBlock* target = (cfg && cfg->decl_target_bb) ? cfg->decl_target_bb : this;
+
     if (name.substr(0, 4) != "!tmp") {
-        if (cfg->findBBByVariable(name) != nullptr) {
+        if (target->SymbolIndex.find(name) != target->SymbolIndex.end()) {
             cerr << "Error: Variable " << name
-                 << " already defined in a former or current scope." << endl;
+                 << " already defined in the current scope." << endl;
             exit(1);
         }
     }
-    // Allocate at least 4 bytes per variable to keep the stack aligned.
-    // Small types like char (1 byte) are padded to 4; larger types keep their natural size.
     int size = irtype_size(t);
     int alloc = (size < 4) ? 4 : size;
-    SymbolType[name] = t;
-    SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
+    target->SymbolType[name] = t;
+    target->SymbolIndex[name] = cfg->getNextFreeSymbolIndex();
     cfg->setNextFreeSymbolIndex(cfg->getNextFreeSymbolIndex() - alloc);
 }
 
@@ -118,59 +116,88 @@ string BasicBlock::create_new_tempvar(IRType t) {
 }
 
 int BasicBlock::get_var_index(string name) {
-    // First check the current BB's symbol table
-    if (SymbolIndex.find(name) != SymbolIndex.end()) {
+    // 1. Check this BB's own declarations first.
+    if (SymbolIndex.find(name) != SymbolIndex.end())
         return SymbolIndex[name];
-    }
-    // Then check the scope stack (parent scopes)
+
+    // 2. Check the alias cache — populated on first resolution at IR-gen time
+    //    so that asm-gen (when the scope stack is empty) finds the right slot.
+    if (aliasIndex.find(name) != aliasIndex.end())
+        return aliasIndex[name];
+
+    // 3. Search the scope stack innermost-first so inner scopes shadow outer ones.
     if (cfg) {
-        for (auto bb : cfg->getStackBBs()) {
+        auto& stack = cfg->getStackBBs();
+        for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
+            auto* bb = *it;
             if (bb != this && bb->get_var_index_or_none(name) != INT_MIN) {
-                return bb->get_var_index_or_none(name);
+                int idx = bb->get_var_index_or_none(name);
+                // Cache so asm-gen time works without the scope stack.
+                aliasIndex[name] = idx;
+                aliasType[name]  = bb->SymbolType.at(name);
+                return idx;
             }
         }
-        // Also check BBs in the current function
-        string funcName = functionName; if (funcName.empty() && !cfg->getCurrentFunction().empty()) funcName = cfg->getCurrentFunction(); if (!funcName.empty()) {
+        // Fallback: scan all BBs of the current function (catches params declared
+        // before any scope push).
+        string funcName = functionName;
+        if (funcName.empty()) funcName = cfg->getCurrentFunction();
+        if (!funcName.empty()) {
             auto* sig = cfg->get_function(funcName);
             if (sig) {
                 for (auto bb : sig->bbs) {
                     if (bb != this && bb->get_var_index_or_none(name) != INT_MIN) {
-                        return bb->get_var_index_or_none(name);
+                        int idx = bb->get_var_index_or_none(name);
+                        aliasIndex[name] = idx;
+                        aliasType[name]  = bb->SymbolType.at(name);
+                        return idx;
                     }
                 }
             }
         }
     }
-    // If not found, print error and exit
     cerr << "Error: Symbol " << name << " not found in symbol table." << endl;
     exit(1);
 }
 
 IRType BasicBlock::get_var_type(string name) {
-    // First check the current BB's symbol table
-    if (SymbolType.find(name) != SymbolType.end()) {
+    // 1. Check this BB's own declarations first.
+    if (SymbolType.find(name) != SymbolType.end())
         return SymbolType[name];
-    }
-    // Then check the scope stack (parent scopes)
+
+    // 2. Check the alias cache.
+    if (aliasType.find(name) != aliasType.end())
+        return aliasType[name];
+
+    // 3. Search the scope stack innermost-first.
     if (cfg) {
-        for (auto bb : cfg->getStackBBs()) {
+        auto& stack = cfg->getStackBBs();
+        for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
+            auto* bb = *it;
             if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
-                return bb->SymbolType[name];
+                IRType t = bb->SymbolType.at(name);
+                aliasType[name]  = t;
+                aliasIndex[name] = bb->SymbolIndex.at(name);
+                return t;
             }
         }
-        // Also check BBs in the current function
-        string funcName = functionName; if (funcName.empty() && !cfg->getCurrentFunction().empty()) funcName = cfg->getCurrentFunction(); if (!funcName.empty()) {
+        // Fallback: scan all BBs of the current function.
+        string funcName = functionName;
+        if (funcName.empty()) funcName = cfg->getCurrentFunction();
+        if (!funcName.empty()) {
             auto* sig = cfg->get_function(funcName);
             if (sig) {
                 for (auto bb : sig->bbs) {
                     if (bb != this && bb->SymbolType.find(name) != bb->SymbolType.end()) {
-                        return bb->SymbolType[name];
+                        IRType t = bb->SymbolType.at(name);
+                        aliasType[name]  = t;
+                        aliasIndex[name] = bb->SymbolIndex.at(name);
+                        return t;
                     }
                 }
             }
         }
     }
-    // If not found, print error and exit
     cerr << "Error: Symbol " << name << " not found in symbol table (type lookup)." << endl;
     exit(1);
 }
@@ -275,12 +302,16 @@ int CFG::calculateRequiredStackSpace(const string& funcName) {
 }
 
 BasicBlock* CFG::findBBByVariable(const string& var) {
-    // First search in the scope stack
-    for (auto bb : getStackBBs())
-        if (bb->get_var_index_or_none(var) != INT_MIN) return bb;
+    // Search innermost-first so inner scopes properly shadow outer ones.
+    auto& stack = getStackBBs();
+    for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+        if ((*it)->get_var_index_or_none(var) != INT_MIN) return *it;
 
-    // Then search in the current function's BBs
-    string funcName = (current_bb && !current_bb->functionName.empty()) ? current_bb->functionName : currentFunctionName; if (funcName.empty()) funcName = currentFunctionName; if (!funcName.empty()) {
+    // Fallback: scan all BBs of the current function (catches params / pre-scope BBs)
+    string funcName = (current_bb && !current_bb->functionName.empty())
+                          ? current_bb->functionName
+                          : currentFunctionName;
+    if (!funcName.empty()) {
         FunctionSignature* sig = get_function(funcName);
         if (sig) {
             for (auto bb : sig->bbs)
@@ -313,10 +344,16 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     // Set current function name FIRST
     currentFunctionName = name;
 
-    add_function(name, returnType, paramTypes, paramNames);
-
-    // Get the function signature we just created
     FunctionSignature* sig = get_function(name);
+    if (sig == nullptr) {
+        add_function(name, returnType, paramTypes, paramNames);
+        sig = get_function(name);
+    } else {
+        // Definition is authoritative over prior declaration/pre-scan entry.
+        sig->returnType = returnType;
+        sig->paramTypes = paramTypes;
+        sig->paramNames = paramNames;
+    }
 
     BasicBlock* entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();

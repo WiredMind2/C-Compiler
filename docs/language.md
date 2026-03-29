@@ -7,8 +7,10 @@ This document describes the C language subset supported by the ifcc compiler.
 | Type | Description |
 |------|-------------|
 | `int` | 32-bit signed integer |
+| `double` | 64-bit floating-point (double) |
+| `char` | 8-bit integer (character) |
 
-Currently, only the `int` type is supported for variables, constants, and function return values.
+Currently, `char` is not supported as function return (not tested).
 
 ## Variables
 
@@ -37,13 +39,13 @@ y = x * 2;
 
 ## Arithmetic Operators
 
-| Operator | Description | Example |
-|----------|-------------|---------|
-| `+` | Addition | `x + y` |
-| `-` | Subtraction | `x - y` |
-| `*` | Multiplication | `x * y` |
-| `/` | Division (integer) | `x / y` |
-| `%` | Modulo (remainder) | `x % y` |
+| Operator | Description |
+|----------|-------------|
+| `+` | Addition |
+| `-` | Subtraction |
+| `*` | Multiplication |
+| `/` | Division (integer) |
+| `%` | Modulo (remainder) |
 
 ### Precedence
 
@@ -73,11 +75,11 @@ int b = (x + y) * 2;  // 26
 
 ## Unary Operators
 
-| Operator | Description | Example |
-|----------|-------------|---------|
-| `-` | Negation | `-x` |
-| `+` | Unary plus | `+x` |
-| `!` | Logical NOT | `!x` |
+| Operator | Description |
+|----------|-------------|
+| `-` | Negation |
+| `+` | Unary plus |
+| `!` | Logical NOT |
 
 - `-x` returns the negation of x
 - `!x` returns 1 if x is 0, otherwise 0
@@ -94,7 +96,6 @@ Comparisons return 1 (true) or 0 (false).
 ```c
 int a = 5 == 5;  // 1
 int b = 5 != 5;  // 0
-int c = 3 < 4;   // 1 (via subtraction)
 ```
 
 ## Bitwise Operators
@@ -178,7 +179,8 @@ int result = foo(1, 2);
 return expression;
 ```
 
-The return value must be an `int` expression.
+The return value can be `int`, `double`.
+Empty return in `void` function is supported.
 
 ## Comments
 
@@ -216,62 +218,8 @@ int main() {
 }
 ```
 
-## Example Programs
-
-### Simple Return
-
-```c
-int main() {
-    return 42;
-}
-```
-
-### Arithmetic
-
-```c
-int main() {
-    int x = 6;
-    int y = 7;
-    return x * y;
-}
-```
-
-### Variables and Control Flow
-
-```c
-int main() {
-    int x = 0;
-    int i = 0;
-    while (i < 10) {
-        x = x + i;
-        i = i + 1;
-    }
-    return x;
-}
-```
-
-### If/Else
-
-```c
-int main() {
-    int x = 5;
-    if (x > 3) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-```
-
 ## Limitations
 
-- Only `int` type is supported
-- No arrays
-- No structures/unions
-- No pointers
-- No standard library functions (must be provided externally)
-- No floating-point arithmetic
-- No `++` or `--` operators
-- No compound assignment operators (`+=`, etc.)
-- Only `==` and `!=` comparisons (no `<`, `>`, `<=`, `>=`)
-- Only `&` and `^` bitwise operators (no `|`, `~`, `<<`, `>>`)
+- Supported types: `int`, `double`, `char`, no `float` or unsigned types.
+- No standard library functions provided by the compiler (link externally)
+- No bit-shift operators (`<<`, `>>`)

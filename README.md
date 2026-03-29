@@ -9,83 +9,56 @@
 - Léo MARNAS
 - William MICHAUD
 
-Compiler built with **ANTLR4** and **C++17**.
-Supports x86-64 (Linux/WSL) and ARM64 (macOS).
+Compiler built with **ANTLR4** and **C++20**.
 
-## What it compiles
+## Supported Platforms
 
-A subset of C: `int` variables, arithmetic, comparisons, bitwise operations, and `return`.
+- **x86-64**: Linux, WSL (Windows Subsystem for Linux)
+- **ARM64**: macOS with Apple Silicon
 
-**Supported language features:**
+## Installation
 
-| Feature | Syntax |
-|---------|--------|
-| Variable declaration | `int x;` / `int x, y;` |
-| Declaration + init | `int x = expr;` |
-| Assignment | `x = expr;` |
-| Arithmetic | `+`, `-`, `*`, `/`, `%` |
-| Unary operators | `-x`, `+x`, `!x` |
-| Comparisons | `==`, `!=` |
-| Bitwise | `&`, `^` |
-| Parentheses | `(expr)` |
-| Return | `return expr;` |
-| Comments | `/* ... */` |
-| Preprocessor directives | `#include`, `#define` (skipped) |
+For ANTLR installation and setup, see [ANTLR installation](docs/antlr4-installation.md).
+Once you have ANTLR installed and `compiler/config.mk` configured, you can build ifcc.
 
-```c
-int main() {
-    int x = 6;
-    int y = 7;
-    return x * y; // returns 42
-}
-```
+## Build
 
-**Key components:**
-
-- `ifcc.g4` — ANTLR4 grammar defining the language
-- `CodeGenVisitor` — Generates IR from the AST
-- `IR` (`CFG`, `BasicBlock`, `IRInstr`) — intermediate representation with 3-address instructions
-- `AsmGenerator` — architecture-specific assembly backend (x86-64 / ARM64)
-
-## Dependencies
-
-- **ANTLR4** runtime (jar + C++ runtime headers/library)
-- **C++17** compatible compiler (`g++` or `clang++`)
-- **Python 3** (for the test runner)
-- **gcc** (for assembling and linking the output)
-
-## Setup
-
-1. Copy a config template in `compiler/`:
+Quick start:
 
 ```bash
-cd compiler
-cp config-wsl-2025.mk config.mk    # WSL / Linux
-# cp config-IF501.mk config.mk     # INSA lab machines
-# cp config-macos.mk config.mk     # macOS / Apple Silicon
+cd compiler && make   # generate the binary compiler/ifcc
 ```
 
-2. Edit `config.mk` to set the correct paths for `ANTLRJAR`, `ANTLRINC`, `ANTLRLIB`.
-
-3. Build:
+If you want to compile and run all the tests at once, just run:
 
 ```bash
-make
+make    # from root directory!
 ```
+
+For more in-depth on the building process/targets/options, see [build documentation](docs/build.md).
 
 ## Usage
 
 ```bash
-./compiler/ifcc ./testfiles/00_base/00_return_42.c > 00_return_42.s   # compile to assembly
-gcc -o 00_return_42 00_return_42.s                                    # assemble + link
-./00_return_42; echo $?                                               # run and print return code
+# Compile a C file to assembly
+./compiler/ifcc input.c > output.s
+
+# Assemble and link
+gcc -o program output.s
+
+# Run and check return code
+./program; echo $?
 ```
 
-## Tests
+## Documentation
 
-```bash
-make test-all     # run all tests (compares ifcc vs gcc) except for one test that requires user input (getchar)
-make test-01      # run only the test suite 01
-make test-x86-01  # run only the test suite 01 with x86-64 target architecture
-```
+You will find in the `docs/` folder the following files:
+
+| Document                                          | Description |
+|---------------------------------------------------|-------------|
+| [Installation Guide](docs/antlr4-installation.md) | How to install ANTLR4 on Ubuntu/WSL |
+| [Build Instructions](docs/build.md)                    | Detailed build configuration and troubleshooting |
+| [Language Reference](docs/language.md)                 | Supported C language features and syntax |
+| [Architecture](docs/architecture.md)                   | Compiler design and internal components |
+| [Testing](docs/testing.md)                             | Test framework and running tests |
 

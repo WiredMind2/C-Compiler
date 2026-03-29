@@ -1,26 +1,228 @@
 #include "CodeGenVisitor.h"
 #include "CodeGenArithmetic.h"
 #include "../ir/IRInstr.h"
+#include <limits>
+
+namespace {
+// Simple tokenizer and recursive-descent evaluator for case label expression text.
+// Accepts integers, character literals, parentheses, and operators + - * / %.
+// Rejects identifiers, floating-point literals and function calls.
+
+struct Token {
+    enum Type {NUM, CHAR, PLUS, MINUS, MUL, DIV, MOD, LPAREN, RPAREN, END} type;
+    int64_t value;
+};
+
+static int64_t parse_char_literal_text(const std::string &s, size_t &i) {
+    // s[i] should be '\''
+    if (s[i] != '\'') throw std::runtime_error("invalid char literal");
+    i++; // skip '
+    if (i >= s.size()) throw std::runtime_error("unterminated char literal");
+    int64_t v;
+    if (s[i] == '\\') {
+        i++;
+        if (i >= s.size()) throw std::runtime_error("unterminated escape in char literal");
+        char esc = s[i++];
+        switch (esc) {
+            case 'n': v = '\n'; break;
+            case 't': v = '\t'; break;
+            case 'r': v = '\r'; break;
+            case '\\': v = '\\'; break;
+            case '\'': v = '\''; break;
+            case '0': v = '\0'; break;
+            default: throw std::runtime_error("unsupported escape in char literal");
+        }
+    } else {
+        v = static_cast<unsigned char>(s[i++]);
+    }
+    if (i >= s.size() || s[i] != '\'') throw std::runtime_error("unterminated char literal");
+    i++; // closing '
+    return v;
+}
+
+static std::vector<Token> tokenize_case_text(const std::string &s) {
+    std::vector<Token> out;
+    size_t i = 0, n = s.size();
+    while (i < n) {
+        char c = s[i];
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { i++; continue; }
+        if (c == '+') { out.push_back({Token::PLUS, 0}); i++; continue; }
+        if (c == '-') { out.push_back({Token::MINUS, 0}); i++; continue; }
+        if (c == '*') { out.push_back({Token::MUL, 0}); i++; continue; }
+        if (c == '/') { out.push_back({Token::DIV, 0}); i++; continue; }
+        if (c == '%') { out.push_back({Token::MOD, 0}); i++; continue; }
+        if (c == '(') { out.push_back({Token::LPAREN, 0}); i++; continue; }
+        if (c == ')') { out.push_back({Token::RPAREN, 0}); i++; continue; }
+        if (c == '\'') {
+            int64_t val = parse_char_literal_text(s, i);
+            out.push_back({Token::CHAR, val});
+            continue;
+        }
+        if ((c >= '0' && c <= '9')) {
+            size_t j = i;
+            while (j < n && isdigit((unsigned char)s[j])) j++;
+            std::string num = s.substr(i, j - i);
+            // reject floating point literals
+            if (j < n && s[j] == '.') throw std::runtime_error("floating constant not allowed in case label");
+            int64_t v = std::stoll(num);
+            out.push_back({Token::NUM, v});
+            i = j;
+            continue;
+        }
+        // identifiers or other characters (like letters) are not allowed in constant case labels
+        throw std::runtime_error("non-constant expression in case label");
+    }
+    out.push_back({Token::END, 0});
+    return out;
+}
+
+struct Parser {
+    const std::vector<Token> &toks;
+    size_t pos;
+    Parser(const std::vector<Token> &v) : toks(v), pos(0) {}
+
+    Token peek() const { return toks[pos]; }
+    Token consume() { return toks[pos++]; }
+
+    int64_t parsePrimary() {
+        Token tk = peek();
+        if (tk.type == Token::NUM) { consume(); return tk.value; }
+        if (tk.type == Token::CHAR) { consume(); return tk.value; }
+        if (tk.type == Token::LPAREN) {
+            consume(); int64_t v = parseAdd();
+            if (peek().type != Token::RPAREN) throw std::runtime_error("missing closing parenthesis in case label");
+            consume();
+            return v;
+        }
+        throw std::runtime_error("invalid primary in case label");
+    }
+
+    int64_t parseUnary() {
+        Token tk = peek();
+        if (tk.type == Token::PLUS) { consume(); return parseUnary(); }
+        if (tk.type == Token::MINUS) { consume(); return -parseUnary(); }
+        return parsePrimary();
+    }
+
+    int64_t parseMul() {
+        int64_t lhs = parseUnary();
+        while (true) {
+            Token tk = peek();
+            if (tk.type == Token::MUL) { consume(); int64_t rhs = parseUnary(); lhs *= rhs; }
+            else if (tk.type == Token::DIV) { consume(); int64_t rhs = parseUnary(); if (rhs == 0) throw std::runtime_error("division by zero in case label"); lhs /= rhs; }
+            else if (tk.type == Token::MOD) { consume(); int64_t rhs = parseUnary(); if (rhs == 0) throw std::runtime_error("modulo by zero in case label"); lhs %= rhs; }
+            else break;
+        }
+        return lhs;
+    }
+
+    int64_t parseAdd() {
+        int64_t lhs = parseMul();
+        while (true) {
+            Token tk = peek();
+            if (tk.type == Token::PLUS) { consume(); int64_t rhs = parseMul(); lhs += rhs; }
+            else if (tk.type == Token::MINUS) { consume(); int64_t rhs = parseMul(); lhs -= rhs; }
+            else break;
+        }
+        return lhs;
+    }
+};
+
+static int64_t eval_case_from_text(const std::string &text) {
+    auto toks = tokenize_case_text(text);
+    Parser p(toks);
+    int64_t v = p.parseAdd();
+    if (p.peek().type != Token::END) throw std::runtime_error("trailing tokens in case label");
+    return v;
+}
+
+bool fits_switch_type(IRType t, int64_t value) {
+    switch (t) {
+        case IRType::INT8:
+            return value >= std::numeric_limits<int8_t>::min() && value <= std::numeric_limits<int8_t>::max();
+        case IRType::INT32:
+            return value >= std::numeric_limits<int32_t>::min() && value <= std::numeric_limits<int32_t>::max();
+        case IRType::INT64:
+            return true;
+        default:
+            return false;
+    }
+}
+}
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {
+    // First pass: pre-register top-level function signatures so forward calls resolve.
+    // C does not work that way. Declaration-in-call is not authorized.
+    // for (auto stmt : ctx->statement()) {
+    //     if (auto* def = stmt->function_definition()) {
+    //         std::string func_name = def->VAR()->getText();
+    //         if (cfg->get_function(func_name) != nullptr) {
+    //             continue;
+    //         }
+    //
+    //         IRType return_type = irtype_from_string(def->type_specifier()->getText());
+    //         std::vector<IRType> paramTypes;
+    //         std::vector<std::string> paramNames;
+    //         if (def->param_list()) {
+    //             for (auto param : def->param_list()->param()) {
+    //                 paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
+    //                 paramNames.push_back(param->VAR()->getText());
+    //             }
+    //         }
+    //         cfg->add_function(func_name, return_type, paramTypes, paramNames);
+    //     } else if (auto* decl = stmt->function_declaration()) {
+    //         std::string func_name = decl->VAR()->getText();
+    //         if (cfg->get_function(func_name) != nullptr) {
+    //             continue;
+    //         }
+    //
+    //         IRType return_type = irtype_from_string(decl->type_specifier()->getText());
+    //         std::vector<IRType> paramTypes;
+    //         std::vector<std::string> paramNames;
+    //         if (decl->param_list()) {
+    //             for (auto param : decl->param_list()->param()) {
+    //                 paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
+    //                 paramNames.push_back(param->VAR()->getText());
+    //             }
+    //         }
+    //         cfg->add_function(func_name, return_type, paramTypes, paramNames);
+    //     }
+    // }
+
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
-    std::cerr << "BBs: " << cfg->getBBs().size() << std::endl; for(auto bb : cfg->getBBs()) { std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl; } return "0";
+
+    CFG::FunctionSignature* mainSig = cfg->get_function("main");
+    if (mainSig == nullptr || mainSig->entryBB == nullptr) {
+        std::cerr << "error: 'main' function not defined" << std::endl;
+        exit(1);
+    }
+
+    // std::cerr << "BBs: " << cfg->getBBs().size() << std::endl;
+    // for(auto bb : cfg->getBBs()) {
+    //     std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl;
+    // }
+
+    return "0";
 }
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
     auto* bb = cfg->current_bb;
+    const string current_function_name = cfg->getCurrentFunction();
+    CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
+    const IRType current_function_return_type = current_function_signature->returnType;
 
     // when returning something, as opposed to "return ;"
     if (ctx->expr() != nullptr) {
         StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
-        const string current_function_name = cfg->getCurrentFunction();
-        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
-        const IRType current_function_return_type = current_function_signature->returnType;
+        if (current_function_return_type == IRType::VOID) {
+            std::cerr << "Cannot return a value from a void function" << std::endl;
+            exit(1);
+        }
 
         if (var.type != current_function_return_type) {
             bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
@@ -29,14 +231,10 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         } else {
             bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
         }
-        bb->add_IRInstr(new RetInstr(bb, var.type));
+        bb->add_IRInstr(new RetInstr(bb, current_function_return_type));
     }
     // empty return
     else {
-        const string current_function_name = cfg->getCurrentFunction();
-        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
-        const IRType current_function_return_type = current_function_signature->returnType;
-
         if (current_function_return_type != IRType::VOID) {
             std::cerr << "Cannot return no value for a non void returning function" << std::endl;
             exit(1);
@@ -295,13 +493,42 @@ antlrcpp::Any CodeGenVisitor::visitFunction_call(ifccParser::Function_callContex
 // Scope handler - handles any { ... } block
 antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
 {
-    // Visit all statements in the scope
+    CFG* cfg = this->cfg;
+    BasicBlock* preBB = cfg->current_bb;
+
+    BasicBlock* scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
+    scopeBB->functionName = preBB->functionName;
+    cfg->add_bb(scopeBB);
+
+    preBB->exit_true = scopeBB;
+
+    cfg->current_bb = scopeBB;
+    cfg->getStackBBs().push_back(scopeBB);
+
+    // Si on est dans un switch (decl_target_bb actif), un scope explicite { }
+    // crée son propre scope indépendant : on suspend decl_target_bb le temps de ce bloc et on le restaure en sortant.
+    BasicBlock* savedDeclTarget = cfg->decl_target_bb;
+    cfg->decl_target_bb = nullptr;
+
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
-        // If the statement was a return, we should ideally stop visiting,
-        // but for now we follow the same logic as before.
-        // The issue is that visitCondition/visitWhile_loop also need to know.
     }
+
+    cfg->decl_target_bb = savedDeclTarget;
+    cfg->getStackBBs().pop_back();
+
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    afterBB->functionName = preBB->functionName;
+    cfg->add_bb(afterBB);
+
+    BasicBlock* lastBB = cfg->current_bb;
+    if (lastBB->exit_true == nullptr &&
+        (lastBB->instrs.empty() ||
+         dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+        lastBB->exit_true = afterBB;
+         }
+
+    cfg->current_bb = afterBB;
     return 0;
 }
 
@@ -576,22 +803,24 @@ antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx
 {
     (void)ctx;
 
-    // Find nearest enclosing loop block and jump to its break target.
+    // Find nearest enclosing loop OR switch block and jump to its break target.
     BasicBlock* currentBB = cfg->current_bb;
     BasicBlock* targetBB = nullptr;
     std::vector<BasicBlock*> bbStack = cfg->getStackBBs();
     for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
         BasicBlock* bb = *it;
-        if (bb->is_loop) {
+        if (bb->loop_break_target != nullptr) {
             targetBB = bb->loop_break_target;
             break;
         }
     }
 
     if (targetBB) {
-        currentBB->exit_true = targetBB;
+        currentBB->exit_true  = targetBB;
+        currentBB->exit_false = nullptr;
+        currentBB->test_var_name = "";
     } else {
-        std::cerr << "Error: 'break' statement not within a loop." << std::endl;
+        std::cerr << "Error: 'break' statement not within a loop or switch." << std::endl;
         exit(1);
     }
     return nullptr;
@@ -620,4 +849,138 @@ antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContex
         exit(1);
     }
     return nullptr;
+}
+
+antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) {
+    CFG* cfg = this->cfg;
+    StackParam switchExpr = std::any_cast<StackParam>(this->visit(ctx->expr()));
+
+    if (switchExpr.type != IRType::INT8 && switchExpr.type != IRType::INT32 && switchExpr.type != IRType::INT64) {
+        std::cerr << "Error: switch expression must be of integer type." << std::endl;
+        exit(1);
+    }
+
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    cfg->add_bb(afterBB);
+
+    int nCases = static_cast<int>(ctx->case_block().size());
+    bool hasDefault = (ctx->default_block() != nullptr);
+
+    std::vector<int64_t> caseValues;
+    for (auto caseBlockCtx : ctx->case_block()) {
+        int64_t caseValue;
+        try {
+            caseValue = eval_case_from_text(caseBlockCtx->expr()->getText());
+        } catch (const std::exception& e) {
+            std::cerr << "Error: invalid case label expression: " << e.what() << std::endl;
+            exit(1);
+        }
+
+        if (!fits_switch_type(switchExpr.type, caseValue)) {
+            std::cerr << "Error: case value " << caseValue << " is not compatible with switch expression type." << std::endl;
+            exit(1);
+        }
+
+        if (std::find(caseValues.begin(), caseValues.end(), caseValue) != caseValues.end()) {
+            std::cerr << "Error: duplicate case value " << caseValue
+                      << " in switch statement." << std::endl;
+            exit(1);
+        }
+        caseValues.push_back(caseValue);
+    }
+
+    BasicBlock* scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
+    scopeBB->functionName = cfg->current_bb->functionName;
+    scopeBB->loop_break_target = afterBB;
+    cfg->add_bb(scopeBB);
+
+    std::vector<BasicBlock*> caseBBs;
+    for (int i = 0; i < nCases; i++) {
+        BasicBlock* bb = new BasicBlock(cfg, cfg->new_BB_name());
+        bb->functionName = scopeBB->functionName;
+        cfg->add_bb(bb);
+        caseBBs.push_back(bb);
+    }
+
+    BasicBlock* defaultBB = nullptr;
+    if (hasDefault) {
+        defaultBB = new BasicBlock(cfg, cfg->new_BB_name());
+        defaultBB->functionName = scopeBB->functionName;
+        cfg->add_bb(defaultBB);
+    }
+
+    BasicBlock* dispatchBB = cfg->current_bb;
+
+    for (int i = 0; i < nCases; i++) {
+        dispatchBB->add_IRInstr(
+            new LdConstInstr(dispatchBB, Reg::W1, switchExpr.type,
+                             static_cast<int64_t>(caseValues[i])));
+        dispatchBB->add_IRInstr(
+            new LoadStackInstr(dispatchBB, Reg::W0, switchExpr.name, switchExpr.type));
+        dispatchBB->add_IRInstr(
+            new CmpEqInstr(dispatchBB, Reg::W0, Reg::W0, Reg::W1, switchExpr.type));
+
+        std::string cmpTmp = dispatchBB->create_new_tempvar(IRType::INT32);
+        dispatchBB->add_IRInstr(
+            new StoreStackInstr(dispatchBB, cmpTmp, Reg::W0, IRType::INT32));
+
+        dispatchBB->test_var_name = cmpTmp;
+        dispatchBB->exit_true     = caseBBs[i];
+
+        if (i < nCases - 1) {
+            BasicBlock* nextDispatch = new BasicBlock(cfg, cfg->new_BB_name());
+            cfg->add_bb(nextDispatch);
+            dispatchBB->exit_false = nextDispatch;
+            dispatchBB = nextDispatch;
+        } else {
+            dispatchBB->exit_false = defaultBB ? defaultBB : afterBB;
+        }
+    }
+
+    if (nCases == 0) {
+        dispatchBB->exit_true  = defaultBB ? defaultBB : afterBB;
+        dispatchBB->exit_false = nullptr;
+    }
+
+    cfg->getStackBBs().push_back(scopeBB);
+    cfg->decl_target_bb = scopeBB;
+
+    for (int i = 0; i < nCases; i++) {
+        BasicBlock* fallThrough = (i + 1 < nCases) ? caseBBs[i + 1]
+                                : (hasDefault       ? defaultBB
+                                                    : afterBB);
+        cfg->current_bb = caseBBs[i];
+
+        for (auto stmt : ctx->case_block(i)->statement()) {
+            this->visit(stmt);
+        }
+
+        BasicBlock* lastBB = cfg->current_bb;
+        if (lastBB->exit_true == nullptr &&
+            (lastBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+            lastBB->exit_true = fallThrough;
+             }
+    }
+
+    if (hasDefault) {
+        cfg->current_bb = defaultBB;
+
+        for (auto stmt : ctx->default_block()->statement()) {
+            this->visit(stmt);
+        }
+
+        BasicBlock* lastBB = cfg->current_bb;
+        if (lastBB->exit_true == nullptr &&
+            (lastBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+            lastBB->exit_true = afterBB;
+             }
+    }
+
+    cfg->decl_target_bb = nullptr;
+    cfg->getStackBBs().pop_back();
+
+    cfg->current_bb = afterBB;
+    return 0;
 }

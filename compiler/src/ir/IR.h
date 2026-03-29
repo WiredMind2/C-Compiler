@@ -129,6 +129,10 @@ public:
 protected:
     map<string, IRType>  SymbolType;
     map<string, int>     SymbolIndex;
+    // Resolved outer-scope references cached at IR-gen time so that asm-gen
+    // (when the scope stack is gone) still finds the correct stack slot.
+    map<string, int>     aliasIndex;
+    map<string, IRType>  aliasType;
 
     // Return the desired operation type from the types of the operands
     // e.g. FLOAT32 + INT32 returns FLOAT32
@@ -164,6 +168,7 @@ public:
     vector<BasicBlock*>& getStackBBs() { return bbStack; }
 
     BasicBlock* current_bb;
+    BasicBlock* decl_target_bb = nullptr;
 
     struct FunctionSignature {
         string           name, label;

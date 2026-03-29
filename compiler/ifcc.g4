@@ -11,6 +11,7 @@ statement : ((expr | return_stmt ) ';')
     | condition
     | while_loop
     | for_loop
+    | switch_stmt
     | break_stmt
     | continue_stmt
     | declaration
@@ -32,6 +33,9 @@ condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
+case_block : 'case' expr ':' (statement* | scope) ;
+default_block : 'default' ':' (statement* | scope) ;
 break_stmt : 'break' ';' ;
 continue_stmt : 'continue' ';' ;
 
@@ -58,7 +62,7 @@ logicalAND : bitwiseOR # logicalANDRef
     ;
 
 bitwiseOR : bitwiseXOR         # bitwiseORRef
-    | bitwiseOR '^' bitwiseXOR # bitwiseORRule
+    | bitwiseOR '|' bitwiseXOR # bitwiseORRule
     ;
 
 bitwiseXOR : bitwiseAND         # bitwiseXORRef
