@@ -227,7 +227,6 @@ void AsmGeneratorX86_64::LoadStackInstrINT8(ostream& o, string src, string dest)
 void AsmGeneratorX86_64::LoadStackInstrINT32(ostream& o, string src, string dest) {
     o << "    movl " << var_to_asm(src) << ", " << dest << "\n";
 }
-
 void AsmGeneratorX86_64::LoadStackInstrFLOAT64(ostream& o, string src, string dest) {
     o << "    movsd " << var_to_asm(src) << ", " << dest << "\n";
 }

@@ -13,6 +13,8 @@
 #include "CodeGenLogical.h"
 #include <map>
 #include <string>
+#include <algorithm>
+
 
 // Other function are declared in the visitors/ folder
 
@@ -103,6 +105,7 @@ public:
     virtual antlrcpp::Any visitFor_loop(ifccParser::For_loopContext *ctx) override;
     virtual antlrcpp::Any visitBreak_stmt(ifccParser::Break_stmtContext *ctx) override;
     virtual antlrcpp::Any visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) override;
+    virtual antlrcpp::Any visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) override;
 
     CFG *getCFG() { return cfg; }
 
