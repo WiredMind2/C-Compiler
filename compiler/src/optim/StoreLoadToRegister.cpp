@@ -48,6 +48,12 @@ bool StoreLoadToRegisterPass::tryOptimizeStoreLoad(BasicBlock* bb, size_t storeI
     const std::string slot = store->dest.name;
     const IRType storeType = store->type;
 
+    // Pointer-valued slots often carry live addresses used by later indirect stores.
+    // Rewriting them to cached work registers is unsafe with current register pressure model.
+    if (storeType == IRType::POINTER) {
+        return false;
+    }
+
     const int loadIdx = findLoadAfterStore(bb, storeIdx + 1, slot);
     if (loadIdx < 0) return false;
 
@@ -63,6 +69,9 @@ bool StoreLoadToRegisterPass::tryOptimizeStoreLoad(BasicBlock* bb, size_t storeI
     }
 
     if (hasCallBetween(bb, storeIdx, static_cast<size_t>(lastLoadIdx))) {
+        return false;
+    }
+    if (hasPointerAliasRiskBetween(bb, storeIdx, static_cast<size_t>(lastLoadIdx), slot)) {
         return false;
     }
 
@@ -129,6 +138,23 @@ int StoreLoadToRegisterPass::findLastLoadAfterStore(BasicBlock* bb, size_t start
 bool StoreLoadToRegisterPass::hasCallBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx) {
     for (size_t i = fromIdx + 1; i < toIdx; ++i) {
         if (dynamic_cast<CallInstr*>(bb->instrs[i]) != nullptr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool StoreLoadToRegisterPass::hasPointerAliasRiskBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx,
+                                                         const std::string& slot) {
+    for (size_t i = fromIdx + 1; i < toIdx; ++i) {
+        auto* addr = dynamic_cast<AddressOfSymbolInstr*>(bb->instrs[i]);
+        if (addr && addr->src.name == slot) {
+            return true;
+        }
+        if (dynamic_cast<LoadPointerInstr*>(bb->instrs[i]) != nullptr) {
+            return true;
+        }
+        if (dynamic_cast<StorePointerInstr*>(bb->instrs[i]) != nullptr) {
             return true;
         }
     }

@@ -113,6 +113,21 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
             continue;
         }
 
+        // Pointer/address operations are aliasing barriers for stack constants.
+        if (auto* addr = dynamic_cast<AddressOfSymbolInstr*>(instr)) {
+            regConstants.erase(addr->dest.reg);
+            continue;
+        }
+        if (auto* lp = dynamic_cast<LoadPointerInstr*>(instr)) {
+            regConstants.erase(lp->dest.reg);
+            continue;
+        }
+        if (dynamic_cast<StorePointerInstr*>(instr)) {
+            constants.clear();
+            regConstants.clear();
+            continue;
+        }
+
         if (auto* add = dynamic_cast<AddInstr*>(instr)) { regConstants.erase(add->dest.reg); continue; }
         if (auto* sub = dynamic_cast<SubInstr*>(instr)) { regConstants.erase(sub->dest.reg); continue; }
         if (auto* mul = dynamic_cast<MulInstr*>(instr)) { regConstants.erase(mul->dest.reg); continue; }
@@ -135,6 +150,7 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
         if (auto* i8i = dynamic_cast<I8ToI32Instr*>(instr)) { regConstants.erase(i8i->dest.reg); continue; }
         if (auto* i32i8 = dynamic_cast<I32ToI8Instr*>(instr)) { regConstants.erase(i32i8->dest.reg); continue; }
         if (auto* call = dynamic_cast<CallInstr*>(instr)) {
+            constants.clear();
             regConstants.clear();
             regConstants.erase(call->dest.reg);
             continue;

@@ -54,6 +54,21 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
     return "[fp, #" + to_string(index) + "]";
 }
 
+namespace {
+std::string stack_mem_operand(CFG* cfg, std::ostream& o, const std::string& varName) {
+    int index = cfg->current_bb->get_var_index(varName);
+    if (index >= -256 && index <= 255) {
+        return "[fp, #" + std::to_string(index) + "]";
+    }
+    if (index >= 0) {
+        o << "    add x16, fp, #" << index << "\n";
+    } else {
+        o << "    sub x16, fp, #" << (-index) << "\n";
+    }
+    return "[x16]";
+}
+}
+
 // ---------------------------------------------------------------------------
 // Main generation functions
 // ---------------------------------------------------------------------------
@@ -93,16 +108,9 @@ void AsmGeneratorARM64::gen_asm_bb(std::ostream& o, BasicBlock* bb, bool isFirst
         o << "    mov fp, sp\n";
         o << "    sub sp, sp, #" << stackSpace << "\n";
 
-        int numParams = (int)sig->paramNames.size();
-        for (int i = 0; i < numParams && i < 6; i++) {
-            int offset = bb->get_var_index(sig->paramNames[i]);
-            Reg regEnum = static_cast<Reg>(static_cast<int>(Reg::ARG0) + i);
-            IRType ptype = sig->paramTypes[i];
-            RegParam rp(regEnum, ptype);
-            string regAsm = reg_to_asm(rp);
-            // Store parameter from the ABI register into the stack slot.
-            o << "    str " << regAsm << ", [fp, #" << offset << "]\n";
-        }
+        // Note: Parameter storage is handled by IR instructions (StoreStackInstr),
+        // not here in the prologue. The IR generation in CodeGenFunction.cpp
+        // creates StoreStackInstr for each parameter.
     } else {
         o << bb->label << ":\n";
     }
@@ -130,27 +138,27 @@ void AsmGeneratorARM64::visit(std::ostream& o, LdConstInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
         // Load 64-bit IEEE754 bit pattern via an integer scratch register
         uint64_t bits = std::bit_cast<uint64_t>(instr.val.as_f64());
-        o << "    mov x9, #" << (bits & 0xFFFF) << "\n";
+        o << "    mov x16, #" << (bits & 0xFFFF) << "\n";
         if ((bits >> 16) & 0xFFFF)
-            o << "    movk x9, #" << ((bits >> 16) & 0xFFFF) << ", lsl #16\n";
+            o << "    movk x16, #" << ((bits >> 16) & 0xFFFF) << ", lsl #16\n";
         if ((bits >> 32) & 0xFFFF)
-            o << "    movk x9, #" << ((bits >> 32) & 0xFFFF) << ", lsl #32\n";
+            o << "    movk x16, #" << ((bits >> 32) & 0xFFFF) << ", lsl #32\n";
         if ((bits >> 48) & 0xFFFF)
-            o << "    movk x9, #" << ((bits >> 48) & 0xFFFF) << ", lsl #48\n";
-        o << "    fmov " << dest << ", x9\n";
+            o << "    movk x16, #" << ((bits >> 48) & 0xFFFF) << ", lsl #48\n";
+        o << "    fmov " << dest << ", x16\n";
         return;
     }
     int64_t val = instr.val.raw_int();
     if (instr.type == IRType::INT64) {
-        o << "    mov x9, #" << (val & 0xFFFF) << "\n";
+        o << "    mov x16, #" << (val & 0xFFFF) << "\n";
         if ((val >> 16) & 0xFFFF)
-            o << "    movk x9, #" << ((val >> 16) & 0xFFFF) << ", lsl #16\n";
+            o << "    movk x16, #" << ((val >> 16) & 0xFFFF) << ", lsl #16\n";
         if ((val >> 32) & 0xFFFF)
-            o << "    movk x9, #" << ((val >> 32) & 0xFFFF) << ", lsl #32\n";
+            o << "    movk x16, #" << ((val >> 32) & 0xFFFF) << ", lsl #32\n";
         if ((val >> 48) & 0xFFFF)
-            o << "    movk x9, #" << ((val >> 48) & 0xFFFF) << ", lsl #48\n";
-        if (dest != "x9")
-            o << "    mov " << dest << ", x9\n";
+            o << "    movk x16, #" << ((val >> 48) & 0xFFFF) << ", lsl #48\n";
+        if (dest != "x16")
+            o << "    mov " << dest << ", x16\n";
         return;
     }
     // INT32
@@ -167,26 +175,34 @@ void AsmGeneratorARM64::visit(std::ostream& o, LdConstInstr& instr) {
 void AsmGeneratorARM64::visit(std::ostream& o, CopyRegInstr& instr) {
     string src  = reg_to_asm(instr.src);
     string dest = reg_to_asm(instr.dest);
-    if (src != dest)
-        o << "    mov " << dest << ", " << src << "\n";
+    if (src != dest) {
+        if (instr.type == IRType::FLOAT64) {
+            o << "    fmov " << dest << ", " << src << "\n";
+        } else if (!dest.empty() && !src.empty() && dest[0] == 'x' && src[0] == 'w') {
+            // 32->64 explicit extension (used by INT32 -> POINTER conversions).
+            o << "    sxtw " << dest << ", " << src << "\n";
+        } else {
+            o << "    mov " << dest << ", " << src << "\n";
+        }
+    }
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, StoreStackInstr& instr) {
-    o << "    str " << reg_to_asm(instr.src)
-      << ", "      << var_to_asm(instr.dest.name) << "\n";
+    std::string mem = stack_mem_operand(cfg, o, instr.dest.name);
+    o << "    str " << reg_to_asm(instr.src) << ", " << mem << "\n";
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, LoadStackInstr& instr) {
-    o << "    ldr " << reg_to_asm(instr.dest)
-      << ", "      << var_to_asm(instr.src.name) << "\n";
+    std::string mem = stack_mem_operand(cfg, o, instr.src.name);
+    o << "    ldr " << reg_to_asm(instr.dest) << ", " << mem << "\n";
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, AddressOfSymbolInstr& instr) {
     int index = cfg->current_bb->get_var_index(instr.src.name);
     if (index >= 0) {
-        o << "    add " << reg_to_asm(instr.dest) << ", sp, #" << index << "\n";
+        o << "    add " << reg_to_asm(instr.dest) << ", fp, #" << index << "\n";
     } else {
-        o << "    sub " << reg_to_asm(instr.dest) << ", sp, #" << (-index) << "\n";
+        o << "    sub " << reg_to_asm(instr.dest) << ", fp, #" << (-index) << "\n";
     }
 }
 
@@ -259,7 +275,7 @@ void AsmGeneratorARM64::visit(std::ostream& o, ModInstr& instr) {
 void AsmGeneratorARM64::visit(std::ostream& o, BitNotInstr& instr) {
     string src  = reg_to_asm(instr.src);
     string dest = reg_to_asm(instr.dest);
-    o << "    eor " << dest << ", " << src << ", #0xFFFFFFFF\n";
+    o << "    mvn " << dest << ", " << src << "\n";
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, BitAndInstr& instr) {
@@ -380,17 +396,35 @@ void AsmGeneratorARM64::visit(std::ostream& o, FToIInstr& instr) {
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, CallInstr& instr) {
+    std::string callee = instr.funcLabel;
+#ifdef __APPLE__
+    if (!callee.empty() && callee[0] != '_') callee = "_" + callee;
+#endif
+
     int numArgs = (int) instr.args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
         string src = reg_to_asm(instr.args[i]);
-        string dst = "w" + to_string(i);
-        if (src != dst)
-            o << "    mov " << dst << ", " << src << "\n";
+        string dst;
+        if (instr.args[i].type == IRType::FLOAT64) {
+            dst = "d" + to_string(i);
+            if (src != dst) o << "    fmov " << dst << ", " << src << "\n";
+        } else if (instr.args[i].type == IRType::INT64 || instr.args[i].type == IRType::POINTER) {
+            dst = "x" + to_string(i);
+            if (src != dst) o << "    mov " << dst << ", " << src << "\n";
+        } else {
+            dst = "w" + to_string(i);
+            if (src != dst) o << "    mov " << dst << ", " << src << "\n";
+        }
     }
-    o << "    bl " << instr.funcLabel << "\n";
+    o << "    bl " << callee << "\n";
     string dest = reg_to_asm(instr.dest);
-    if (dest != "w0")
-        o << "    mov " << dest << ", w0\n";
+    if (instr.type == IRType::FLOAT64) {
+        if (dest != "d0") o << "    fmov " << dest << ", d0\n";
+    } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        if (dest != "x0") o << "    mov " << dest << ", x0\n";
+    } else {
+        if (dest != "w0") o << "    mov " << dest << ", w0\n";
+    }
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, F64ToI32Instr& instr) {
@@ -410,8 +444,8 @@ void AsmGeneratorARM64::visit(std::ostream& o, I32ToI8Instr& instr) {
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, RetInstr& instr) {
-    // Return value must already be in Reg::RET (w0)
-    o << "    ret\n";
+    (void)instr;
+    Ret(o);
 }
 
 // ---------------------------------------------------------------------------
@@ -448,14 +482,16 @@ void AsmGeneratorARM64::gen_control_flow(std::ostream& o, BasicBlock* bb) {
     } else {
         // Use 64-bit load/compare for pointer tests, 32-bit otherwise
         if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
-            o << "    ldr x0, " << var_to_asm(bb->test_var_name) << "\n";
+            std::string mem = stack_mem_operand(cfg, o, bb->test_var_name);
+            o << "    ldr x0, " << mem << "\n";
             o << "    cmp x0, #0\n";
         } else {
-            o << "    ldr w0, " << var_to_asm(bb->test_var_name) << "\n";
+            std::string mem = stack_mem_operand(cfg, o, bb->test_var_name);
+            o << "    ldr w0, " << mem << "\n";
             o << "    cmp w0, #0\n";
         }
-        o << "    b.eq " << bb->exit_false->label << "\n";
-        o << "    b "    << bb->exit_true->label  << "\n";
+        o << "    b.ne " << bb->exit_true->label << "\n";   // if non-zero (true), go to then-block
+        o << "    b "    << bb->exit_false->label << "\n";  // else go to else-block
     }
 }
 
@@ -493,6 +529,11 @@ void AsmGeneratorARM64::LogicalOr(std::ostream& o, const std::string& lhs, const
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
+    std::string callee = funcLabel;
+#ifdef __APPLE__
+    if (!callee.empty() && callee[0] != '_') callee = "_" + callee;
+#endif
+
     int numArgs = (int) args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
         string src = args[i];
@@ -512,7 +553,7 @@ void AsmGeneratorARM64::CallWithINT32Return(std::ostream& o, const std::string& 
                 o << "    mov " << dst << ", " << src << "\n";
         }
     }
-    o << "    bl " << funcLabel << "\n";
+    o << "    bl " << callee << "\n";
     // Move return value from w0/d0 to destination when needed
     if (!dest.empty() && dest[0] == 'd') {
         if (dest != "d0") o << "    fmov " << dest << ", d0\n";
@@ -522,6 +563,11 @@ void AsmGeneratorARM64::CallWithINT32Return(std::ostream& o, const std::string& 
 }
 
 void AsmGeneratorARM64::CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
+    std::string callee = funcLabel;
+#ifdef __APPLE__
+    if (!callee.empty() && callee[0] != '_') callee = "_" + callee;
+#endif
+
     int numArgs = (int) args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
         string src = args[i];
@@ -539,7 +585,7 @@ void AsmGeneratorARM64::CallWithFLOAT64Return(std::ostream& o, const std::string
                 o << "    mov " << dst << ", " << src << "\n";
         }
     }
-    o << "    bl " << funcLabel << "\n";
+    o << "    bl " << callee << "\n";
     if (!dest.empty() && dest[0] == 'd') {
         if (dest != "d0") o << "    fmov " << dest << ", d0\n";
     } else {
@@ -548,6 +594,8 @@ void AsmGeneratorARM64::CallWithFLOAT64Return(std::ostream& o, const std::string
 }
 
 void AsmGeneratorARM64::Ret(std::ostream& o) {
+    o << "    mov sp, fp\n";
+    o << "    ldp fp, lr, [sp], #16\n";
     o << "    ret\n";
 }
 
@@ -571,27 +619,27 @@ void AsmGeneratorARM64::ldConstInstrINT32(std::ostream& o, ConstParam src, const
 }
 void AsmGeneratorARM64::ldConstInstrINT64(std::ostream& o, ConstParam src, const std::string& dest) {
     int64_t val = src.raw_int();
-    o << "    mov x9, #" << (val & 0xFFFF) << "\n";
+    o << "    mov x16, #" << (val & 0xFFFF) << "\n";
     if ((val >> 16) & 0xFFFF)
-        o << "    movk x9, #" << ((val >> 16) & 0xFFFF) << ", lsl #16\n";
+        o << "    movk x16, #" << ((val >> 16) & 0xFFFF) << ", lsl #16\n";
     if ((val >> 32) & 0xFFFF)
-        o << "    movk x9, #" << ((val >> 32) & 0xFFFF) << ", lsl #32\n";
+        o << "    movk x16, #" << ((val >> 32) & 0xFFFF) << ", lsl #32\n";
     if ((val >> 48) & 0xFFFF)
-        o << "    movk x9, #" << ((val >> 48) & 0xFFFF) << ", lsl #48\n";
-    if (dest != "x9")
-        o << "    mov " << dest << ", x9\n";
+        o << "    movk x16, #" << ((val >> 48) & 0xFFFF) << ", lsl #48\n";
+    if (dest != "x16")
+        o << "    mov " << dest << ", x16\n";
 }
 void AsmGeneratorARM64::ldConstInstrFLOAT64(std::ostream& o, double src, const std::string& dest) {
     // Load 64-bit IEEE754 bit pattern via an integer scratch register
     uint64_t bits = std::bit_cast<uint64_t>(src);
-    o << "    mov x9, #" << (bits & 0xFFFF) << "\n";
+    o << "    mov x16, #" << (bits & 0xFFFF) << "\n";
     if ((bits >> 16) & 0xFFFF)
-        o << "    movk x9, #" << ((bits >> 16) & 0xFFFF) << ", lsl #16\n";
+        o << "    movk x16, #" << ((bits >> 16) & 0xFFFF) << ", lsl #16\n";
     if ((bits >> 32) & 0xFFFF)
-        o << "    movk x9, #" << ((bits >> 32) & 0xFFFF) << ", lsl #32\n";
+        o << "    movk x16, #" << ((bits >> 32) & 0xFFFF) << ", lsl #32\n";
     if ((bits >> 48) & 0xFFFF)
-        o << "    movk x9, #" << ((bits >> 48) & 0xFFFF) << ", lsl #48\n";
-    o << "    fmov " << dest << ", x9\n";
+        o << "    movk x16, #" << ((bits >> 48) & 0xFFFF) << ", lsl #48\n";
+    o << "    fmov " << dest << ", x16\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -616,13 +664,16 @@ void AsmGeneratorARM64::CopyRegFLOAT64(std::ostream& o, const std::string& src, 
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::LoadStackInstrINT8(std::ostream& o, const std::string& src, const std::string& dest) {
-    o << "    ldrsb " << dest << ", " << var_to_asm(src) << "\n";
+    std::string mem = stack_mem_operand(cfg, o, src);
+    o << "    ldrsb " << dest << ", " << mem << "\n";
 }
 void AsmGeneratorARM64::LoadStackInstrINT32(std::ostream& o, const std::string& src, const std::string& dest) {
-    o << "    ldr " << dest << ", " << var_to_asm(src) << "\n";
+    std::string mem = stack_mem_operand(cfg, o, src);
+    o << "    ldr " << dest << ", " << mem << "\n";
 }
 void AsmGeneratorARM64::LoadStackInstrFLOAT64(std::ostream& o, const std::string& src, const std::string& dest) {
-    o << "    ldr " << dest << ", " << var_to_asm(src) << "\n";
+    std::string mem = stack_mem_operand(cfg, o, src);
+    o << "    ldr " << dest << ", " << mem << "\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -658,7 +709,7 @@ void AsmGeneratorARM64::DivFLOAT64(std::ostream& o, const std::string& lhs, cons
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::BitNot(std::ostream& o, const std::string& src, const std::string& dest) {
-    o << "    eor " << dest << ", " << src << ", #0xFFFFFFFF\n";
+    o << "    mvn " << dest << ", " << src << "\n";
 }
 void AsmGeneratorARM64::BitAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     o << "    and " << dest << ", " << lhs << ", " << rhs << "\n";

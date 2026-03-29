@@ -33,9 +33,9 @@ OBJECTS=build/ifccBaseVisitor.o \
 	build/StoreLoadToRegister.o \
 	build/DeadRegDefElimination.o \
 	build/CopyRegChainPropagation.o \
-	build/ConstantPropagation.o
+	build/ConstantPropagation.o \
 	build/UnusedVariableElimination.o \
-    build/StackLayoutPass.o
+	build/StackLayoutPass.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build

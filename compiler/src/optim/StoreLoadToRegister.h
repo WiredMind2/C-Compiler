@@ -62,6 +62,7 @@ private:
     int  findLoadAfterStore(BasicBlock* bb, size_t storeIdx, const std::string& slot);
     int  findLastLoadAfterStore(BasicBlock* bb, size_t storeIdx, const std::string& slot);
     bool hasCallBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx);
+    bool hasPointerAliasRiskBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx, const std::string& slot);
     bool hasCallInBlock(BasicBlock* bb);
     bool isSlotUsedOutsideBBInSameFunction(BasicBlock* bb, const std::string& slot);
     void releaseExpiredCaches(BasicBlock* bb, size_t currentIdx);
