@@ -17,12 +17,12 @@ string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
     if (p.type == IRType::FLOAT64) {
         switch (p.reg) {
             case Reg::W0: case Reg::RET: return "d0";
-            case Reg::ARG0:              return "d1";
-            case Reg::ARG1:              return "d2";
-            case Reg::ARG2:              return "d3";
-            case Reg::ARG3:              return "d4";
-            case Reg::ARG4:              return "d5";
-            case Reg::ARG5:              return "d6";
+            case Reg::ARG0:              return "d0";
+            case Reg::ARG1:              return "d1";
+            case Reg::ARG2:              return "d2";
+            case Reg::ARG3:              return "d3";
+            case Reg::ARG4:              return "d4";
+            case Reg::ARG5:              return "d5";
             case Reg::W1:                return "d8";
             case Reg::W2:                return "d9";
             case Reg::W3:                return "d10";
@@ -32,12 +32,12 @@ string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
     const char* prefix = is64 ? "x" : "w";
     switch (p.reg) {
         case Reg::W0: case Reg::RET:   return string(prefix) + "0";
-        case Reg::ARG0:                return string(prefix) + "1";
-        case Reg::ARG1:                return string(prefix) + "2";
-        case Reg::ARG2:                return string(prefix) + "3";
-        case Reg::ARG3:                return string(prefix) + "4";
-        case Reg::ARG4:                return string(prefix) + "5";
-        case Reg::ARG5:                return string(prefix) + "6";
+        case Reg::ARG0:                return string(prefix) + "0";
+        case Reg::ARG1:                return string(prefix) + "1";
+        case Reg::ARG2:                return string(prefix) + "2";
+        case Reg::ARG3:                return string(prefix) + "3";
+        case Reg::ARG4:                return string(prefix) + "4";
+        case Reg::ARG5:                return string(prefix) + "5";
         case Reg::W1:                  return string(prefix) + "9";
         case Reg::W2:                  return string(prefix) + "10";
         case Reg::W3:                  return string(prefix) + "11";
@@ -74,7 +74,7 @@ void AsmGeneratorARM64::gen_asm_bb(ostream& o, BasicBlock* bb, bool isFirstBB) {
     bool isFunctionEntry = (sig != nullptr);
 
     if (isFunctionEntry) {
-        int stackSpace = cfg->calculateRequiredStackSpace();
+        int stackSpace = cfg->calculateRequiredStackSpace(bb->label);
         o << "_" << bb->label << ":\n";
         o << "    stp fp, lr, [sp, #-16]!\n";
         o << "    mov fp, sp\n";
@@ -170,29 +170,6 @@ void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string des
 
 void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
     // Internal calls use the compiler's current convention (ARG0->w1/d1).
-    // External calls (libc / declared-only) must follow ARM64 ABI (arg0 in w0/d0).
-    auto* sig = cfg->get_function(funcLabel);
-    bool isExternalCall = (sig == nullptr) || (sig->entryBB == nullptr);
-    if (isExternalCall) {
-        int numArgs = static_cast<int>(args.size());
-        for (int i = 0; i < numArgs && i < 6; i++) {
-            string src = args[i];
-            if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
-                string dst = "d" + to_string(i);
-                if (src != dst)
-                    o << "    fmov " << dst << ", " << src << "\n";
-            } else if (!src.empty() && src[0] == 'x') {
-                string dst = "x" + to_string(i);
-                if (src != dst)
-                    o << "    mov " << dst << ", " << src << "\n";
-            } else {
-                string dst = "w" + to_string(i);
-                if (src != dst)
-                    o << "    mov " << dst << ", " << src << "\n";
-            }
-        }
-    }
-
     o << "    bl _" << funcLabel << "\n";
     // Move return value from w0/d0 to destination when needed
     if (!dest.empty() && dest[0] == 'd') {

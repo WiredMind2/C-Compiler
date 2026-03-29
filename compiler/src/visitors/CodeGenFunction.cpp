@@ -104,8 +104,12 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         return t == IRType::FLOAT32 || t == IRType::FLOAT64;
     };
 
+    std::vector<StackParam> evaluatedArgs;
+    evaluatedArgs.reserve(actualArgs);
     for (int i = 0; i < actualArgs; i++) {
         StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(i)));
+        evaluatedArgs.push_back(arg);
+
         IRType expected = function_signature->paramTypes[i];
         IRType actual = arg.type;
         if (actual != expected) {
@@ -126,12 +130,11 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         Reg::ARG3, Reg::ARG4, Reg::ARG5
     };
 
-    // Evaluate each argument, load into ARGn register.
-    auto args = ctx->expr();
+    // Arguments are already evaluated in stack temporaries; now place them in ARGn.
     std::vector<Reg> usedArgRegs;
     std::vector<IRType> usedArgTypes;
-    for (int i = 0; i < static_cast<int>(args.size()) && i < 6; i++) {
-        StackParam argVar = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(args[i]));
+    for (int i = 0; i < actualArgs && i < 6; i++) {
+        const StackParam& argVar = evaluatedArgs[i];
         bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
         // Insert conversion to expected parameter type when needed (e.g. char -> int)
         IRType expectedType = IRType::INT32;
