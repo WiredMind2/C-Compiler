@@ -1,6 +1,7 @@
 #include "AsmGeneratorARM64.h"
 #include "../../ir/IR.h"
 #include "../../ir/IRInstr.h"
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 
@@ -55,7 +56,39 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
 }
 
 namespace {
+std::string base_symbol_name(const std::string& name) {
+    const size_t at = name.find('@');
+    return (at == std::string::npos) ? name : name.substr(0, at);
+}
+
+bool is_global_symbol(const CFG* cfg, const std::string& name) {
+    const std::string base = base_symbol_name(name);
+    const auto globals = cfg->get_global_symbols();
+    return std::find(globals.begin(), globals.end(), base) != globals.end();
+}
+
+std::string global_symbol_label(const std::string& name) {
+    const std::string base = base_symbol_name(name);
+#ifdef __APPLE__
+    return "_" + base;
+#else
+    return base;
+#endif
+}
+
 std::string stack_mem_operand(CFG* cfg, std::ostream& o, const std::string& varName) {
+    if (is_global_symbol(cfg, varName)) {
+        const std::string sym = global_symbol_label(varName);
+#ifdef __APPLE__
+        o << "    adrp x16, " << sym << "@PAGE\n";
+        o << "    add x16, x16, " << sym << "@PAGEOFF\n";
+#else
+        o << "    adrp x16, " << sym << "\n";
+        o << "    add x16, x16, :lo12:" << sym << "\n";
+#endif
+        return "[x16]";
+    }
+
     int index = cfg->current_bb->get_var_index(varName);
     if (index >= -256 && index <= 255) {
         return "[fp, #" + std::to_string(index) + "]";
@@ -83,6 +116,31 @@ void AsmGeneratorARM64::gen_asm(std::ostream& o) {
         o << "    .text\n";
     }
 
+    // Emit global data for constant-initialized globals/arrays.
+    auto globals = cfg->get_global_symbols();
+    auto arrayInits = cfg->get_global_array_initializers();
+    if (!globals.empty() || !arrayInits.empty()) {
+        o << ".data\n";
+        for (const auto& name : globals) {
+            const std::string sym = global_symbol_label(name);
+            auto arrIt = arrayInits.find(name);
+            o << ".globl " << sym << "\n";
+            o << "    .align 2\n";
+            o << sym << ":\n";
+            if (arrIt != arrayInits.end()) {
+                for (int64_t val : arrIt->second) {
+                    o << "    .long " << val << "\n";
+                }
+            } else {
+                int64_t val = 0;
+                auto it = cfg->globalInitializers.find(name);
+                if (it != cfg->globalInitializers.end()) val = it->second;
+                o << "    .long " << val << "\n";
+            }
+        }
+        o << "    .text\n";
+    }
+
     // Generate .globl for all functions
     for (auto bb : cfg->getBBs()) {
         auto* sig = cfg->get_function(bb->label);
@@ -102,7 +160,7 @@ void AsmGeneratorARM64::gen_asm_bb(std::ostream& o, BasicBlock* bb, bool isFirst
 
     auto* sig = cfg->get_function(bb->label);
     if (sig) {
-        int stackSpace = cfg->calculateRequiredStackSpace();
+        int stackSpace = bb->calculateRequiredStackSpace();
         o << "_" << bb->label << ":\n";
         o << "    stp fp, lr, [sp, #-16]!\n";
         o << "    mov fp, sp\n";
@@ -198,6 +256,18 @@ void AsmGeneratorARM64::visit(std::ostream& o, LoadStackInstr& instr) {
 }
 
 void AsmGeneratorARM64::visit(std::ostream& o, AddressOfSymbolInstr& instr) {
+    if (is_global_symbol(cfg, instr.src.name)) {
+        const std::string sym = global_symbol_label(instr.src.name);
+#ifdef __APPLE__
+        o << "    adrp " << reg_to_asm(instr.dest) << ", " << sym << "@PAGE\n";
+        o << "    add " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.dest) << ", " << sym << "@PAGEOFF\n";
+#else
+        o << "    adrp " << reg_to_asm(instr.dest) << ", " << sym << "\n";
+        o << "    add " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.dest) << ", :lo12:" << sym << "\n";
+#endif
+        return;
+    }
+
     int index = cfg->current_bb->get_var_index(instr.src.name);
     if (index >= 0) {
         o << "    add " << reg_to_asm(instr.dest) << ", fp, #" << index << "\n";

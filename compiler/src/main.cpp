@@ -95,13 +95,13 @@ int main(int argc, char** argv) {
     // Run optimizations
     optim::OptimizationManager optimizer;
     if (!no_optim) {
-        // optimizer.addPass(std::make_unique<optim::StackLayoutPass>());
+        optimizer.addPass(std::make_unique<optim::StackLayoutPass>());
         // optimizer.addPass(std::make_unique<optim::StoreLoadStackFoldPass>());
         // optimizer.addPass(std::make_unique<optim::StoreLoadToRegisterPass>());
         // optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
         // optimizer.addPass(std::make_unique<optim::DeadRegDefEliminationPass>());
         // optimizer.addPass(std::make_unique<optim::CopyRegChainPropagationPass>());
-        // optimizer.addPass(std::make_unique<optim::UnusedVariableEliminationPass>());
+        optimizer.addPass(std::make_unique<optim::UnusedVariableEliminationPass>());
     }
     optimizer.runOptimizations(cfg);
     // If the user passed --dump-ir, enable IR-as-assembly comments and dump
