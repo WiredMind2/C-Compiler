@@ -27,7 +27,7 @@ Each test directory contains C source files that test specific language features
 From project root directory:
 
 ```bash
-make
+make test-all
 ```
 
 This runs the test runner (`ifcc-test.py`) on all test files in `testfiles/`.

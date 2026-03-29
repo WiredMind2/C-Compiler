@@ -153,52 +153,59 @@ bool fits_switch_type(IRType t, int64_t value) {
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {
     // First pass: pre-register top-level function signatures so forward calls resolve.
-    for (auto stmt : ctx->statement()) {
-        if (auto* def = stmt->function_definition()) {
-            std::string func_name = def->VAR()->getText();
-            if (cfg->get_function(func_name) != nullptr) {
-                continue;
-            }
-
-            IRType return_type = irtype_from_string(def->type_specifier()->getText());
-            std::vector<IRType> paramTypes;
-            std::vector<std::string> paramNames;
-            if (def->param_list()) {
-                for (auto param : def->param_list()->param()) {
-                    paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
-                    paramNames.push_back(param->VAR()->getText());
-                }
-            }
-            cfg->add_function(func_name, return_type, paramTypes, paramNames);
-        } else if (auto* decl = stmt->function_declaration()) {
-            std::string func_name = decl->VAR()->getText();
-            if (cfg->get_function(func_name) != nullptr) {
-                continue;
-            }
-
-            IRType return_type = irtype_from_string(decl->type_specifier()->getText());
-            std::vector<IRType> paramTypes;
-            std::vector<std::string> paramNames;
-            if (decl->param_list()) {
-                for (auto param : decl->param_list()->param()) {
-                    paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
-                    paramNames.push_back(param->VAR()->getText());
-                }
-            }
-            cfg->add_function(func_name, return_type, paramTypes, paramNames);
-        }
-    }
+    // C does not work that way. Declaration-in-call is not authorized.
+    // for (auto stmt : ctx->statement()) {
+    //     if (auto* def = stmt->function_definition()) {
+    //         std::string func_name = def->VAR()->getText();
+    //         if (cfg->get_function(func_name) != nullptr) {
+    //             continue;
+    //         }
+    //
+    //         IRType return_type = irtype_from_string(def->type_specifier()->getText());
+    //         std::vector<IRType> paramTypes;
+    //         std::vector<std::string> paramNames;
+    //         if (def->param_list()) {
+    //             for (auto param : def->param_list()->param()) {
+    //                 paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
+    //                 paramNames.push_back(param->VAR()->getText());
+    //             }
+    //         }
+    //         cfg->add_function(func_name, return_type, paramTypes, paramNames);
+    //     } else if (auto* decl = stmt->function_declaration()) {
+    //         std::string func_name = decl->VAR()->getText();
+    //         if (cfg->get_function(func_name) != nullptr) {
+    //             continue;
+    //         }
+    //
+    //         IRType return_type = irtype_from_string(decl->type_specifier()->getText());
+    //         std::vector<IRType> paramTypes;
+    //         std::vector<std::string> paramNames;
+    //         if (decl->param_list()) {
+    //             for (auto param : decl->param_list()->param()) {
+    //                 paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
+    //                 paramNames.push_back(param->VAR()->getText());
+    //             }
+    //         }
+    //         cfg->add_function(func_name, return_type, paramTypes, paramNames);
+    //     }
+    // }
 
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
 
-    if (cfg->get_function("main") == nullptr) {
+    CFG::FunctionSignature* mainSig = cfg->get_function("main");
+    if (mainSig == nullptr || mainSig->entryBB == nullptr) {
         std::cerr << "error: 'main' function not defined" << std::endl;
         exit(1);
     }
 
-    std::cerr << "BBs: " << cfg->getBBs().size() << std::endl; for(auto bb : cfg->getBBs()) { std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl; } return "0";
+    // std::cerr << "BBs: " << cfg->getBBs().size() << std::endl;
+    // for(auto bb : cfg->getBBs()) {
+    //     std::cerr << "BB " << bb->label << " has " << bb->instrs.size() << " instructions" << std::endl;
+    // }
+
+    return "0";
 }
 
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
@@ -212,11 +219,9 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     if (ctx->expr() != nullptr) {
         StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
-        // GCC accepts "return expr;" in void functions as an extension.
-        // Evaluate expression for side-effects, then return without a value.
         if (current_function_return_type == IRType::VOID) {
-            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
-            return nullptr;
+            std::cerr << "Cannot return a value from a void function" << std::endl;
+            exit(1);
         }
 
         if (var.type != current_function_return_type) {
@@ -268,24 +273,38 @@ antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
     return ::visitVariable(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDeclaration_list(ifccParser::Declaration_listContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
 {
-    return ::visitDeclaration_list(this, ctx);
+    return ::visitDeclaration(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitVar_decl(ifccParser::Var_declContext *ctx)
-{
-    return ::visitVar_decl(this, ctx);
-}
 
-antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx)
-{
-    return ::visitVar_decl_with_init(this, ctx);
-}
-
-antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
-{
+antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx) {
     return ::visitAssignment(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitAddAssignment(ifccParser::AddAssignmentContext *ctx) {
+    return ::visitAddAssignment(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitSubAssignment(ifccParser::SubAssignmentContext *ctx) {
+    return ::visitSubAssignment(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPreIncrement(ifccParser::PreIncrementContext *ctx) {
+    return ::visitPreIncrement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPreDecrement(ifccParser::PreDecrementContext *ctx) {
+    return ::visitPreDecrement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPostIncrement(ifccParser::PostIncrementContext *ctx) {
+    return ::visitPostIncrement(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitPostDecrement(ifccParser::PostDecrementContext *ctx) {
+    return ::visitPostDecrement(this, ctx);
 }
 
 // Arithmetic expression handlers
@@ -512,6 +531,7 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
     cfg->current_bb = afterBB;
     return 0;
 }
+
 antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
 {
     auto* bb = cfg->current_bb;

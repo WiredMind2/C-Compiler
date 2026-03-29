@@ -54,7 +54,7 @@ public:
 
         add_IRInstr(new CmpInstr(this, lhs_register, lhs_register, rhs_register, target_operation_type));
         string tmp = create_new_tempvar(IRType::INT32);
-        add_IRInstr(new StoreStackInstr(this, tmp, Reg::W0, IRType::INT32));
+        add_IRInstr(new StoreStackInstr(this, tmp, lhs_register, IRType::INT32));
         return StackParam(tmp, IRType::INT32);
     }
 
