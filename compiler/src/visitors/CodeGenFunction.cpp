@@ -31,6 +31,15 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     // Push the entry BB onto the scope stack
     visitor->getCFG()->getStackBBs().push_back(entryBB);
 
+    // Load function parameters from argument registers (ARG0-ARG5 / w1-w6) to stack
+    static const Reg argRegs[] = {
+        Reg::ARG0, Reg::ARG1, Reg::ARG2,
+        Reg::ARG3, Reg::ARG4, Reg::ARG5
+    };
+    for (int i = 0; i < static_cast<int>(paramTypes.size()) && i < 6; i++) {
+        entryBB->add_IRInstr(new StoreStackInstr(entryBB, paramNames[i], argRegs[i], paramTypes[i]));
+    }
+
     if (ctx->scope())
         visitor->visit(ctx->scope());
 

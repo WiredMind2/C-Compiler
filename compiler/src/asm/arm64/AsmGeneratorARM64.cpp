@@ -16,29 +16,31 @@ string AsmGeneratorARM64::reg_to_asm(const RegParam& p) {
     // For FLOAT64, map to ARM64 FP/SIMD double registers
     if (p.type == IRType::FLOAT64) {
         switch (p.reg) {
-            case Reg::W0: case Reg::RET: case Reg::ARG0: return "d0";
-            case Reg::ARG1:                               return "d1";
-            case Reg::ARG2:                               return "d2";
-            case Reg::ARG3:                               return "d3";
-            case Reg::ARG4:                               return "d4";
-            case Reg::ARG5:                               return "d5";
-            case Reg::W1:                                 return "d8";
-            case Reg::W2:                                 return "d9";
-            case Reg::W3:                                 return "d10";
+            case Reg::W0: case Reg::RET: return "d0";
+            case Reg::ARG0:              return "d1";
+            case Reg::ARG1:              return "d2";
+            case Reg::ARG2:              return "d3";
+            case Reg::ARG3:              return "d4";
+            case Reg::ARG4:              return "d5";
+            case Reg::ARG5:              return "d6";
+            case Reg::W1:                return "d8";
+            case Reg::W2:                return "d9";
+            case Reg::W3:                return "d10";
         }
     }
     bool is64 = (p.type == IRType::INT64);
     const char* prefix = is64 ? "x" : "w";
     switch (p.reg) {
-        case Reg::W0:   case Reg::RET:  case Reg::ARG0: return string(prefix) + "0";
-        case Reg::ARG1:                                  return string(prefix) + "1";
-        case Reg::ARG2:                                  return string(prefix) + "2";
-        case Reg::ARG3:                                  return string(prefix) + "3";
-        case Reg::ARG4:                                  return string(prefix) + "4";
-        case Reg::ARG5:                                  return string(prefix) + "5";
-        case Reg::W1:                                    return string(prefix) + "9";
-        case Reg::W2:                                    return string(prefix) + "10";
-        case Reg::W3:                                    return string(prefix) + "11";
+        case Reg::W0: case Reg::RET:   return string(prefix) + "0";
+        case Reg::ARG0:                return string(prefix) + "1";
+        case Reg::ARG1:                return string(prefix) + "2";
+        case Reg::ARG2:                return string(prefix) + "3";
+        case Reg::ARG3:                return string(prefix) + "4";
+        case Reg::ARG4:                return string(prefix) + "5";
+        case Reg::ARG5:                return string(prefix) + "6";
+        case Reg::W1:                  return string(prefix) + "9";
+        case Reg::W2:                  return string(prefix) + "10";
+        case Reg::W3:                  return string(prefix) + "11";
     }
     throw std::invalid_argument("reg_to_asm: unknown Reg");
 }
@@ -167,25 +169,8 @@ void AsmGeneratorARM64::LogicalOr(ostream& o, string lhs, string rhs, string des
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector<string> args, string dest) {
-    int numArgs = (int) args.size();
-    for (int i = 0; i < numArgs && i < 6; i++) {
-        string src = args[i];
-        // If argument is a floating register (dN / vN), move to FP arg register d{i}
-        if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
-            string dst = "d" + to_string(i);
-            if (src != dst)
-                o << "    fmov " << dst << ", " << src << "\n";
-        } else if (!src.empty() && src[0] == 'x') {
-            string dst = "x" + to_string(i);
-            if (src != dst)
-                o << "    mov " << dst << ", " << src << "\n";
-        } else {
-            // default to 32-bit register move
-            string dst = "w" + to_string(i);
-            if (src != dst)
-                o << "    mov " << dst << ", " << src << "\n";
-        }
-    }
+    // Arguments are already placed in the correct registers (w1-w6, d1-d6) by LoadStackInstr in the IR
+    // So we just need to call the function and move the return value if needed
     o << "    bl _" << funcLabel << "\n";
     // Move return value from w0/d0 to destination when needed
     if (!dest.empty() && dest[0] == 'd') {
@@ -196,23 +181,8 @@ void AsmGeneratorARM64::CallWithINT32Return(ostream& o, string funcLabel, vector
 }
 
 void AsmGeneratorARM64::CallWithFLOAT64Return(ostream& o, string funcLabel, vector<string> args, string dest) {
-    int numArgs = (int) args.size();
-    for (int i = 0; i < numArgs && i < 6; i++) {
-        string src = args[i];
-        if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
-            string dst = "d" + to_string(i);
-            if (src != dst)
-                o << "    fmov " << dst << ", " << src << "\n";
-        } else if (!src.empty() && src[0] == 'x') {
-            string dst = "x" + to_string(i);
-            if (src != dst)
-                o << "    mov " << dst << ", " << src << "\n";
-        } else {
-            string dst = "w" + to_string(i);
-            if (src != dst)
-                o << "    mov " << dst << ", " << src << "\n";
-        }
-    }
+    // Arguments are already placed in the correct registers (w1-w6, d1-d6) by LoadStackInstr in the IR
+    // So we just need to call the function and move the return value if needed
     o << "    bl _" << funcLabel << "\n";
     if (!dest.empty() && dest[0] == 'd') {
         if (dest != "d0") o << "    fmov " << dest << ", d0\n";
