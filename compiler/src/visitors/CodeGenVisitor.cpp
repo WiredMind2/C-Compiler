@@ -19,14 +19,20 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
 {
     auto* bb = cfg->current_bb;
+    const string current_function_name = cfg->getCurrentFunction();
+    CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
+    const IRType current_function_return_type = current_function_signature->returnType;
 
     // when returning something, as opposed to "return ;"
     if (ctx->expr() != nullptr) {
         StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
-        const string current_function_name = cfg->getCurrentFunction();
-        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
-        const IRType current_function_return_type = current_function_signature->returnType;
+        // GCC accepts "return expr;" in void functions as an extension.
+        // Evaluate expression for side-effects, then return without a value.
+        if (current_function_return_type == IRType::VOID) {
+            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
+            return nullptr;
+        }
 
         if (var.type != current_function_return_type) {
             bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
@@ -35,14 +41,10 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         } else {
             bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
         }
-        bb->add_IRInstr(new RetInstr(bb, var.type));
+        bb->add_IRInstr(new RetInstr(bb, current_function_return_type));
     }
     // empty return
     else {
-        const string current_function_name = cfg->getCurrentFunction();
-        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
-        const IRType current_function_return_type = current_function_signature->returnType;
-
         if (current_function_return_type != IRType::VOID) {
             std::cerr << "Cannot return no value for a non void returning function" << std::endl;
             exit(1);
