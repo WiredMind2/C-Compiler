@@ -448,25 +448,55 @@ void AsmGeneratorARM64::LogicalOr(std::ostream& o, const std::string& lhs, const
 void AsmGeneratorARM64::CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
     int numArgs = (int) args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
-        string dst = "w" + to_string(i);
-        if (args[i] != dst)
-            o << "    mov " << dst << ", " << args[i] << "\n";
+        string src = args[i];
+        // If argument is a floating register (dN / vN), move to FP arg register d{i}
+        if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
+            string dst = "d" + to_string(i);
+            if (src != dst)
+                o << "    fmov " << dst << ", " << src << "\n";
+        } else if (!src.empty() && src[0] == 'x') {
+            string dst = "x" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        } else {
+            // default to 32-bit register move
+            string dst = "w" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        }
     }
     o << "    bl " << funcLabel << "\n";
-    if (dest != "w0")
-        o << "    mov " << dest << ", w0\n";
+    // Move return value from w0/d0 to destination when needed
+    if (!dest.empty() && dest[0] == 'd') {
+        if (dest != "d0") o << "    fmov " << dest << ", d0\n";
+    } else {
+        if (dest != "w0") o << "    mov " << dest << ", w0\n";
+    }
 }
 
 void AsmGeneratorARM64::CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
     int numArgs = (int) args.size();
     for (int i = 0; i < numArgs && i < 6; i++) {
-        string dst = "w" + to_string(i);
-        if (args[i] != dst)
-            o << "    mov " << dst << ", " << args[i] << "\n";
+        string src = args[i];
+        if (!src.empty() && (src[0] == 'd' || src.rfind("v", 0) == 0)) {
+            string dst = "d" + to_string(i);
+            if (src != dst)
+                o << "    fmov " << dst << ", " << src << "\n";
+        } else if (!src.empty() && src[0] == 'x') {
+            string dst = "x" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        } else {
+            string dst = "w" + to_string(i);
+            if (src != dst)
+                o << "    mov " << dst << ", " << src << "\n";
+        }
     }
     o << "    bl " << funcLabel << "\n";
-    if (dest != "v0") {
-        o << "    mov " << dest << ", v0\n";
+    if (!dest.empty() && dest[0] == 'd') {
+        if (dest != "d0") o << "    fmov " << dest << ", d0\n";
+    } else {
+        if (dest != "w0") o << "    mov " << dest << ", w0\n";
     }
 }
 

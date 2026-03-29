@@ -16,7 +16,8 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            IRType type = irtype_from_string(param->type_specifier()->getText());
+            paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
     }
@@ -41,7 +42,7 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
 antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext *ctx)
 {
-    // TODO : handle types
+    IRType return_type = irtype_from_string(ctx->type_specifier()->getText());
     std::string func_name = ctx->VAR()->getText();
 
     std::vector<IRType> paramTypes;
@@ -49,12 +50,15 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            paramTypes.push_back(IRType::INT32);
+            IRType type = irtype_from_string(param->type_specifier()->getText());
+            paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
     }
 
-    visitor->getCFG()->add_function(func_name, IRType::INT32, paramTypes, paramNames);
+    if (visitor->getCFG()->get_function(func_name) == nullptr) {
+        visitor->getCFG()->add_function(func_name, return_type, paramTypes, paramNames);
+    }
     return 0;
 }
 
@@ -118,6 +122,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     // Evaluate each argument, load into ARGn register.
     auto args = ctx->expr();
     std::vector<Reg> usedArgRegs;
+    std::vector<IRType> usedArgTypes;
     for (int i = 0; i < static_cast<int>(args.size()) && i < 6; i++) {
         StackParam argVar = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(args[i]));
         bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
@@ -130,10 +135,11 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
             bb->generate_conversion_instruction(argRegs[i], argVar.type, argRegs[i], expectedType);
         }
         usedArgRegs.push_back(argRegs[i]);
+        usedArgTypes.push_back(expectedType);
     }
 
     // Generate the call instruction
-    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs));
+    bb->add_IRInstr(new CallInstr(bb, func_name, Reg::RET, usedArgRegs, usedArgTypes));
 
     // Get the signature again (maybe it was added above because it is a standard library function)
     func_name = ctx->VAR()->getText();
@@ -172,8 +178,6 @@ int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_n
             return ctx->expr().empty();
 
         case StandardLibraryFunction::PUTCHAR: {
-            // Only consider putchar as standard if <stdio.h> was included
-            if (!visitor->has_stdio()) return 0;
             if (ctx->expr().size() != 1) {
                 return 0;
             }

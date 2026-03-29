@@ -4,7 +4,11 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
+<<<<<<< HEAD
 statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | break_stmt | continue_stmt | var_decl_list | var_decl_with_init ;
+=======
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | var_decl | declaration_list | var_decl_with_init ;
+>>>>>>> main
 
 return_stmt: RETURN expr? ;
 
@@ -23,6 +27,9 @@ condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
 for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
+case_block : 'case' expr ':' (statement* | scope) ;
+default_block : 'default' ':' (statement* | scope) ;
 break_stmt : 'break' ';' ;
 continue_stmt : 'continue' ';' ;
 
@@ -107,7 +114,7 @@ primitive
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
-CONST : '-'?[0-9]+ ;
+CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
