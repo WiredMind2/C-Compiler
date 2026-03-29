@@ -11,6 +11,7 @@
 #include "IRInstr.h"
 #include "IRType.h"
 
+namespace optim { class StackLayoutPass; }
 
 class CFG;
 
@@ -153,6 +154,7 @@ protected:
     IRType operation_type_from_operand_types(const StackParam& lhs, const StackParam& rhs);
 
     friend class CFG;
+    friend class optim::StackLayoutPass;
 };
 
 // ============================================================

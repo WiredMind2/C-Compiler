@@ -9,6 +9,7 @@
 #include "optim/OptimizationManager.h"
 #include "optim/LoadConstantToRegister.h"
 #include "optim/ConstantPropagation.h"
+#include "optim/StackLayoutPass.h"
 
 #include "visitors/CodeGenVisitor.h"
 #include "ir/IR.h"
@@ -88,6 +89,7 @@ int main(int argc, char** argv) {
     optim::OptimizationManager optimizer;
     optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
     optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+    optimizer.addPass(std::make_unique<optim::StackLayoutPass>());
     optimizer.runOptimizations(cfg);
     // If the user passed --dump-ir, enable IR-as-assembly comments and dump
     if (dump_ir) {
