@@ -178,28 +178,27 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type == IRType::VOID) {
-            std::cerr << "Error: 'return' with a value, in function returning void" << std::endl;
-            exit(1);
-        }
-
-        if (var.type != current_function_return_type) {
-            bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
-            bb->generate_conversion_instruction(Reg::W0, var.type, Reg::W1, current_function_return_type);
-            bb->add_IRInstr(new CopyRegInstr(bb, Reg::RET, Reg::W1, current_function_return_type));
+            std::cerr << "Warning: 'return' with a value, in function returning void" << std::endl;
+            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
         } else {
-            bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+            if (var.type != current_function_return_type) {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
+                bb->generate_conversion_instruction(Reg::W0, var.type, Reg::W1, current_function_return_type);
+                bb->add_IRInstr(new CopyRegInstr(bb, Reg::RET, Reg::W1, current_function_return_type));
+            } else {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::RET, var.name, var.type));
+            }
+            bb->add_IRInstr(new RetInstr(bb, var.type));
         }
-        bb->add_IRInstr(new RetInstr(bb, var.type));
     } else {
         const string current_function_name = cfg->getCurrentFunction();
         CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type != IRType::VOID) {
-            std::cerr << "Cannot return no value for a non void returning function" << std::endl;
-            exit(1);
+            std::cerr << "Warning: Cannot return no value for a non void returning function" << std::endl;
         }
-        bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
+        bb->add_IRInstr(new RetInstr(bb, current_function_return_type));
     }
 
     // Set exit_true to nullptr to indicate this block ends in a return
