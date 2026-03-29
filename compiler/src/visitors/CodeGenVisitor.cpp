@@ -420,6 +420,22 @@ antlrcpp::Any CodeGenVisitor::visitGreaterThan(ifccParser::GreaterThanContext *c
     return ::visitGreaterThan(this, ctx);
 }
 
+// Shift handlers
+antlrcpp::Any CodeGenVisitor::visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx)
+{
+    return this->visit(ctx->additive());
+}
+
+antlrcpp::Any CodeGenVisitor::visitShiftLeft(ifccParser::ShiftLeftContext *ctx)
+{
+    return ::visitShiftLeft(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitShiftRight(ifccParser::ShiftRightContext *ctx)
+{
+    return ::visitShiftRight(this, ctx);
+}
+
 // Logical expression handlers
 antlrcpp::Any CodeGenVisitor::visitLogicalORRef(ifccParser::LogicalORRefContext *ctx)
 {

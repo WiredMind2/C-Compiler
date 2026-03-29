@@ -353,6 +353,50 @@ void AsmGeneratorX86_64::visit(std::ostream& o, BitXorInstr& instr) {
     BitXor(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
 }
 
+void AsmGeneratorX86_64::visit(std::ostream& o, ShlInstr& instr) {
+    std::string lhs = reg_to_asm(instr.lhs);
+    std::string rhs = reg_to_asm(instr.rhs);
+    std::string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
+        if (rhs != "%rcx" && rhs != "%ecx") {
+            if (instr.rhs.type == IRType::INT32)
+                o << "    movl " << rhs << ", %ecx\n";
+            else
+                o << "    movq " << rhs << ", %rcx\n";
+        }
+        o << "    salq %cl, " << dest << "\n";
+    } else {
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+        if (rhs != "%ecx") {
+            o << "    movl " << rhs << ", %ecx\n";
+        }
+        o << "    sall %cl, " << dest << "\n";
+    }
+}
+
+void AsmGeneratorX86_64::visit(std::ostream& o, ShrInstr& instr) {
+    std::string lhs = reg_to_asm(instr.lhs);
+    std::string rhs = reg_to_asm(instr.rhs);
+    std::string dest = reg_to_asm(instr.dest);
+    if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
+        if (rhs != "%rcx" && rhs != "%ecx") {
+            if (instr.rhs.type == IRType::INT32)
+                o << "    movl " << rhs << ", %ecx\n";
+            else
+                o << "    movq " << rhs << ", %rcx\n";
+        }
+        o << "    sarq %cl, " << dest << "\n";
+    } else {
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+        if (rhs != "%ecx") {
+            o << "    movl " << rhs << ", %ecx\n";
+        }
+        o << "    sarl %cl, " << dest << "\n";
+    }
+}
+
 void AsmGeneratorX86_64::visit(std::ostream& o, CmpEqInstr& instr) {
     if (instr.type == IRType::FLOAT64)
         CmpEqFLOAT64(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));

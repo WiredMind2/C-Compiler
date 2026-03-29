@@ -82,6 +82,11 @@ public:
     virtual antlrcpp::Any visitGreaterStrictThan(ifccParser::GreaterStrictThanContext *ctx) override;
     virtual antlrcpp::Any visitSmallerThan(ifccParser::SmallerThanContext *ctx) override;
     virtual antlrcpp::Any visitGreaterThan(ifccParser::GreaterThanContext *ctx) override;
+    
+    // Shift expression handlers
+    virtual antlrcpp::Any visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx) override;
+    virtual antlrcpp::Any visitShiftLeft(ifccParser::ShiftLeftContext *ctx) override;
+    virtual antlrcpp::Any visitShiftRight(ifccParser::ShiftRightContext *ctx) override;
 
     // Logical expression handlers
     virtual antlrcpp::Any visitLogicalORRef(ifccParser::LogicalORRefContext *ctx) override;

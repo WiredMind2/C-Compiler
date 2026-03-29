@@ -27,3 +27,22 @@ antlrcpp::Any visitUnaryNot(CodeGenVisitor* visitor, ifccParser::UnaryNotContext
     StackParam value = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->unary()));
     return visitor->getCFG()->current_bb->emit_unop<BitNotInstr>(value);
 }
+
+antlrcpp::Any visitShiftExprRef(CodeGenVisitor* visitor, ifccParser::ShiftExprRefContext *ctx)
+{
+    return visitor->visit(ctx->additive());
+}
+
+antlrcpp::Any visitShiftLeft(CodeGenVisitor* visitor, ifccParser::ShiftLeftContext *ctx)
+{
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->shift()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->additive()));
+    return visitor->getCFG()->current_bb->emit_binop<ShlInstr>(left, right);
+}
+
+antlrcpp::Any visitShiftRight(CodeGenVisitor* visitor, ifccParser::ShiftRightContext *ctx)
+{
+    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->shift()));
+    StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->additive()));
+    return visitor->getCFG()->current_bb->emit_binop<ShrInstr>(left, right);
+}

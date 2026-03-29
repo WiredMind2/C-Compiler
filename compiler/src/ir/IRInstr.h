@@ -276,6 +276,36 @@ struct BitXorInstr : IRInstr {
     }
 };
 
+/** dest = lhs << rhs */
+struct ShlInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+
+    ShlInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "shl." + irtype_name(type) + " "
+               + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
+/** dest = lhs >> rhs */
+struct ShrInstr : IRInstr {
+    RegParam dest, lhs, rhs;
+
+    ShrInstr(BasicBlock *bb, const Reg d, const Reg l, const Reg r, const IRType t = IRType::INT32)
+        : IRInstr(bb, t), dest(d, t), lhs(l, t), rhs(r, t) {}
+
+    void accept(AsmGenerator& g, ostream &o) override;
+
+    [[nodiscard]] string to_string() const override {
+        return "shr." + irtype_name(type) + " "
+               + dest.to_string() + ", " + lhs.to_string() + ", " + rhs.to_string();
+    }
+};
+
 /** dest = (lhs == rhs) */
 struct CmpEqInstr : IRInstr {
     RegParam dest, lhs, rhs;

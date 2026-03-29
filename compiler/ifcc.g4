@@ -70,11 +70,17 @@ equality : relational          # equalityExprRef
     | equality '!=' relational # different
     ;
 
-relational : additive # relationalExprRef
-    | relational '<' additive # smallerStrictThan
-    | relational '>' additive # greaterStrictThan
-    | relational '<=' additive # smallerThan
-    | relational '>=' additive # greaterThan
+relational : shift # relationalExprRef
+    | relational '<' shift # smallerStrictThan
+    | relational '>' shift # greaterStrictThan
+    | relational '<=' shift # smallerThan
+    | relational '>=' shift # greaterThan
+    ;
+
+shift
+    : additive                 # shiftExprRef
+    | shift '<<' additive      # shiftLeft
+    | shift '>>' additive      # shiftRight
     ;
 
 additive
