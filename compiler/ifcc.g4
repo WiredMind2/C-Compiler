@@ -4,15 +4,17 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | var_decl_list | var_decl_with_init ;
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | declaration ;
 
 return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
 declarator : '*'* VAR ('[' CONST ']')? ;
-var_decl_list : type_specifier declarator (',' declarator)* ';' ;
-var_decl_with_init : type_specifier declarator '=' expr ';' ;
+init_declarator : declarator ('=' expr)? ;
+
+declaration_no_semi : type_specifier init_declarator (',' init_declarator)* ;
+declaration : declaration_no_semi ';' ;
 
 param : type_specifier VAR ;
 param_list : param (',' param)* ;
@@ -22,7 +24,11 @@ function_definition  : type_specifier VAR '(' param_list? ')' scope;
 condition : 'if' '(' expr ')' statement ('else' else_block )? ;
 else_block : scope | condition ;
 while_loop : 'while' '(' expr ')' scope ;
-for_loop: 'for' '(' expr? ';' expr? ';' expr? ')' scope ;
+for_init : declaration_no_semi
+         | expr
+         | // empty
+         ;
+for_loop: 'for' '(' for_init ';' expr? ';' expr? ')' scope ;
 switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
 case_block : 'case' expr ':' (statement* | scope) ;
 default_block : 'default' ':' (statement* | scope) ;

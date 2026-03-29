@@ -247,14 +247,15 @@ antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
     return ::visitVariable(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitVar_decl_list(ifccParser::Var_decl_listContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDeclaration_no_semi(ifccParser::Declaration_no_semiContext *ctx)
 {
-    return ::visitVar_decl_list(this, ctx);
+    return ::visitDeclaration_no_semi(this, ctx);
 }
-
-antlrcpp::Any CodeGenVisitor::visitVar_decl_with_init(ifccParser::Var_decl_with_initContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
 {
-    return ::visitVar_decl_with_init(this, ctx);
+    // delegate to the no-semi handler for shared logic
+    if (ctx->declaration_no_semi()) return ::visitDeclaration_no_semi(this, ctx->declaration_no_semi());
+    return 0;
 }
 antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
 {
@@ -709,8 +710,13 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
         if (exprs.size() > 2) updateExpr = exprs[2];
     }
 
-    //  init
-    if (initExpr != nullptr) {
+    //  init: either a declaration like 'int i = 0' (now in for_init) or an expression
+    if (ctx->for_init() && ctx->for_init()->declaration_no_semi()) {
+        BasicBlock* oldDeclTarget = cfg->decl_target_bb;
+        cfg->decl_target_bb = cfg->current_bb;
+        this->visit(ctx->for_init()->declaration_no_semi());
+        cfg->decl_target_bb = oldDeclTarget;
+    } else if (initExpr != nullptr) {
         this->visit(initExpr);
     }
 

@@ -74,108 +74,73 @@ antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext
     return StackParam(name, type);
 }
 
-antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_listContext *ctx)
+// legacy var_decl_list removed; use visitDeclaration_no_semi/visitDeclaration instead
+// New declaration handling
+antlrcpp::Any visitDeclaration(CodeGenVisitor* visitor, ifccParser::DeclarationContext *ctx)
 {
-    // Handle multiple variable declarations: int x, y, z;
-    IRType baseType = irtype_from_string(ctx->type_specifier()->getText());
-    for (auto decl : ctx->declarator()) {
-        string var = decl->VAR()->getText();
-        int pointerDepth = 0;
-        // derive pointer depth from AST (declarator: '*'* VAR ...)
-        if (decl->children.size() > 0) {
-            for (auto* ch : decl->children) {
-                auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
-                if (t && t->getText() == "*") {
-                    pointerDepth++;
-                }
-            }
-        }
-        bool isPointer = pointerDepth > 0;
-        IRType type = isPointer ? IRType::POINTER : baseType;
-
-        BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
-        if (!targetBB) targetBB = visitor->getCFG()->current_bb;
-
-        if (decl->CONST()) {
-            // Parse number of elements and compute allocation size with overflow checks
-            long long numElementsLL = std::stoll(decl->CONST()->getText());
-            const long long elemSizeLL = static_cast<long long>(irtype_size(baseType));
-
-            if (numElementsLL <= 0) {
-                throw std::runtime_error("Invalid array size for '" + var + "': " + decl->CONST()->getText());
-            }
-
-            using SizeType = std::uint64_t;
-            const SizeType numElements = static_cast<SizeType>(numElementsLL);
-            const SizeType elemSize = static_cast<SizeType>(elemSizeLL);
-            const SizeType totalSizeU = numElements * elemSize;
-            if (elemSize != 0 && totalSizeU / elemSize != numElements) {
-                throw std::runtime_error("Array allocation size overflow for '" + var + "'");
-            }
-
-            constexpr SizeType kMaxStackArrayBytes = static_cast<SizeType>(1) << 20; // 1 MiB
-            if (totalSizeU == 0 || totalSizeU > kMaxStackArrayBytes) {
-                throw std::runtime_error("Array '" + var + "' is too large to allocate on stack: " + std::to_string(totalSizeU) + " bytes");
-            }
-
-            int totalSize = static_cast<int>(totalSizeU);
-            // Round up array allocation to 8 bytes so the array base (recorded
-            // as a pointer symbol) resides on an 8-byte boundary. This avoids
-            // pointer misalignment and overlapping with neighboring 4-byte slots.
-            int allocSize = (totalSize + 7) & ~7; // round up to multiple of 8
-            int offset = targetBB->allocate_bytes_on_symbol_table(allocSize);
-            // Register the array base as a symbol at the reserved offset (no extra allocation)
-            targetBB->add_param_to_symbol_table(var, IRType::POINTER, offset);
-            targetBB->set_is_array(var, true);
-            // Record element type for correct indexing/scaling
-            visitor->getCFG()->set_array_element_type(var, baseType);
-            visitor->getCFG()->set_array_element_type(var + "@" + targetBB->label, baseType);
-        } else {
-            targetBB->add_var_to_symbol_table(var, type);
-            // If this is a pointer declaration, record the pointee type so pointer arithmetic can scale
-            if (isPointer) {
-                visitor->getCFG()->set_array_element_type(var, baseType);
-            }
-        }
+    if (ctx->declaration_no_semi()) {
+        return visitDeclaration_no_semi(visitor, ctx->declaration_no_semi());
     }
     return 0;
 }
 
-antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_decl_with_initContext *ctx)
+antlrcpp::Any visitDeclaration_no_semi(CodeGenVisitor* visitor, ifccParser::Declaration_no_semiContext *ctx)
 {
-    // Handle declaration with initialization: int x = expr;
-    string var = ctx->declarator()->VAR()->getText();
+    // Handle declarations used in for-loop initializers: type_specifier init_declarator (, init_declarator)*
     IRType baseType = irtype_from_string(ctx->type_specifier()->getText());
-    int pointerDepth = 0;
-    if (ctx->declarator()->children.size() > 0) {
-        for (auto* ch : ctx->declarator()->children) {
-            auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
-            if (t && t->getText() == "*") pointerDepth++;
+
+    // First register all variables
+    for (auto init_decl : ctx->init_declarator()) {
+        // init_declarator: declarator ('=' expr)? ;
+        auto* decl = init_decl->declarator();
+        string var = decl->VAR()->getText();
+        int pointerDepth = 0;
+        if (decl->children.size() > 0) {
+            for (auto* ch : decl->children) {
+                auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
+                if (t && t->getText() == "*") pointerDepth++;
+            }
+        }
+        bool isPointer = pointerDepth > 0;
+        IRType type = isPointer ? IRType::POINTER : baseType;
+        BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
+        if (!targetBB) targetBB = visitor->getCFG()->current_bb;
+        targetBB->add_var_to_symbol_table(var, type);
+        if (isPointer) visitor->getCFG()->set_array_element_type(var, baseType);
+    }
+
+    // Then, for single-init forms, handle initializer if present
+    if (ctx->init_declarator().size() == 1) {
+        auto* init_decl = ctx->init_declarator()[0];
+        if (init_decl->expr() != nullptr) {
+            auto* decl = init_decl->declarator();
+            string var = decl->VAR()->getText();
+            int pointerDepth = 0;
+            if (decl->children.size() > 0) {
+                for (auto* ch : decl->children) {
+                    auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
+                    if (t && t->getText() == "*") pointerDepth++;
+                }
+            }
+            IRType variable_type = pointerDepth > 0 ? IRType::POINTER : baseType;
+
+            StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(init_decl->expr()));
+            auto* bb = visitor->getCFG()->current_bb;
+            string mangled_var = bb->resolve_var_name(var);
+
+            if (src.type != variable_type) {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
+                bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, variable_type);
+                bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W1, variable_type));
+            } else {
+                bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, variable_type));
+                bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W0, variable_type));
+            }
+            return StackParam(mangled_var, variable_type);
         }
     }
-    IRType variable_type = pointerDepth > 0 ? IRType::POINTER : baseType;
-    BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
-    if (!targetBB) targetBB = visitor->getCFG()->current_bb;
-    targetBB->add_var_to_symbol_table(var, variable_type);
 
-    if (pointerDepth > 0) {
-        visitor->getCFG()->set_array_element_type(var, baseType);
-    }
-
-    StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr()));
-
-    auto* bb = visitor->getCFG()->current_bb;
-    string mangled_var = bb->resolve_var_name(var);
-
-    if (src.type != variable_type) {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
-        bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, variable_type);
-        bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W1, variable_type));
-    } else {
-        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, variable_type));
-        bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W0, variable_type));
-    }
-    return StackParam(mangled_var, variable_type);
+    return 0;
 }
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
