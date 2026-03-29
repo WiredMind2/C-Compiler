@@ -470,11 +470,15 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
     bb->add_IRInstr(new StoreStackInstr(bb, tmp1, Reg::W0, IRType::POINTER));
 
     // Load value from address
-    string tmp2 = bb->create_new_tempvar(IRType::INT32);
-    bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W0, Reg::W0, IRType::INT32));
-    bb->add_IRInstr(new StoreStackInstr(bb, tmp2, Reg::W0, IRType::INT32));
+    IRType elemType = IRType::INT32;
+    if (bb->cfg->has_array_element_type(base.name)) {
+        elemType = bb->cfg->get_array_element_type(base.name);
+    }
+    string tmp2 = bb->create_new_tempvar(elemType);
+    bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W0, Reg::W0, elemType));
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp2, Reg::W0, elemType));
 
-    return StackParam(tmp2, IRType::INT32);
+    return StackParam(tmp2, elemType);
 }
 
 
@@ -1571,6 +1575,7 @@ antlrcpp::Any visitStringConstant(CodeGenVisitor* visitor, ifccParser::StringCon
     auto* bb = visitor->getCFG()->current_bb;
     int idx = visitor->getCFG()->registerStringLiteral(text);
     string tmp = bb->create_new_tempvar(IRType::POINTER);
+    visitor->getCFG()->set_array_element_type(tmp, IRType::INT8);
     bb->add_IRInstr(new LdStringInstr(bb, Reg::W0, idx));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
     return StackParam(tmp, IRType::POINTER);

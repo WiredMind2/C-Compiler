@@ -16,7 +16,15 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            IRType type = irtype_from_string(param->type_specifier()->getText());
+            IRType baseType = irtype_from_string(param->type_specifier()->getText());
+            int pointDepth = 0;
+            if (param->children.size() > 0) {
+                for (auto* ch : param->children) {
+                    auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
+                    if (t && t->getText() == "*") pointDepth++;
+                }
+            }
+            IRType type = pointDepth > 0 ? IRType::POINTER : baseType;
             paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }
@@ -59,7 +67,15 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 
     if (ctx->param_list()) {
         for (auto param : ctx->param_list()->param()) {
-            IRType type = irtype_from_string(param->type_specifier()->getText());
+            IRType baseType = irtype_from_string(param->type_specifier()->getText());
+            int pointDepth = 0;
+            if (param->children.size() > 0) {
+                for (auto* ch : param->children) {
+                    auto* t = dynamic_cast<antlr4::tree::TerminalNode*>(ch);
+                    if (t && t->getText() == "*") pointDepth++;
+                }
+            }
+            IRType type = pointDepth > 0 ? IRType::POINTER : baseType;
             paramTypes.push_back(type);
             paramNames.push_back(param->VAR()->getText());
         }

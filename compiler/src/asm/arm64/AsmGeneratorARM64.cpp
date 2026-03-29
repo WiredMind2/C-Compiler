@@ -189,6 +189,8 @@ void AsmGeneratorARM64::visit(std::ostream& o, LoadPointerInstr& instr) {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else if (instr.type == IRType::INT8) {
+        o << "    ldrsb " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     }
@@ -199,6 +201,8 @@ void AsmGeneratorARM64::visit(std::ostream& o, StorePointerInstr& instr) {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else if (instr.type == IRType::INT8) {
+        o << "    strb " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     }

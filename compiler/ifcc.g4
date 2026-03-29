@@ -14,7 +14,7 @@ declarator : '*'* VAR ('[' constant ']')? ;
 var_decl_list : type_specifier declarator (',' declarator)* ';' ;
 var_decl_with_init : type_specifier declarator '=' expr ';' ;
 
-param : type_specifier VAR ;
+param : type_specifier '*'* VAR ;
 param_list : param (',' param)* ;
 
 function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
