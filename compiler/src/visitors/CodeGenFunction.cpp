@@ -31,6 +31,15 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     // Push the entry BB onto the scope stack
     visitor->getCFG()->getStackBBs().push_back(entryBB);
 
+    // Load function parameters from argument registers (ARG0-ARG5 / w1-w6) to stack
+    static const Reg argRegs[] = {
+        Reg::ARG0, Reg::ARG1, Reg::ARG2,
+        Reg::ARG3, Reg::ARG4, Reg::ARG5
+    };
+    for (int i = 0; i < static_cast<int>(paramTypes.size()) && i < 6; i++) {
+        entryBB->add_IRInstr(new StoreStackInstr(entryBB, paramNames[i], argRegs[i], paramTypes[i]));
+    }
+
     if (ctx->scope())
         visitor->visit(ctx->scope());
 
@@ -58,6 +67,9 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 
     if (visitor->getCFG()->get_function(func_name) == nullptr) {
         visitor->getCFG()->add_function(func_name, return_type, paramTypes, paramNames);
+    }else {
+        std::cerr << "Error: redefinition of function '" << func_name << "'." << std::endl;
+        exit(1);
     }
     return 0;
 }
@@ -77,19 +89,8 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
                 std::vector<std::string>());
             function_signature = visitor->getCFG()->get_function(func_name);
         } else {
-            // Implicitly declare the function as returning INT32
-            // and taking INT32 arguments based on what is passed.
-            visitor->called_undeclared_functions.push_back(func_name);
-            std::vector<IRType> implicitParamTypes;
-            for (auto exprCtx : ctx->expr()) {
-                implicitParamTypes.push_back(IRType::INT32);
-            }
-            visitor->getCFG()->add_function(
-                func_name,
-                IRType::INT32,
-                implicitParamTypes,
-                std::vector<std::string>());
-            function_signature = visitor->getCFG()->get_function(func_name);
+            std::cerr << "Error: call to undeclared function '" << func_name << "'." << std::endl;
+            exit(1);
         }
     }
 
@@ -108,8 +109,12 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         return t == IRType::FLOAT32 || t == IRType::FLOAT64;
     };
 
+    std::vector<StackParam> evaluatedArgs;
+    evaluatedArgs.reserve(actualArgs);
     for (int i = 0; i < actualArgs; i++) {
         StackParam arg = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr(i)));
+        evaluatedArgs.push_back(arg);
+
         IRType expected = function_signature->paramTypes[i];
         IRType actual = arg.type;
         if (actual != expected) {
@@ -130,39 +135,21 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         Reg::ARG3, Reg::ARG4, Reg::ARG5
     };
 
-    // Evaluate each argument, load into ARGn register.
-    auto args = ctx->expr();
+    // Arguments are already evaluated in stack temporaries; now place them in ARGn.
     std::vector<Reg> usedArgRegs;
     std::vector<IRType> usedArgTypes;
-    
-    int intArgCount = 0;
-    int floatArgCount = 0;
-    
-    for (int i = 0; i < static_cast<int>(args.size()); i++) {
-        StackParam argVar = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(args[i]));
-        
+    for (int i = 0; i < actualArgs && i < 6; i++) {
+        const StackParam& argVar = evaluatedArgs[i];
+        bb->add_IRInstr(new LoadStackInstr(bb, argRegs[i], argVar.name, argVar.type));
+        // Insert conversion to expected parameter type when needed (e.g. char -> int)
         IRType expectedType = IRType::INT32;
         if (function_signature && static_cast<int>(function_signature->paramTypes.size()) > i) {
             expectedType = function_signature->paramTypes[i];
         }
-        
-        Reg chosenReg;
-        bool isFloatType = (expectedType == IRType::FLOAT32 || expectedType == IRType::FLOAT64);
-        if (isFloatType) {
-            if (floatArgCount >= 6) continue; // too many float args
-            chosenReg = argRegs[floatArgCount++];
-        } else {
-            if (intArgCount >= 6) continue; // too many int args
-            chosenReg = argRegs[intArgCount++];
-        }
-
-        bb->add_IRInstr(new LoadStackInstr(bb, chosenReg, argVar.name, argVar.type));
-        
         if (argVar.type != expectedType) {
-            bb->generate_conversion_instruction(chosenReg, argVar.type, chosenReg, expectedType);
+            bb->generate_conversion_instruction(argRegs[i], argVar.type, argRegs[i], expectedType);
         }
-        
-        usedArgRegs.push_back(chosenReg);
+        usedArgRegs.push_back(argRegs[i]);
         usedArgTypes.push_back(expectedType);
     }
 
@@ -206,6 +193,8 @@ int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_n
             return ctx->expr().empty();
 
         case StandardLibraryFunction::PUTCHAR: {
+            // Only consider putchar as standard if <stdio.h> was included
+            if (!visitor->has_stdio()) return 0;
             if (ctx->expr().size() != 1) {
                 return 0;
             }
