@@ -25,6 +25,7 @@ int main(int argn, const char **argv) {
     stringstream in;
     TargetArch arch = DEFAULT_ARCH;
     const char *filename = nullptr;
+    bool no_optim = false;
 
     for (int i = 1; i < argn; i++) {
         string arg = argv[i];
@@ -35,12 +36,14 @@ int main(int argn, const char **argv) {
             } else if (archStr == "x86") {
                 arch = TargetArch::X86_64;
             }
+        } else if (arg == "--nooptim") {
+            no_optim = true;
         } else if (filename == nullptr) {
             filename = argv[i];
         }
     }
     if (filename == nullptr) {
-        cerr << "usage: ifcc [--arch arm|x86] path/to/file.c" << endl;
+        cerr << "usage: ifcc [--arch arm|x86, --nooptim] path/to/file.c" << endl;
         exit(1);
     }
 
@@ -78,10 +81,12 @@ int main(int argn, const char **argv) {
     CFG *cfg = v.getCFG();
 
     // Run optimizations
-    optim::OptimizationManager optimizer;
-    optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
-    optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
-    optimizer.runOptimizations(cfg);
+    if (!no_optim) {
+        optim::OptimizationManager optimizer;
+        optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
+        optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+        optimizer.runOptimizations(cfg);
+    }
 
     cfg->gen_asm(cout);
 
