@@ -28,6 +28,12 @@ antlrcpp::Any visitUnaryNot(CodeGenVisitor* visitor, ifccParser::UnaryNotContext
     return visitor->getCFG()->current_bb->emit_unop<BitNotInstr>(value);
 }
 
+antlrcpp::Any visitUnaryBitNot(CodeGenVisitor* visitor, ifccParser::UnaryBitNotContext *ctx)
+{
+    StackParam value = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->unary()));
+    return visitor->getCFG()->current_bb->emit_unop<BitNotInstr>(value);
+}
+
 antlrcpp::Any visitShiftExprRef(CodeGenVisitor* visitor, ifccParser::ShiftExprRefContext *ctx)
 {
     return visitor->visit(ctx->additive());

@@ -13,13 +13,21 @@ IRType irtype_from_string(const std::string& str);
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx) {
     auto* bb = visitor->getCFG()->current_bb;
     string tmp = bb->create_new_tempvar(IRType::INT32);
-    int64_t val = std::stoll(ctx->CONST()->getText());
+    std::string text;
+    if (auto* dec = dynamic_cast<ifccParser::DecimalConstantContext*>(ctx)) {
+        text = dec->DEC_CONST()->getText();
+    } else if (auto* hex = dynamic_cast<ifccParser::HexConstantContext*>(ctx)) {
+        text = hex->HEX_CONST()->getText();
+    } else {
+        text = ctx->getText();
+    }
+    int64_t val = std::stoll(text, nullptr, 0);
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
     return StackParam(tmp, IRType::INT32);
 }
 
-antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_constantContext *ctx) {
+antlrcpp::Any visitDoubleConstant(CodeGenVisitor* visitor, ifccParser::DoubleConstantContext *ctx) {
     auto* bb = visitor->getCFG()->current_bb;
     string tmp = bb->create_new_tempvar(IRType::FLOAT64);
     double val = std::stod(ctx->DOUBLE_CONST()->getText());
@@ -28,7 +36,7 @@ antlrcpp::Any visitDouble_constant(CodeGenVisitor* visitor, ifccParser::Double_c
     return StackParam(tmp, IRType::FLOAT64);
 }
 
-antlrcpp::Any visitChar_constant(CodeGenVisitor* visitor, ifccParser::Char_constantContext *ctx)
+antlrcpp::Any visitCharConstant(CodeGenVisitor* visitor, ifccParser::CharConstantContext *ctx)
 {
     string text = ctx->CHAR_CONST()->getText(); // e.g. 'a' or '\n'
     int8_t val;
@@ -96,13 +104,18 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
         BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
         if (!targetBB) targetBB = visitor->getCFG()->current_bb;
 
-        if (decl->CONST()) {
-            // Parse number of elements and compute allocation size with overflow checks
-            long long numElementsLL = std::stoll(decl->CONST()->getText());
+            if (decl->constant()) {
+                // Parse number of elements and compute allocation size with overflow checks
+                auto* cctx = decl->constant();
+                std::string declText;
+                if (auto* dec = dynamic_cast<ifccParser::DecimalConstantContext*>(cctx)) declText = dec->DEC_CONST()->getText();
+                else if (auto* hex = dynamic_cast<ifccParser::HexConstantContext*>(cctx)) declText = hex->HEX_CONST()->getText();
+                else declText = cctx->getText();
+                long long numElementsLL = std::stoll(declText, nullptr, 0);
             const long long elemSizeLL = static_cast<long long>(irtype_size(baseType));
 
             if (numElementsLL <= 0) {
-                throw std::runtime_error("Invalid array size for '" + var + "': " + decl->CONST()->getText());
+                throw std::runtime_error("Invalid array size for '" + var + "': " + declText);
             }
 
             using SizeType = std::uint64_t;

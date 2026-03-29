@@ -579,9 +579,8 @@ void AsmGeneratorX86_64::ModINT32(std::ostream& o, const std::string& lhs, const
 }
 
 void AsmGeneratorX86_64::BitNot(std::ostream& o, const std::string& src, const std::string& dest) {
-    o << "    cmpl $0, " << src << "\n";
-    o << "    sete " << reg32_to_reg8(dest) << "\n";
-    o << "    movzbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
+    if (dest != src) o << "    movl " << src << ", " << dest << "\n";
+    o << "    notl " << dest << "\n";
 }
 void AsmGeneratorX86_64::BitAnd(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
     if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";

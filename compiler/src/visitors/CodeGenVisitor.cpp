@@ -64,7 +64,7 @@ static std::vector<Token> tokenize_case_text(const std::string &s) {
             std::string num = s.substr(i, j - i);
             // reject floating point literals
             if (j < n && s[j] == '.') throw std::runtime_error("floating constant not allowed in case label");
-            int64_t v = std::stoll(num);
+            int64_t v = std::stoll(num, nullptr, 0);
             out.push_back({Token::NUM, v});
             i = j;
             continue;
@@ -229,17 +229,24 @@ antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *c
     return this->visit(ctx->expr());
 }
 
-antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDecimalConstant(ifccParser::DecimalConstantContext *ctx)
 {
     return ::visitConstant(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantContext* ctx) {
-    return ::visitDouble_constant(this, ctx);
+antlrcpp::Any CodeGenVisitor::visitHexConstant(ifccParser::HexConstantContext *ctx)
+{
+    return ::visitConstant(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitChar_constant(ifccParser::Char_constantContext* ctx) {
-    return ::visitChar_constant(this, ctx);
+antlrcpp::Any CodeGenVisitor::visitDoubleConstant(ifccParser::DoubleConstantContext *ctx)
+{
+    return ::visitDoubleConstant(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitCharConstant(ifccParser::CharConstantContext *ctx)
+{
+    return ::visitCharConstant(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
@@ -305,6 +312,10 @@ antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx)
 {
     return ::visitUnaryNot(this, ctx);
+}
+antlrcpp::Any CodeGenVisitor::visitUnaryBitNot(ifccParser::UnaryBitNotContext *ctx)
+{
+    return ::visitUnaryBitNot(this, ctx);
 }
 antlrcpp::Any CodeGenVisitor::visitDereference(ifccParser::DereferenceContext *ctx)
 {
