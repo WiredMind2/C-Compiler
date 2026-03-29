@@ -11,7 +11,7 @@ This document explains the difference between the two Makefiles in this reposito
 
 - `compiler/Makefile` (inside `compiler/`)
   - Purpose: build the compiler executable `ifcc`, generate ANTLR sources, compile and link C++ code.
-  - Ttargets: `ifcc` (built by `all`), `gui`, `clean`.
+  - Targets: `ifcc` (built by `all`), `gui`, `clean`.
 
 
 ## Target descriptions
