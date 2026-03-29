@@ -42,7 +42,7 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
 
 antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext *ctx)
 {
-    // TODO : handle types
+    IRType return_type = irtype_from_string(ctx->type_specifier()->getText());
     std::string func_name = ctx->VAR()->getText();
 
     std::vector<IRType> paramTypes;
@@ -56,7 +56,9 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
         }
     }
 
-    visitor->getCFG()->add_function(func_name, IRType::INT32, paramTypes, paramNames);
+    if (visitor->getCFG()->get_function(func_name) == nullptr) {
+        visitor->getCFG()->add_function(func_name, return_type, paramTypes, paramNames);
+    }
     return 0;
 }
 

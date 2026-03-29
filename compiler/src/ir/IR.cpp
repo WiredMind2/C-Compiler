@@ -343,10 +343,16 @@ BasicBlock* CFG::create_function_entry(string name, IRType returnType,
     // Set current function name FIRST
     currentFunctionName = name;
 
-    add_function(name, returnType, paramTypes, paramNames);
-
-    // Get the function signature we just created
     FunctionSignature* sig = get_function(name);
+    if (sig == nullptr) {
+        add_function(name, returnType, paramTypes, paramNames);
+        sig = get_function(name);
+    } else {
+        // Definition is authoritative over prior declaration/pre-scan entry.
+        sig->returnType = returnType;
+        sig->paramTypes = paramTypes;
+        sig->paramNames = paramNames;
+    }
 
     BasicBlock* entryBB = new BasicBlock(this, name);
     entryBB->reset_symbol_index();

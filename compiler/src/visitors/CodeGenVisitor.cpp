@@ -4,6 +4,43 @@
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {
+    // First pass: pre-register top-level function signatures so forward calls resolve.
+    for (auto stmt : ctx->statement()) {
+        if (auto* def = stmt->function_definition()) {
+            std::string func_name = def->VAR()->getText();
+            if (cfg->get_function(func_name) != nullptr) {
+                continue;
+            }
+
+            IRType return_type = irtype_from_string(def->type_specifier()->getText());
+            std::vector<IRType> paramTypes;
+            std::vector<std::string> paramNames;
+            if (def->param_list()) {
+                for (auto param : def->param_list()->param()) {
+                    paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
+                    paramNames.push_back(param->VAR()->getText());
+                }
+            }
+            cfg->add_function(func_name, return_type, paramTypes, paramNames);
+        } else if (auto* decl = stmt->function_declaration()) {
+            std::string func_name = decl->VAR()->getText();
+            if (cfg->get_function(func_name) != nullptr) {
+                continue;
+            }
+
+            IRType return_type = irtype_from_string(decl->type_specifier()->getText());
+            std::vector<IRType> paramTypes;
+            std::vector<std::string> paramNames;
+            if (decl->param_list()) {
+                for (auto param : decl->param_list()->param()) {
+                    paramTypes.push_back(irtype_from_string(param->type_specifier()->getText()));
+                    paramNames.push_back(param->VAR()->getText());
+                }
+            }
+            cfg->add_function(func_name, return_type, paramTypes, paramNames);
+        }
+    }
+
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
