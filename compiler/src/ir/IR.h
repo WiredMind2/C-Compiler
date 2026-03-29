@@ -111,9 +111,14 @@ public:
 
     IRType get_var_type(string name);
     
-    bool is_array(const string& name) const {
+    bool is_array(string name) {
         auto it = isArrayMap.find(name);
-        return it != isArrayMap.end() && it->second;
+        if (it != isArrayMap.end()) return it->second;
+        size_t atPos = name.find('@');
+        if (atPos != std::string::npos) name = name.substr(0, atPos);
+        BasicBlock* owner = get_var_owner_bb(name);
+        if (owner && owner != this) return owner->is_array(name);
+        return false;
     }
 
     void add_param_to_symbol_table(string name, IRType t, int offset) {

@@ -36,6 +36,10 @@ bool UnusedVariableEliminationPass::optimize(CFG* cfg) {
         // Find used variables: any variable that is read or whose address is taken
         std::set<string> used;
         for (auto* bb : func.bbs) {
+            // Only mark test_var_name as used if it's actually read for a conditional jump
+            if (bb->exit_true && bb->exit_false && !bb->test_var_name.empty()) {
+                used.insert(bb->test_var_name);
+            }
             for (auto* instr : bb->instrs) {
                 if (auto* ld = dynamic_cast<LoadStackInstr*>(instr)) {
                     used.insert(ld->src.name);

@@ -52,6 +52,8 @@ public:
     virtual void visit(std::ostream& o, BitAndInstr&     instr) = 0;
     virtual void visit(std::ostream& o, BitOrInstr&      instr) = 0;
     virtual void visit(std::ostream& o, BitXorInstr&     instr) = 0;
+    virtual void visit(std::ostream& o, ShlInstr&        instr) = 0;
+    virtual void visit(std::ostream& o, ShrInstr&        instr) = 0;
     virtual void visit(std::ostream& o, CmpEqInstr&      instr) = 0;
     virtual void visit(std::ostream& o, CmpLtInstr&      instr) = 0;
     virtual void visit(std::ostream& o, CmpLeInstr&      instr) = 0;

@@ -36,6 +36,8 @@ public:
     void visit(std::ostream& o, BitAndInstr& instr) override;
     void visit(std::ostream& o, BitOrInstr&  instr) override;
     void visit(std::ostream& o, BitXorInstr& instr) override;
+    void visit(std::ostream& o, ShlInstr& instr) override;
+    void visit(std::ostream& o, ShrInstr& instr) override;
     void visit(std::ostream& o, CmpEqInstr&  instr) override;
     void visit(std::ostream& o, CmpLtInstr&  instr) override;
     void visit(std::ostream& o, CmpLeInstr&  instr) override;

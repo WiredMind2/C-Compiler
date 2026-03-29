@@ -64,7 +64,7 @@ static std::vector<Token> tokenize_case_text(const std::string &s) {
             std::string num = s.substr(i, j - i);
             // reject floating point literals
             if (j < n && s[j] == '.') throw std::runtime_error("floating constant not allowed in case label");
-            int64_t v = std::stoll(num);
+            int64_t v = std::stoll(num, nullptr, 0);
             out.push_back({Token::NUM, v});
             i = j;
             continue;
@@ -160,16 +160,7 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
     if (!cfg->get_function("main")) {
         throw std::runtime_error("Program does not contain a 'main' function.");
     }
-    for (const string& func : called_undeclared_functions) {
-        auto* sig = cfg->get_function(func);
-        if (sig && sig->bbs.empty()) {
-            // Allow calls to known standard library functions even when not defined
-            // (tests expect e.g. `putchar` to be accepted). Skip throwing for
-            // standard functions; still throw for truly undeclared functions.
-            if (getStandardLibraryFunction(func) != StandardLibraryFunction::UNKNOWN) continue;
-            throw std::runtime_error("call to undeclared function '" + func + "' which is never defined");
-        }
-    }
+    // No implicit function declarations: calls to undeclared functions are rejected
     return "0";
 }
 
@@ -186,10 +177,8 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type == IRType::VOID) {
-            std::cerr << "Warning: 'return' with a value, in function returning void" << std::endl;
-            // Evaluated the expression, but we just discard the result and return nothing.
-            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
-            return 0;
+            std::cerr << "Error: 'return' with a value, in function returning void" << std::endl;
+            exit(1);
         }
 
         if (var.type != current_function_return_type) {
@@ -229,17 +218,24 @@ antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *c
     return this->visit(ctx->expr());
 }
 
-antlrcpp::Any CodeGenVisitor::visitConstant(ifccParser::ConstantContext *ctx)
+antlrcpp::Any CodeGenVisitor::visitDecimalConstant(ifccParser::DecimalConstantContext *ctx)
 {
     return ::visitConstant(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitDouble_constant(ifccParser::Double_constantContext* ctx) {
-    return ::visitDouble_constant(this, ctx);
+antlrcpp::Any CodeGenVisitor::visitHexConstant(ifccParser::HexConstantContext *ctx)
+{
+    return ::visitConstant(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitChar_constant(ifccParser::Char_constantContext* ctx) {
-    return ::visitChar_constant(this, ctx);
+antlrcpp::Any CodeGenVisitor::visitDoubleConstant(ifccParser::DoubleConstantContext *ctx)
+{
+    return ::visitDoubleConstant(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitCharConstant(ifccParser::CharConstantContext *ctx)
+{
+    return ::visitCharConstant(this, ctx);
 }
 
 antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
@@ -305,6 +301,10 @@ antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx)
 {
     return ::visitUnaryNot(this, ctx);
+}
+antlrcpp::Any CodeGenVisitor::visitUnaryBitNot(ifccParser::UnaryBitNotContext *ctx)
+{
+    return ::visitUnaryBitNot(this, ctx);
 }
 antlrcpp::Any CodeGenVisitor::visitDereference(ifccParser::DereferenceContext *ctx)
 {
@@ -418,6 +418,22 @@ antlrcpp::Any CodeGenVisitor::visitSmallerThan(ifccParser::SmallerThanContext *c
 antlrcpp::Any CodeGenVisitor::visitGreaterThan(ifccParser::GreaterThanContext *ctx)
 {
     return ::visitGreaterThan(this, ctx);
+}
+
+// Shift handlers
+antlrcpp::Any CodeGenVisitor::visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx)
+{
+    return this->visit(ctx->additive());
+}
+
+antlrcpp::Any CodeGenVisitor::visitShiftLeft(ifccParser::ShiftLeftContext *ctx)
+{
+    return ::visitShiftLeft(this, ctx);
+}
+
+antlrcpp::Any CodeGenVisitor::visitShiftRight(ifccParser::ShiftRightContext *ctx)
+{
+    return ::visitShiftRight(this, ctx);
 }
 
 // Logical expression handlers

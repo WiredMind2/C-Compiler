@@ -10,7 +10,7 @@ return_stmt: RETURN expr? ;
 
 type_specifier : 'void' | 'int' | 'double' | 'char' ;
 
-declarator : '*'* VAR ('[' CONST ']')? ;
+declarator : '*'* VAR ('[' constant ']')? ;
 var_decl_list : type_specifier declarator (',' declarator)* ';' ;
 var_decl_with_init : type_specifier declarator '=' expr ';' ;
 
@@ -54,7 +54,7 @@ logicalAND : bitwiseOR # logicalANDRef
     ;
 
 bitwiseOR : bitwiseXOR         # bitwiseORRef
-    | bitwiseOR '^' bitwiseXOR # bitwiseORRule
+    | bitwiseOR '|' bitwiseXOR # bitwiseORRule
     ;
 
 bitwiseXOR : bitwiseAND         # bitwiseXORRef
@@ -70,11 +70,17 @@ equality : relational          # equalityExprRef
     | equality '!=' relational # different
     ;
 
-relational : additive # relationalExprRef
-    | relational '<' additive # smallerStrictThan
-    | relational '>' additive # greaterStrictThan
-    | relational '<=' additive # smallerThan
-    | relational '>=' additive # greaterThan
+relational : shift # relationalExprRef
+    | relational '<' shift # smallerStrictThan
+    | relational '>' shift # greaterStrictThan
+    | relational '<=' shift # smallerThan
+    | relational '>=' shift # greaterThan
+    ;
+
+shift
+    : additive                 # shiftExprRef
+    | shift '<<' additive      # shiftLeft
+    | shift '>>' additive      # shiftRight
     ;
 
 additive
@@ -98,6 +104,7 @@ unary
     | '-' unary                  # unaryMinus
     | '+' unary                  # unaryPlus
     | '!' unary                  # unaryNot
+    | '~' unary                  # unaryBitNot
     | '*' unary                  # dereference
     | '&' unary                  # addressOf
     | primitive                  # primitiveExprRef
@@ -108,15 +115,21 @@ primitive
     | function_call              # functionCall
     | primitive '[' expr ']'     # array_subscript
     | VAR                        # variable
-    | CONST                      # constant
-    | DOUBLE_CONST               # double_constant
-    | CHAR_CONST                 # char_constant
+    | constant                   # constantLiteral
+    ;
+
+constant
+    : DEC_CONST            # decimalConstant
+    | HEX_CONST        # hexConstant
+    | DOUBLE_CONST     # doubleConstant
+    | CHAR_CONST       # charConstant
     ;
 
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
 RETURN : 'return' ;
-CONST : [0-9]+ ;
+HEX_CONST : '0' [xX] [0-9a-fA-F]+ ;
+DEC_CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;

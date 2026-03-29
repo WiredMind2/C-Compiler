@@ -253,6 +253,20 @@ void AsmGeneratorARM64::visit(std::ostream& o, BitXorInstr& instr) {
                    << reg_to_asm(instr.rhs)  << "\n";
 }
 
+void AsmGeneratorARM64::visit(std::ostream& o, ShlInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    o << "    lsl " << dest << ", " << lhs << ", " << rhs << "\n";
+}
+
+void AsmGeneratorARM64::visit(std::ostream& o, ShrInstr& instr) {
+    string dest = reg_to_asm(instr.dest);
+    string lhs  = reg_to_asm(instr.lhs);
+    string rhs  = reg_to_asm(instr.rhs);
+    o << "    asr " << dest << ", " << lhs << ", " << rhs << "\n";
+}
+
 void AsmGeneratorARM64::visit(std::ostream& o, CmpEqInstr& instr) {
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::FLOAT64) {
