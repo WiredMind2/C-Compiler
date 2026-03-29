@@ -53,6 +53,15 @@ string AsmGeneratorARM64::var_to_asm(const string& varName) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorARM64::gen_asm(std::ostream& o) {
+    if (!cfg->stringLiterals.empty()) {
+        o << "    .section __TEXT,__cstring,cstring_literals\n";
+        for (size_t i = 0; i < cfg->stringLiterals.size(); ++i) {
+            o << ".LC" << i << ":\n";
+            o << "    .asciz " << cfg->stringLiterals[i] << "\n";
+        }
+        o << "    .text\n";
+    }
+
     // Generate .globl for all functions
     for (auto bb : cfg->getBBs()) {
         auto* sig = cfg->get_function(bb->label);
@@ -104,6 +113,11 @@ void AsmGeneratorARM64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
 // ---------------------------------------------------------------------------
 // Visitor implementations
 // ---------------------------------------------------------------------------
+
+void AsmGeneratorARM64::visit(std::ostream& o, LdStringInstr& instr) {
+    o << "    adrp " << reg_to_asm(instr.dest) << ", .LC" << instr.strIndex << "@PAGE\n";
+    o << "    add " << reg_to_asm(instr.dest) << ", " << reg_to_asm(instr.dest) << ", .LC" << instr.strIndex << "@PAGEOFF\n";
+}
 
 void AsmGeneratorARM64::visit(std::ostream& o, LdConstInstr& instr) {
     string dest = reg_to_asm(instr.dest);
@@ -175,6 +189,10 @@ void AsmGeneratorARM64::visit(std::ostream& o, LoadPointerInstr& instr) {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else if (instr.type == IRType::INT8) {
+        // Note: We currently treat char/INT8 as signed (ldrsb).
+        // If unsigned types are added later, this will need a UINT8 type and ldrb.
+        o << "    ldrsb " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else {
         o << "    ldr " << reg_to_asm(instr.dest) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     }
@@ -185,6 +203,9 @@ void AsmGeneratorARM64::visit(std::ostream& o, StorePointerInstr& instr) {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
+    } else if (instr.type == IRType::INT8) {
+        // Truncates to 8-bit. Consistent with char being a signed 8-bit int.
+        o << "    strb " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     } else {
         o << "    str " << reg_to_asm(instr.src) << ", [" << reg_to_asm(instr.ptr) << "]\n";
     }

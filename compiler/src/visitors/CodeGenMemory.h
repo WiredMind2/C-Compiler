@@ -22,6 +22,7 @@ class CodeGenVisitor;
 
 antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext *ctx);
 antlrcpp::Any visitDoubleConstant(CodeGenVisitor* visitor, ifccParser::DoubleConstantContext *ctx);
+antlrcpp::Any visitStringConstant(CodeGenVisitor* visitor, ifccParser::StringConstantContext *ctx);
 antlrcpp::Any visitCharConstant(CodeGenVisitor* visitor, ifccParser::CharConstantContext *ctx);
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx);
 antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_listContext *ctx);

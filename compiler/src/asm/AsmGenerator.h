@@ -36,6 +36,7 @@ public:
 
     //---------------- Visitor methods (one per IRInstr subclass) ----------------
 
+    virtual void visit(std::ostream& o, LdStringInstr&   instr) = 0;
     virtual void visit(std::ostream& o, LdConstInstr&    instr) = 0;
     virtual void visit(std::ostream& o, CopyRegInstr&    instr) = 0;
     virtual void visit(std::ostream& o, StoreStackInstr& instr) = 0;

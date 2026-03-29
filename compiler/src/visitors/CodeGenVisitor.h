@@ -35,6 +35,7 @@ public:
     virtual antlrcpp::Any visitDecimalConstant(ifccParser::DecimalConstantContext *ctx) override;
     virtual antlrcpp::Any visitHexConstant(ifccParser::HexConstantContext *ctx) override;
     virtual antlrcpp::Any visitDoubleConstant(ifccParser::DoubleConstantContext *ctx) override;
+    virtual antlrcpp::Any visitStringConstant(ifccParser::StringConstantContext *ctx) override;
     virtual antlrcpp::Any visitCharConstant(ifccParser::CharConstantContext *ctx) override;
 
     virtual antlrcpp::Any visitVariable(ifccParser::VariableContext *ctx) override;

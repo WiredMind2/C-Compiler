@@ -31,10 +31,10 @@ antlrcpp::Any visitConstant(CodeGenVisitor* visitor, ifccParser::ConstantContext
         throw std::runtime_error("integer literal out of range for 64-bit: '" + text + "'");
     }
 
-    if (val < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) ||
-        val > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
-        throw std::runtime_error("integer literal out of range for 32-bit type: '" + text + "'");
-    }
+    // Allow implicit overflow/truncation for constants like standard C does (e.g. 4294967316 truncating to 20 inside a 32-bit int).
+    // If we wanted exact bounds we could emit a warning here, but we will accept and truncate it.
+    // Truncate to 32-bits so raw_int doesn't overflow assembly instructions string streams:
+    val = static_cast<int64_t>(static_cast<int32_t>(val));
 
     bb->add_IRInstr(new LdConstInstr(bb, Reg::W0, IRType::INT32, val));
     bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::INT32));
@@ -470,11 +470,15 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
     bb->add_IRInstr(new StoreStackInstr(bb, tmp1, Reg::W0, IRType::POINTER));
 
     // Load value from address
-    string tmp2 = bb->create_new_tempvar(IRType::INT32);
-    bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W0, Reg::W0, IRType::INT32));
-    bb->add_IRInstr(new StoreStackInstr(bb, tmp2, Reg::W0, IRType::INT32));
+    IRType elemType = IRType::INT32;
+    if (bb->cfg->has_array_element_type(base.name)) {
+        elemType = bb->cfg->get_array_element_type(base.name);
+    }
+    string tmp2 = bb->create_new_tempvar(elemType);
+    bb->add_IRInstr(new LoadPointerInstr(bb, Reg::W0, Reg::W0, elemType));
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp2, Reg::W0, elemType));
 
-    return StackParam(tmp2, IRType::INT32);
+    return StackParam(tmp2, elemType);
 }
 
 
@@ -1563,4 +1567,16 @@ antlrcpp::Any visitPostDecrement(CodeGenVisitor* visitor, ifccParser::PostDecrem
     bb->add_IRInstr(new StoreStackInstr(bb, resTmp, Reg::W3, targetType));
     return StackParam(resTmp, targetType);
     
+}
+
+antlrcpp::Any visitStringConstant(CodeGenVisitor* visitor, ifccParser::StringConstantContext *ctx)
+{
+    string text = ctx->STRING_CONST()->getText();
+    auto* bb = visitor->getCFG()->current_bb;
+    int idx = visitor->getCFG()->registerStringLiteral(text);
+    string tmp = bb->create_new_tempvar(IRType::POINTER);
+    visitor->getCFG()->set_array_element_type(tmp, IRType::INT8);
+    bb->add_IRInstr(new LdStringInstr(bb, Reg::W0, idx));
+    bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
+    return StackParam(tmp, IRType::POINTER);
 }

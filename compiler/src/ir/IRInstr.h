@@ -30,6 +30,14 @@ protected:
 };
 
 /** Load constant into register:  dest = value */
+struct LdStringInstr : IRInstr {
+    RegParam dest;
+    int strIndex;
+    LdStringInstr(BasicBlock *bb, const Reg d, int idx) : IRInstr(bb, IRType::POINTER), dest(d, IRType::POINTER), strIndex(idx) {}
+    void accept(AsmGenerator& g, std::ostream &o) override;
+    std::string to_string() const override { return "ldstr " + irtype_name(IRType::POINTER) + " " + std::to_string(strIndex) + " -> " + reg_name(dest.reg); }
+};
+
 struct LdConstInstr : IRInstr {
     RegParam  dest;
     ConstParam val;

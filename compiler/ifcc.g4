@@ -14,7 +14,7 @@ declarator : '*'* VAR ('[' constant ']')? ;
 var_decl_list : type_specifier declarator (',' declarator)* ';' ;
 var_decl_with_init : type_specifier declarator '=' expr ';' ;
 
-param : type_specifier VAR ;
+param : type_specifier '*'* VAR ;
 param_list : param (',' param)* ;
 
 function_declaration : type_specifier VAR '(' param_list? ')' ';' ;
@@ -124,6 +124,7 @@ constant
     | HEX_CONST        # hexConstant
     | DOUBLE_CONST     # doubleConstant
     | CHAR_CONST       # charConstant
+    | STRING_CONST     # stringConstant
     ;
 
 
@@ -133,6 +134,7 @@ HEX_CONST : '0' [xX] [0-9a-fA-F]+ ;
 DEC_CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
+STRING_CONST : '"' (~['"\\] | '\\' .)* '"' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

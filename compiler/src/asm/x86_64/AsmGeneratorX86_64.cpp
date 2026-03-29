@@ -92,6 +92,15 @@ static string reg32_to_reg8(const string& reg32) {
 // ---------------------------------------------------------------------------
 
 void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
+    if (!cfg->stringLiterals.empty()) {
+        o << "    .section .rodata\n";
+        for (size_t i = 0; i < cfg->stringLiterals.size(); ++i) {
+            o << ".LC" << i << ":\n";
+            o << "    .string " << cfg->stringLiterals[i] << "\n";
+        }
+        o << "    .text\n";
+    }
+
     for (auto bb : cfg->getBBs()) {
         o << ".globl " << bb->label << "\n";
     }
@@ -155,6 +164,10 @@ void AsmGeneratorX86_64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
 // ---------------------------------------------------------------------------
 // Visitor wrappers: delegate to typed helpers
 // ---------------------------------------------------------------------------
+
+void AsmGeneratorX86_64::visit(std::ostream& o, LdStringInstr& instr) {
+    o << "    leaq .LC" << instr.strIndex << "(%rip), " << reg_to_asm(instr.dest) << "\n";
+}
 
 void AsmGeneratorX86_64::visit(std::ostream& o, LdConstInstr& instr) {
     string dest = reg_to_asm(instr.dest);
@@ -249,6 +262,10 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LoadPointerInstr& instr) {
         o << "    movq (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
+    } else if (instr.type == IRType::INT8) {
+        // Note: We currently treat char/INT8 as signed (movsbl).
+        // If unsigned types are added later, this will need a UINT8 type and movzbl.
+        o << "    movsbl (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     } else {
         o << "    movl (" << reg_to_asm(instr.ptr) << "), " << reg_to_asm(instr.dest) << "\n";
     }
@@ -259,6 +276,9 @@ void AsmGeneratorX86_64::visit(std::ostream& o, StorePointerInstr& instr) {
         o << "    movq " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
+    } else if (instr.type == IRType::INT8) {
+        // Truncates to 8-bit. Consistent with char being a signed 8-bit int.
+        o << "    movb " << reg32_to_reg8(reg_to_asm(instr.src)) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     } else {
         o << "    movl " << reg_to_asm(instr.src) << ", (" << reg_to_asm(instr.ptr) << ")\n";
     }
