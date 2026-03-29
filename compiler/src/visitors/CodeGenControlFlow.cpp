@@ -65,6 +65,12 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     cfg->add_bb(test_bb);
     cfg->add_bb(end_bb);
 
+    // Save previous loop contexts
+    BasicBlock* oldBreak = cfg->current_break_bb;
+    BasicBlock* oldContinue = cfg->current_continue_bb;
+    cfg->current_break_bb = end_bb;
+    cfg->current_continue_bb = test_bb;
+
     // The block before the while jumps to the test block
     before_while_bb->exit_true = test_bb;
 
@@ -85,6 +91,10 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     cfg->current_bb = body_bb;
     visitor->visit(ctx->scope());
 
+    // Restore loop contexts
+    cfg->current_break_bb = oldBreak;
+    cfg->current_continue_bb = oldContinue;
+
     // After the body, if the last generated BB didn't already redirect control (return/break/continue),
     // set it to jump back to the test block.
     if (cfg->current_bb != nullptr) {
@@ -98,5 +108,27 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     // After the loop, we continue from end_bb
     cfg->current_bb = end_bb;
 
+    return nullptr;
+}
+
+antlrcpp::Any visitBreak_stmt(CodeGenVisitor* visitor, ifccParser::Break_stmtContext *ctx) {
+    CFG* cfg = visitor->getCFG();
+    if (!cfg->current_break_bb) {
+        std::cerr << "Error: 'break' statement not within a loop or switch." << std::endl;
+        exit(1);
+    }
+    cfg->current_bb->exit_true = cfg->current_break_bb;
+    cfg->current_bb = nullptr;
+    return nullptr;
+}
+
+antlrcpp::Any visitContinue_stmt(CodeGenVisitor* visitor, ifccParser::Continue_stmtContext *ctx) {
+    CFG* cfg = visitor->getCFG();
+    if (!cfg->current_continue_bb) {
+        std::cerr << "Error: 'continue' statement not within a loop." << std::endl;
+        exit(1);
+    }
+    cfg->current_bb->exit_true = cfg->current_continue_bb;
+    cfg->current_bb = nullptr;
     return nullptr;
 }

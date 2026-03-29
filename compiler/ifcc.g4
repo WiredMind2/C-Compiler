@@ -4,11 +4,7 @@ axiom : prog EOF ;
 
 prog : statement* ;
 
-<<<<<<< HEAD
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | break_stmt | continue_stmt | var_decl_list | var_decl_with_init ;
-=======
-statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | var_decl | declaration_list | var_decl_with_init ;
->>>>>>> main
+statement : ((expr | return_stmt ) ';') | scope | function_definition | function_declaration | condition | while_loop | for_loop | switch_stmt | break_stmt | continue_stmt | var_decl_list | var_decl_with_init ;
 
 return_stmt: RETURN expr? ;
 

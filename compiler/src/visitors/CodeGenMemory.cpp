@@ -59,7 +59,7 @@ antlrcpp::Any visitChar_constant(CodeGenVisitor* visitor, ifccParser::Char_const
 
 antlrcpp::Any visitVariable(CodeGenVisitor* visitor, ifccParser::VariableContext *ctx)
 {
-    string name = ctx->VAR()->getText();
+    string name = visitor->getCFG()->current_bb->resolve_var_name(ctx->VAR()->getText());
     auto* bb = visitor->getCFG()->current_bb;
     IRType type = bb->get_var_type(name);
     
@@ -93,7 +93,9 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
         bool isPointer = pointerDepth > 0;
         IRType type = isPointer ? IRType::POINTER : baseType;
 
-        auto* bb = visitor->getCFG()->current_bb;
+        BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
+        if (!targetBB) targetBB = visitor->getCFG()->current_bb;
+
         if (decl->CONST()) {
             // Parse number of elements and compute allocation size with overflow checks
             long long numElementsLL = std::stoll(decl->CONST()->getText());
@@ -121,14 +123,15 @@ antlrcpp::Any visitVar_decl_list(CodeGenVisitor* visitor, ifccParser::Var_decl_l
             // as a pointer symbol) resides on an 8-byte boundary. This avoids
             // pointer misalignment and overlapping with neighboring 4-byte slots.
             int allocSize = (totalSize + 7) & ~7; // round up to multiple of 8
-            int offset = bb->allocate_bytes_on_symbol_table(allocSize);
+            int offset = targetBB->allocate_bytes_on_symbol_table(allocSize);
             // Register the array base as a symbol at the reserved offset (no extra allocation)
-            bb->add_param_to_symbol_table(var, IRType::POINTER, offset);
-            bb->set_is_array(var, true);
+            targetBB->add_param_to_symbol_table(var, IRType::POINTER, offset);
+            targetBB->set_is_array(var, true);
             // Record element type for correct indexing/scaling
             visitor->getCFG()->set_array_element_type(var, baseType);
+            visitor->getCFG()->set_array_element_type(var + "@" + targetBB->label, baseType);
         } else {
-            bb->add_var_to_symbol_table(var, type);
+            targetBB->add_var_to_symbol_table(var, type);
             // If this is a pointer declaration, record the pointee type so pointer arithmetic can scale
             if (isPointer) {
                 visitor->getCFG()->set_array_element_type(var, baseType);
@@ -151,7 +154,9 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
         }
     }
     IRType variable_type = pointerDepth > 0 ? IRType::POINTER : baseType;
-    visitor->getCFG()->current_bb->add_var_to_symbol_table(var, variable_type);
+    BasicBlock* targetBB = visitor->getCFG()->decl_target_bb;
+    if (!targetBB) targetBB = visitor->getCFG()->current_bb;
+    targetBB->add_var_to_symbol_table(var, variable_type);
 
     if (pointerDepth > 0) {
         visitor->getCFG()->set_array_element_type(var, baseType);
@@ -160,16 +165,17 @@ antlrcpp::Any visitVar_decl_with_init(CodeGenVisitor* visitor, ifccParser::Var_d
     StackParam src = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->expr()));
 
     auto* bb = visitor->getCFG()->current_bb;
+    string mangled_var = bb->resolve_var_name(var);
 
     if (src.type != variable_type) {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, src.type));
         bb->generate_conversion_instruction(Reg::W0, src.type, Reg::W1, variable_type);
-        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W1, variable_type));
+        bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W1, variable_type));
     } else {
         bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, src.name, variable_type));
-        bb->add_IRInstr(new StoreStackInstr(bb, var, Reg::W0, variable_type));
+        bb->add_IRInstr(new StoreStackInstr(bb, mangled_var, Reg::W0, variable_type));
     }
-    return StackParam(var, variable_type);
+    return StackParam(mangled_var, variable_type);
 }
 
 antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentContext *ctx)
@@ -177,7 +183,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
     auto* bb = visitor->getCFG()->current_bb;
 
     // Helper to evaluate an lvalue and return its memory address
-    std::function<StackParam(ifccParser::LvalueContext*)> getLvalueAddr = [&](ifccParser::LvalueContext* c) -> StackParam {
+    std::function<StackParam(ifccParser::LvalueContext*, bool)> getLvalueAddr = [&](ifccParser::LvalueContext* c, bool isTopLevelLvalue) -> StackParam {
         if (c->primitive()) {
             // Case lvalue: primitive ('[' expr ']')?
             ifccParser::PrimitiveContext* prim = c->primitive();
@@ -190,7 +196,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                         if (!p) return StackParam("", IRType::INT32);
                         ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(p);
                         if (varCtx) {
-                            string varName = varCtx->VAR()->getText();
+                            string varName = bb->resolve_var_name(varCtx->VAR()->getText());
                             IRType t = bb->get_var_type(varName);
                             return StackParam(varName, t);
                         }
@@ -215,7 +221,11 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                     bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
                     bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
 
-                    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
+                    if (bb->is_array(base.name)) {
+                        bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, base.name, IRType::POINTER));
+                    } else {
+                        bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));
+                    }
                     // 64-bit Add using W0 and W1
                     bb->add_IRInstr(new AddInstr(bb, Reg::W0, Reg::W0, Reg::W1, IRType::POINTER));
                     bb->add_IRInstr(new StoreStackInstr(bb, addrTmp, Reg::W0, IRType::POINTER));
@@ -224,7 +234,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                 // Must be a variable or an array subscript parsed entirely in primitive
                 ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(prim);
                 if (varCtx) {
-                    string varName = varCtx->VAR()->getText();
+                    string varName = bb->resolve_var_name(varCtx->VAR()->getText());
                     string addrTmp = bb->create_new_tempvar(IRType::POINTER);
                     bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, varName));
                     bb->add_IRInstr(new StoreStackInstr(bb, addrTmp, Reg::W0, IRType::POINTER));
@@ -251,6 +261,9 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 
                 // If parenthesis e.g. *(p+1), prim is parenthesis, which falls back to its rvalue evaluation
                 StackParam rvalue = std::any_cast<StackParam>(visitor->visit(prim));
+                if (isTopLevelLvalue && rvalue.name.find("!tmp") == 0) {
+                    throw std::runtime_error("cannot assign to an rvalue");
+                }
                 // For non-pointer rvalues AND pointer rvalues, take the address of the temporary so that
                 // pointers-to-temporaries behave consistently.
                 string addrTmp = bb->create_new_tempvar(IRType::POINTER);
@@ -264,7 +277,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
             // Evaluate the inner lvalue to obtain its address, then load
             // the pointer value stored there into a new temp so that
             // callers receive a stack slot holding the address to write to.
-            StackParam innerAddr = getLvalueAddr(c->lvalue());
+            StackParam innerAddr = getLvalueAddr(c->lvalue(), false);
             string addrTmp = bb->create_new_tempvar(IRType::POINTER);
             // innerAddr holds the address of the inner lvalue (e.g. &p2).
             // Load that address, then load the pointer value stored at that address
@@ -278,7 +291,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
 
     // General case: evaluate address and store
     // Evaluate LHS address first to avoid temp-name collisions during RHS evaluation
-    StackParam targetAddr = getLvalueAddr(ctx->lvalue());
+    StackParam targetAddr = getLvalueAddr(ctx->lvalue(), true);
 
     // Snapshot the address into a fresh temp to avoid later name collisions
     string addrHolder = bb->create_new_tempvar(IRType::POINTER);
@@ -294,7 +307,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
         if (prim) {
             ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(prim);
             if (varCtx) {
-                string varName = varCtx->VAR()->getText();
+                string varName = bb->resolve_var_name(varCtx->VAR()->getText());
                 targetType = bb->get_var_type(varName);
             }
             ifccParser::Array_subscriptContext* arrCtx = dynamic_cast<ifccParser::Array_subscriptContext*>(prim);
@@ -302,7 +315,7 @@ antlrcpp::Any visitAssignment(CodeGenVisitor* visitor, ifccParser::AssignmentCon
                 // To avoid generating IR twice, try to find the variable recursively
                 std::function<string(ifccParser::PrimitiveContext*)> getArrayName = [&](ifccParser::PrimitiveContext* p) -> string {
                     ifccParser::VariableContext* v = dynamic_cast<ifccParser::VariableContext*>(p);
-                    if (v) return v->VAR()->getText();
+                    if (v) return bb->resolve_var_name(v->VAR()->getText());
                     ifccParser::Array_subscriptContext* a = dynamic_cast<ifccParser::Array_subscriptContext*>(p);
                     if (a) return getArrayName(a->primitive());
                     return "";
@@ -344,7 +357,7 @@ antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfConte
     if (primRefCtx) {
         ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(primRefCtx->primitive());
         if (varCtx) {
-            string varName = varCtx->VAR()->getText();
+            string varName = bb->resolve_var_name(varCtx->VAR()->getText());
             string tmp = bb->create_new_tempvar(IRType::POINTER);
             bb->add_IRInstr(new AddressOfSymbolInstr(bb, Reg::W0, varName));
             bb->add_IRInstr(new StoreStackInstr(bb, tmp, Reg::W0, IRType::POINTER));
@@ -378,7 +391,7 @@ antlrcpp::Any visitAddressOf(CodeGenVisitor* visitor, ifccParser::AddressOfConte
         if (innerPrim) {
             ifccParser::VariableContext* varCtx = dynamic_cast<ifccParser::VariableContext*>(innerPrim->primitive());
             if (varCtx) {
-                string varName = varCtx->VAR()->getText();
+                string varName = bb->resolve_var_name(varCtx->VAR()->getText());
                 return StackParam(varName, IRType::POINTER);
             }
         }

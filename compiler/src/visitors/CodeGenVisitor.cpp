@@ -1,11 +1,170 @@
 #include "CodeGenVisitor.h"
 #include "CodeGenArithmetic.h"
 #include "../ir/IRInstr.h"
+#include <limits>
+
+namespace {
+// Simple tokenizer and recursive-descent evaluator for case label expression text.
+// Accepts integers, character literals, parentheses, and operators + - * / %.
+// Rejects identifiers, floating-point literals and function calls.
+
+struct Token {
+    enum Type {NUM, CHAR, PLUS, MINUS, MUL, DIV, MOD, LPAREN, RPAREN, END} type;
+    int64_t value;
+};
+
+static int64_t parse_char_literal_text(const std::string &s, size_t &i) {
+    // s[i] should be '\''
+    if (s[i] != '\'') throw std::runtime_error("invalid char literal");
+    i++; // skip '
+    if (i >= s.size()) throw std::runtime_error("unterminated char literal");
+    int64_t v;
+    if (s[i] == '\\') {
+        i++;
+        if (i >= s.size()) throw std::runtime_error("unterminated escape in char literal");
+        char esc = s[i++];
+        switch (esc) {
+            case 'n': v = '\n'; break;
+            case 't': v = '\t'; break;
+            case 'r': v = '\r'; break;
+            case '\\': v = '\\'; break;
+            case '\'': v = '\''; break;
+            case '0': v = '\0'; break;
+            default: throw std::runtime_error("unsupported escape in char literal");
+        }
+    } else {
+        v = static_cast<unsigned char>(s[i++]);
+    }
+    if (i >= s.size() || s[i] != '\'') throw std::runtime_error("unterminated char literal");
+    i++; // closing '
+    return v;
+}
+
+static std::vector<Token> tokenize_case_text(const std::string &s) {
+    std::vector<Token> out;
+    size_t i = 0, n = s.size();
+    while (i < n) {
+        char c = s[i];
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { i++; continue; }
+        if (c == '+') { out.push_back({Token::PLUS, 0}); i++; continue; }
+        if (c == '-') { out.push_back({Token::MINUS, 0}); i++; continue; }
+        if (c == '*') { out.push_back({Token::MUL, 0}); i++; continue; }
+        if (c == '/') { out.push_back({Token::DIV, 0}); i++; continue; }
+        if (c == '%') { out.push_back({Token::MOD, 0}); i++; continue; }
+        if (c == '(') { out.push_back({Token::LPAREN, 0}); i++; continue; }
+        if (c == ')') { out.push_back({Token::RPAREN, 0}); i++; continue; }
+        if (c == '\'') {
+            int64_t val = parse_char_literal_text(s, i);
+            out.push_back({Token::CHAR, val});
+            continue;
+        }
+        if ((c >= '0' && c <= '9')) {
+            size_t j = i;
+            while (j < n && isdigit((unsigned char)s[j])) j++;
+            std::string num = s.substr(i, j - i);
+            // reject floating point literals
+            if (j < n && s[j] == '.') throw std::runtime_error("floating constant not allowed in case label");
+            int64_t v = std::stoll(num);
+            out.push_back({Token::NUM, v});
+            i = j;
+            continue;
+        }
+        // identifiers or other characters (like letters) are not allowed in constant case labels
+        throw std::runtime_error("non-constant expression in case label");
+    }
+    out.push_back({Token::END, 0});
+    return out;
+}
+
+struct Parser {
+    const std::vector<Token> &toks;
+    size_t pos;
+    Parser(const std::vector<Token> &v) : toks(v), pos(0) {}
+
+    Token peek() const { return toks[pos]; }
+    Token consume() { return toks[pos++]; }
+
+    int64_t parsePrimary() {
+        Token tk = peek();
+        if (tk.type == Token::NUM) { consume(); return tk.value; }
+        if (tk.type == Token::CHAR) { consume(); return tk.value; }
+        if (tk.type == Token::LPAREN) {
+            consume(); int64_t v = parseAdd();
+            if (peek().type != Token::RPAREN) throw std::runtime_error("missing closing parenthesis in case label");
+            consume();
+            return v;
+        }
+        throw std::runtime_error("invalid primary in case label");
+    }
+
+    int64_t parseUnary() {
+        Token tk = peek();
+        if (tk.type == Token::PLUS) { consume(); return parseUnary(); }
+        if (tk.type == Token::MINUS) { consume(); return -parseUnary(); }
+        return parsePrimary();
+    }
+
+    int64_t parseMul() {
+        int64_t lhs = parseUnary();
+        while (true) {
+            Token tk = peek();
+            if (tk.type == Token::MUL) { consume(); int64_t rhs = parseUnary(); lhs *= rhs; }
+            else if (tk.type == Token::DIV) { consume(); int64_t rhs = parseUnary(); if (rhs == 0) throw std::runtime_error("division by zero in case label"); lhs /= rhs; }
+            else if (tk.type == Token::MOD) { consume(); int64_t rhs = parseUnary(); if (rhs == 0) throw std::runtime_error("modulo by zero in case label"); lhs %= rhs; }
+            else break;
+        }
+        return lhs;
+    }
+
+    int64_t parseAdd() {
+        int64_t lhs = parseMul();
+        while (true) {
+            Token tk = peek();
+            if (tk.type == Token::PLUS) { consume(); int64_t rhs = parseMul(); lhs += rhs; }
+            else if (tk.type == Token::MINUS) { consume(); int64_t rhs = parseMul(); lhs -= rhs; }
+            else break;
+        }
+        return lhs;
+    }
+};
+
+static int64_t eval_case_from_text(const std::string &text) {
+    auto toks = tokenize_case_text(text);
+    Parser p(toks);
+    int64_t v = p.parseAdd();
+    if (p.peek().type != Token::END) throw std::runtime_error("trailing tokens in case label");
+    return v;
+}
+
+bool fits_switch_type(IRType t, int64_t value) {
+    switch (t) {
+        case IRType::INT8:
+            return value >= std::numeric_limits<int8_t>::min() && value <= std::numeric_limits<int8_t>::max();
+        case IRType::INT32:
+            return value >= std::numeric_limits<int32_t>::min() && value <= std::numeric_limits<int32_t>::max();
+        case IRType::INT64:
+            return true;
+        case IRType::POINTER:
+            return true;
+        default:
+            return false;
+    }
+}
+} // namespace
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
 {
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
+    }
+    if (!cfg->get_function("main")) {
+        throw std::runtime_error("Program does not contain a 'main' function.");
+    }
+    for (const string& func : called_undeclared_functions) {
+        auto* sig = cfg->get_function(func);
+        if (sig && sig->bbs.empty()) {
+            throw std::runtime_error("call to undeclared function '" + func + "' which is never defined");
+        }
     }
     return "0";
 }
@@ -21,6 +180,13 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         const string current_function_name = cfg->getCurrentFunction();
         CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
         const IRType current_function_return_type = current_function_signature->returnType;
+
+        if (current_function_return_type == IRType::VOID) {
+            std::cerr << "Warning: 'return' with a value, in function returning void" << std::endl;
+            // Evaluated the expression, but we just discard the result and return nothing.
+            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
+            return 0;
+        }
 
         if (var.type != current_function_return_type) {
             bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));
@@ -290,19 +456,54 @@ antlrcpp::Any CodeGenVisitor::visitFunction_call(ifccParser::Function_callContex
 // Scope handler - handles any { ... } block
 antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
 {
-    // Visit all statements in the scope
+    CFG* cfg = this->cfg;
+    BasicBlock* preBB = cfg->current_bb;
+
+    BasicBlock* scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
+    scopeBB->functionName = preBB->functionName;
+    cfg->add_bb(scopeBB);
+
+    preBB->exit_true = scopeBB;
+
+    cfg->current_bb = scopeBB;
+    cfg->getStackBBs().push_back(scopeBB);
+
+    // If we are in a switch (decl_target_bb active), an explicit scope { }
+    // creates its own independent scope: we suspend decl_target_bb during this block and restore it on exit.
+    BasicBlock* savedDeclTarget = cfg->decl_target_bb;
+    cfg->decl_target_bb = nullptr;
+
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
-        // If the statement was a return, we should ideally stop visiting,
-        // but for now we follow the same logic as before.
-        // The issue is that visitCondition/visitWhile_loop also need to know.
     }
+
+    cfg->decl_target_bb = savedDeclTarget;
+    cfg->getStackBBs().pop_back();
+
+    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    afterBB->functionName = preBB->functionName;
+    cfg->add_bb(afterBB);
+
+    BasicBlock* lastBB = cfg->current_bb;
+    if (lastBB != nullptr) {
+        if (lastBB->exit_true == nullptr &&
+            (lastBB->instrs.empty() ||
+             dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+            lastBB->exit_true = afterBB;
+        }
+    }
+
+    cfg->current_bb = afterBB;
     return 0;
 }
 
 antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
 {
     auto* bb = cfg->current_bb;
+    if (bb == nullptr) {
+        return nullptr; // Unreachable code
+    }
+    
     // Check if current block already has a return or an unconditional jump (break/continue)
     if (!bb->instrs.empty()) {
         if (dynamic_cast<RetInstr*>(bb->instrs.back()) != nullptr) {
@@ -437,11 +638,17 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
 
     // Generate code for loop body
     cfg->current_bb = bodyBB;
+    BasicBlock* oldBreak = cfg->current_break_bb;
+    BasicBlock* oldContinue = cfg->current_continue_bb;
+    cfg->current_break_bb = afterBB;
+    cfg->current_continue_bb = condBB;
     cfg->getStackBBs().push_back(bodyBB);  // Push loop body onto stack so break/continue can find it
     if (ctx->scope()) {
         this->visit(ctx->scope());
     }
     cfg->getStackBBs().pop_back();  // Pop loop body after visiting
+    cfg->current_break_bb = oldBreak;
+    cfg->current_continue_bb = oldContinue;
 
     // cfg->current_bb is now the last BB generated inside the loop body
     // (could be bodyBB itself, or a mergeBB from a nested if).
@@ -538,11 +745,17 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     bodyBB->loop_break_target = afterBB;
 
     cfg->current_bb = bodyBB;
+    BasicBlock* oldBreak = cfg->current_break_bb;
+    BasicBlock* oldContinue = cfg->current_continue_bb;
+    cfg->current_break_bb = afterBB;
+    cfg->current_continue_bb = updateBB;
     cfg->getStackBBs().push_back(bodyBB);
     if (ctx->scope()) {
         this->visit(ctx->scope());
     }
     cfg->getStackBBs().pop_back();
+    cfg->current_break_bb = oldBreak;
+    cfg->current_continue_bb = oldContinue;
 
     BasicBlock* lastBodyBB = cfg->current_bb;
     if (lastBodyBB->exit_true == nullptr &&
@@ -566,52 +779,142 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     return 0;
 }
 
-antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx)
-{
-    (void)ctx;
-
-    // Find nearest enclosing loop block and jump to its break target.
-    BasicBlock* currentBB = cfg->current_bb;
-    BasicBlock* targetBB = nullptr;
-    std::vector<BasicBlock*> bbStack = cfg->getStackBBs();
-    for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
-        BasicBlock* bb = *it;
-        if (bb->is_loop) {
-            targetBB = bb->loop_break_target;
-            break;
-        }
-    }
-
-    if (targetBB) {
-        currentBB->exit_true = targetBB;
-    } else {
-        std::cerr << "Error: 'break' statement not within a loop." << std::endl;
-        exit(1);
-    }
-    return nullptr;
+antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx) {
+    return ::visitBreak_stmt(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContext *ctx)
-{
-    (void)ctx;
+antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) {
+    return ::visitContinue_stmt(this, ctx);
+}
 
-    // Find nearest enclosing loop block and jump to its continue target.
-    BasicBlock* currentBB = cfg->current_bb;
-    BasicBlock* targetBB = nullptr;
-    std::vector<BasicBlock*> bbStack = cfg->getStackBBs();
-    for (auto it = bbStack.rbegin(); it != bbStack.rend(); ++it) {
-        BasicBlock* bb = *it;
-        if (bb->is_loop) {
-            targetBB = bb->loop_continue_target;
-            break;
+antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx)
+{
+    CFG* cfg = this->cfg;
+    BasicBlock* preBB = cfg->current_bb;
+    BasicBlock* endBB = new BasicBlock(cfg, cfg->new_BB_name());
+    cfg->add_bb(endBB);
+
+    // Save old break context and update it
+    BasicBlock* oldBreak = cfg->current_break_bb;
+    cfg->current_break_bb = endBB;
+
+    // Selector evaluation
+    StackParam selector = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
+
+    // Variable allocation management
+    BasicBlock* oldDeclTarget = cfg->decl_target_bb;
+    cfg->decl_target_bb = preBB;
+
+    // Cases collection
+    struct CaseInfo {
+        int64_t val;
+        BasicBlock* bb;
+        ifccParser::Case_blockContext* ctx;
+    };
+    std::vector<CaseInfo> cases;
+    BasicBlock* defaultBB = nullptr;
+    ifccParser::Default_blockContext* defaultCtx = nullptr;
+    std::set<int64_t> seen_cases;
+
+    for (int i = 0; i < ctx->case_block().size(); ++i) {
+        auto comp = ctx->case_block(i);
+        int64_t val = eval_case_from_text(comp->expr()->getText());
+        if (seen_cases.count(val)) {
+            std::cerr << "Error: duplicate case value '" << val << "' in switch statement." << std::endl;
+            exit(1);
+        }
+        seen_cases.insert(val);
+        BasicBlock* cbb = new BasicBlock(cfg, cfg->new_BB_name());
+        cfg->add_bb(cbb);
+        cases.push_back({val, cbb, comp});
+    }
+    if (ctx->default_block()) {
+        defaultBB = new BasicBlock(cfg, cfg->new_BB_name());
+        cfg->add_bb(defaultBB);
+        defaultCtx = ctx->default_block();
+    }
+
+    // Selection logic
+    BasicBlock* currentCheckBB = preBB;
+    for (size_t i = 0; i < cases.size(); ++i) {
+        BasicBlock* targetBB = cases[i].bb;
+        int64_t val = cases[i].val;
+
+        string tmpCompResult = currentCheckBB->create_new_tempvar(IRType::INT32);
+        currentCheckBB->add_IRInstr(new LoadStackInstr(currentCheckBB, Reg::W0, selector.name, selector.type));
+        currentCheckBB->add_IRInstr(new LdConstInstr(currentCheckBB, Reg::W1, selector.type, val));
+        currentCheckBB->add_IRInstr(new CmpEqInstr(currentCheckBB, Reg::W2, Reg::W0, Reg::W1, selector.type));
+        currentCheckBB->add_IRInstr(new StoreStackInstr(currentCheckBB, tmpCompResult, Reg::W2, IRType::INT32));
+
+        currentCheckBB->test_var_name = tmpCompResult;
+        currentCheckBB->exit_true = targetBB;
+
+        if (i < cases.size() - 1 || defaultBB != nullptr) {
+            BasicBlock* nextCheck = new BasicBlock(cfg, cfg->new_BB_name());
+            cfg->add_bb(nextCheck);
+            currentCheckBB->exit_false = nextCheck;
+            currentCheckBB = nextCheck;
+        } else {
+            currentCheckBB->exit_false = endBB;
         }
     }
 
-    if (targetBB) {
-        currentBB->exit_true = targetBB;
-    } else {
-        std::cerr << "Error: 'continue' statement not within a loop." << std::endl;
-        exit(1);
+    if (defaultBB) {
+        currentCheckBB->exit_true = defaultBB;
     }
+
+    // Body generation
+    // We need to visit all blocks in order they appear in the source to handle fallthrough
+    for (auto child : ctx->children) {
+        auto* caseComp = dynamic_cast<ifccParser::Case_blockContext*>(child);
+        auto* defComp = dynamic_cast<ifccParser::Default_blockContext*>(child);
+        
+        BasicBlock* compBB = nullptr;
+        std::vector<ifccParser::StatementContext*> statements;
+
+        if (caseComp) {
+            int64_t val = eval_case_from_text(caseComp->expr()->getText());
+            for (auto& ci : cases) if (ci.val == val) { compBB = ci.bb; break; }
+            statements = caseComp->statement();
+        } else if (defComp) {
+            compBB = defaultBB;
+            statements = defComp->statement();
+        } else continue;
+
+        cfg->current_bb = compBB;
+        for (auto* stmt : statements) {
+            this->visit(stmt);
+        }
+
+        if (cfg->current_bb != nullptr) {
+            BasicBlock* lastBB = cfg->current_bb;
+            if (lastBB->exit_true == nullptr &&
+                (lastBB->instrs.empty() || dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+                
+                BasicBlock* nextCompBB = endBB;
+                bool foundCurrent = false;
+                for (auto* innerChild : ctx->children) {
+                    if (foundCurrent) {
+                        auto* innerCase = dynamic_cast<ifccParser::Case_blockContext*>(innerChild);
+                        auto* innerDef = dynamic_cast<ifccParser::Default_blockContext*>(innerChild);
+                        if (innerCase) {
+                            int64_t val = eval_case_from_text(innerCase->expr()->getText());
+                            for (auto& ci : cases) if (ci.val == val) { nextCompBB = ci.bb; break; }
+                            break;
+                        } else if (innerDef) {
+                            nextCompBB = defaultBB;
+                            break;
+                        }
+                    }
+                    if (innerChild == child) foundCurrent = true;
+                }
+                lastBB->exit_true = nextCompBB;
+            }
+        }
+    }
+
+    cfg->current_bb = endBB;
+    cfg->decl_target_bb = oldDeclTarget;
+    cfg->current_break_bb = oldBreak;
     return nullptr;
 }

@@ -96,10 +96,18 @@ public:
     int    allocate_bytes_on_symbol_table(int size);
     string create_new_tempvar(IRType t);
     int    get_var_index(string name);
+    BasicBlock* get_var_owner_bb(string name);
     int    get_var_index_or_none(const string& name) const {
         auto it = SymbolIndex.find(name);
         return (it != SymbolIndex.end()) ? it->second : INT_MIN;
     }
+    
+    string resolve_var_name(string name) {
+        if (name.substr(0, 4) == "!tmp") return name;
+        BasicBlock* owner = get_var_owner_bb(name);
+        return owner ? name + "@" + owner->label : name;
+    }
+
     IRType get_var_type(string name);
     
     bool is_array(const string& name) const {
@@ -110,10 +118,13 @@ public:
     void add_param_to_symbol_table(string name, IRType t, int offset) {
         SymbolType[name] = t;
         SymbolIndex[name] = offset;
+        SymbolType[name + "@" + this->label] = t;
+        SymbolIndex[name + "@" + this->label] = offset;
     }
 
     void set_is_array(const string& name, bool isArr) {
         isArrayMap[name] = isArr;
+        isArrayMap[name + "@" + this->label] = isArr;
     }
 
     void reset_symbol_index();
@@ -171,7 +182,10 @@ public:
     int  calculateRequiredStackSpace(const string& funcName = "");
 
     // Array element type helpers
-    void set_array_element_type(const string& name, IRType t) { entry_bb->arrayElementType[name] = t; }
+    void set_array_element_type(const string& name, IRType t) { 
+        entry_bb->arrayElementType[name] = t; 
+        if (current_bb) entry_bb->arrayElementType[name + "@" + current_bb->label] = t;
+    }
     IRType get_array_element_type(const string& name) const;
     bool has_array_element_type(const string& name) const;
 
@@ -186,6 +200,9 @@ public:
 
     BasicBlock* current_bb;
     BasicBlock* entry_bb;
+    BasicBlock* decl_target_bb = nullptr;
+    BasicBlock* current_break_bb = nullptr;
+    BasicBlock* current_continue_bb = nullptr;
 
     struct FunctionSignature {
         string           name, label;
