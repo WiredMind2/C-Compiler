@@ -76,7 +76,7 @@ bool StoreLoadToRegisterPass::tryOptimizeStoreLoad(BasicBlock* bb, size_t storeI
     }
 
     Reg workReg = Reg::W2;
-    if (!getAvailableWorkRegister(bb, slot, static_cast<size_t>(lastLoadIdx), workReg)) {
+    if (!getAvailableWorkRegister(bb, slot, storeIdx, static_cast<size_t>(lastLoadIdx), workReg)) {
         return false;
     }
 
@@ -161,6 +161,29 @@ bool StoreLoadToRegisterPass::hasPointerAliasRiskBetween(BasicBlock* bb, size_t 
     return false;
 }
 
+
+bool StoreLoadToRegisterPass::isRegUsedBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx, const std::string& slot, Reg r) {
+    std::string search = reg_name(r) + ":";
+    for (size_t i = fromIdx; i <= toIdx; ++i) {
+        auto* instr = bb->instrs[i];
+        if (auto* s = dynamic_cast<StoreStackInstr*>(instr)) {
+            if (s->dest.name == slot) continue;
+        }
+        if (auto* l = dynamic_cast<LoadStackInstr*>(instr)) {
+            if (l->src.name == slot) continue;
+        }
+        if (instr->to_string().find(search) != std::string::npos) {
+            return true;
+        }
+        // idivl clobbers edx (W2) and eax (W0). We only cache in W2-W5. 
+        // Thus if the tested register is W2, any Div or Mod instruction clobbers it.
+        if (r == Reg::W2 && (dynamic_cast<DivInstr*>(instr) || dynamic_cast<ModInstr*>(instr))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool StoreLoadToRegisterPass::hasCallInBlock(BasicBlock* bb) {
     for (auto* instr : bb->instrs) {
         if (dynamic_cast<CallInstr*>(instr) != nullptr) {
@@ -231,7 +254,7 @@ void StoreLoadToRegisterPass::releaseExpiredCaches(BasicBlock* bb, size_t curren
 }
 
 bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std::string& slot,
-                                                       size_t lastLoadIdx, Reg& outReg) {
+                                                       size_t storeIdx, size_t lastLoadIdx, Reg& outReg) {
     const std::string funcName = getFunctionName(bb);
     auto& state = functionRegisterState_[funcName];
     const bool isTemporarySlot = (!slot.empty() && slot[0] == '!');
@@ -239,12 +262,18 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
 
     const auto cacheInfo = state.slotCacheInfo.find(slot);
     if (cacheInfo != state.slotCacheInfo.end() && cacheInfo->second.bb == bb) {
-        outReg = cacheInfo->second.reg;
-        if (lastLoadIdx > cacheInfo->second.lastLoadIdx) {
-            cacheInfo->second.lastLoadIdx = lastLoadIdx;
+        if (isRegUsedBetween(bb, storeIdx, lastLoadIdx, slot, cacheInfo->second.reg)) {
+            state.availableRegs.insert(cacheInfo->second.reg);
+            state.slotToReg.erase(slot);
+            state.slotCacheInfo.erase(cacheInfo);
+        } else {
+            outReg = cacheInfo->second.reg;
+            if (lastLoadIdx > cacheInfo->second.lastLoadIdx) {
+                cacheInfo->second.lastLoadIdx = lastLoadIdx;
+            }
+            state.slotToReg[slot] = outReg;
+            return true;
         }
-        state.slotToReg[slot] = outReg;
-        return true;
     }
 
     const auto cached = state.slotToReg.find(slot);
@@ -256,6 +285,9 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
     auto tryTakeRegister = [&](Reg candidate) {
         const auto it = state.availableRegs.find(candidate);
         if (it == state.availableRegs.end()) {
+            return false;
+        }
+        if (isRegUsedBetween(bb, storeIdx, lastLoadIdx, slot, candidate)) {
             return false;
         }
         outReg = candidate;
