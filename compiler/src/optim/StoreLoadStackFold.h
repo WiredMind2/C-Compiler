@@ -1,8 +1,9 @@
 #pragma once
 
-#include "OptimizationPass.h"
 #include <string>
 #include <unordered_set>
+
+#include "OptimizationPass.h"
 
 namespace optim {
 
@@ -25,31 +26,22 @@ namespace optim {
  * same function, with cycle-safe traversal of the CFG.
  */
 class StoreLoadStackFoldPass : public OptimizationPass {
-public:
+   public:
     StoreLoadStackFoldPass() = default;
 
-    std::string getName() const override {
-        return "store-load-stack-fold";
-    }
+    std::string getName() const override { return "store-load-stack-fold"; }
 
-    std::string getDescription() const override {
-        return "Remove redundant immediate store/load stack pairs";
-    }
+    std::string getDescription() const override { return "Remove redundant immediate store/load stack pairs"; }
 
-    PassKind getKind() const override {
-        return PassKind::IR_OPT;
-    }
-
+    PassKind getKind() const override { return PassKind::IR_OPT; }
 
     bool optimize(CFG* cfg) override;
 
-private:
+   private:
     bool optimizeBasicBlock(BasicBlock* bb);
     bool tryFoldPattern(BasicBlock* bb, size_t i);
     bool isSlotLoadedAfter(BasicBlock* bb, size_t startIdx, const std::string& slot);
-    bool isSlotLoadedAfter(BasicBlock* bb, size_t startIdx, const std::string& slot,
-                           std::unordered_set<const BasicBlock*>& visited);
+    bool isSlotLoadedAfter(BasicBlock* bb, size_t startIdx, const std::string& slot, std::unordered_set<const BasicBlock*>& visited);
 };
 
-} // namespace optim
-
+}  // namespace optim

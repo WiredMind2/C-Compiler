@@ -1,17 +1,17 @@
 #include "CodeGenComparison.h"
-#include "CodeGenVisitor.h"
+
 #include <iostream>
 
-antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ctx)
-{
-    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->equality()));
+#include "CodeGenVisitor.h"
+
+antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext* ctx) {
+    StackParam left = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->equality()));
     StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->relational()));
     return visitor->getCFG()->current_bb->emit_cmp_binop<CmpEqInstr>(left, right);
 }
 
-antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext *ctx)
-{
-    StackParam left  = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->equality()));
+antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext* ctx) {
+    StackParam left = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->equality()));
     StackParam right = any_cast_to_stack_param_or_throw_on_nullptr(visitor->visit(ctx->relational()));
     auto* bb = visitor->getCFG()->current_bb;
     StackParam eq = bb->emit_cmp_binop<CmpEqInstr>(left, right);

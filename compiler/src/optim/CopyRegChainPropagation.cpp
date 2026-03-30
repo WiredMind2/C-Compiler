@@ -1,15 +1,14 @@
 #include "CopyRegChainPropagation.h"
 
-#include "../ir/IR.h"
 #include <cstddef>
 #include <iostream>
+
+#include "../ir/IR.h"
 
 namespace optim {
 namespace {
 
-bool sameMachineReg(Reg a, Reg b) {
-    return a == b;
-}
+bool sameMachineReg(Reg a, Reg b) { return a == b; }
 
 bool instrUsesReg(const IRInstr* instr, Reg reg) {
     if (dynamic_cast<const LdConstInstr*>(instr)) return false;
@@ -93,7 +92,7 @@ bool isNextAccessAWrite(const std::vector<IRInstr*>& instrs, size_t startIdx, Re
     return true;
 }
 
-} // namespace
+}  // namespace
 
 bool CopyRegChainPropagationPass::optimize(CFG* cfg) {
     if (!cfg) return false;
@@ -121,16 +120,13 @@ bool CopyRegChainPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
         auto* first = dynamic_cast<CopyRegInstr*>(instrs[i]);
         auto* second = dynamic_cast<CopyRegInstr*>(instrs[i + 1]);
 
-
         if (!first || !second) {
             ++i;
             continue;
         }
 
         const bool isSwapPair =
-            sameMachineReg(first->dest.reg, second->src.reg) &&
-            sameMachineReg(first->src.reg, second->dest.reg) &&
-            first->type == second->type;
+            sameMachineReg(first->dest.reg, second->src.reg) && sameMachineReg(first->src.reg, second->dest.reg) && first->type == second->type;
 
         if (!isSwapPair) {
             ++i;
@@ -144,13 +140,11 @@ bool CopyRegChainPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
 
         delete first;
         delete second;
-        instrs.erase(instrs.begin() + static_cast<std::ptrdiff_t>(i),
-                     instrs.begin() + static_cast<std::ptrdiff_t>(i + 2));
+        instrs.erase(instrs.begin() + static_cast<std::ptrdiff_t>(i), instrs.begin() + static_cast<std::ptrdiff_t>(i + 2));
         modified = true;
     }
 
     return modified;
 }
 
-} // namespace optim
-
+}  // namespace optim

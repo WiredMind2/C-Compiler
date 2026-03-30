@@ -1,22 +1,21 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
 #include <cstring>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 #include "antlr4-runtime.h"
 #include "generated/ifccLexer.h"
 #include "generated/ifccParser.h"
-#include "optim/OptimizationManager.h"
+#include "ir/IR.h"
 #include "optim/ConstantPropagation.h"
+#include "optim/CopyRegChainPropagation.h"
+#include "optim/DeadRegDefElimination.h"
+#include "optim/OptimizationManager.h"
+#include "optim/StackLayoutPass.h"
 #include "optim/StoreLoadStackFold.h"
 #include "optim/StoreLoadToRegister.h"
-#include "optim/DeadRegDefElimination.h"
-#include "optim/CopyRegChainPropagation.h"
-#include "optim/StackLayoutPass.h"
 #include "optim/UnusedVariableElimination.h"
-
 #include "visitors/CodeGenVisitor.h"
-#include "ir/IR.h"
 
 using namespace antlr4;
 using namespace std;
@@ -27,7 +26,7 @@ TargetArch DEFAULT_ARCH = TargetArch::ARM64;
 TargetArch DEFAULT_ARCH = TargetArch::X86_64;
 #endif
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     stringstream in;
     TargetArch arch = DEFAULT_ARCH;
     const char *filename = nullptr;

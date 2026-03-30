@@ -1,7 +1,8 @@
 #pragma once
 
-#include "OptimizationPass.h"
 #include <string>
+
+#include "OptimizationPass.h"
 
 namespace optim {
 
@@ -16,27 +17,19 @@ namespace optim {
  * accessed again), so the temporary value kept in `a` is provably dead.
  */
 class CopyRegChainPropagationPass : public OptimizationPass {
-public:
+   public:
     CopyRegChainPropagationPass() = default;
 
-    std::string getName() const override {
-        return "copy-reg-chain-prop";
-    }
+    std::string getName() const override { return "copy-reg-chain-prop"; }
 
-    std::string getDescription() const override {
-        return "Propagate copy_reg sources across local move chains";
-    }
+    std::string getDescription() const override { return "Propagate copy_reg sources across local move chains"; }
 
-    PassKind getKind() const override {
-        return PassKind::IR_OPT;
-    }
-
+    PassKind getKind() const override { return PassKind::IR_OPT; }
 
     bool optimize(CFG* cfg) override;
 
-private:
+   private:
     bool optimizeBasicBlock(BasicBlock* bb);
 };
 
-} // namespace optim
-
+}  // namespace optim

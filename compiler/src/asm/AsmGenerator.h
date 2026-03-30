@@ -3,17 +3,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+
 #include "../ir/IRInstr.h"
 
 class CFG;
 class BasicBlock;
 class IRInstr;
 
-
-enum class TargetArch {
-    X86_64,
-    ARM64
-};
+enum class TargetArch { X86_64, ARM64 };
 
 //! Abstract base class for assembly generation.
 /*!
@@ -22,7 +19,7 @@ enum class TargetArch {
  * method per IRInstr subclass instead of a monolithic switch.
  */
 class AsmGenerator {
-public:
+   public:
     virtual ~AsmGenerator() = default;
 
     //! Generate assembly for the entire CFG
@@ -36,39 +33,39 @@ public:
 
     //---------------- Visitor methods (one per IRInstr subclass) ----------------
 
-    virtual void visit(std::ostream& o, LdStringInstr&   instr) = 0;
-    virtual void visit(std::ostream& o, LdConstInstr&    instr) = 0;
-    virtual void visit(std::ostream& o, CopyRegInstr&    instr) = 0;
+    virtual void visit(std::ostream& o, LdStringInstr& instr) = 0;
+    virtual void visit(std::ostream& o, LdConstInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CopyRegInstr& instr) = 0;
     virtual void visit(std::ostream& o, StoreStackInstr& instr) = 0;
-    virtual void visit(std::ostream& o, LoadStackInstr&  instr) = 0;
+    virtual void visit(std::ostream& o, LoadStackInstr& instr) = 0;
     virtual void visit(std::ostream& o, AddressOfSymbolInstr& instr) = 0;
     virtual void visit(std::ostream& o, LoadPointerInstr& instr) = 0;
     virtual void visit(std::ostream& o, StorePointerInstr& instr) = 0;
-    virtual void visit(std::ostream& o, AddInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, SubInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, MulInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, DivInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, ModInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, BitNotInstr&     instr) = 0;
-    virtual void visit(std::ostream& o, BitAndInstr&     instr) = 0;
-    virtual void visit(std::ostream& o, BitOrInstr&      instr) = 0;
-    virtual void visit(std::ostream& o, BitXorInstr&     instr) = 0;
-    virtual void visit(std::ostream& o, ShlInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, ShrInstr&        instr) = 0;
-    virtual void visit(std::ostream& o, CmpEqInstr&      instr) = 0;
-    virtual void visit(std::ostream& o, CmpLtInstr&      instr) = 0;
-    virtual void visit(std::ostream& o, CmpLeInstr&      instr) = 0;
-    virtual void visit(std::ostream& o, CmpGtInstr&      instr) = 0;
-    virtual void visit(std::ostream& o, CmpGeInstr&      instr) = 0;
+    virtual void visit(std::ostream& o, AddInstr& instr) = 0;
+    virtual void visit(std::ostream& o, SubInstr& instr) = 0;
+    virtual void visit(std::ostream& o, MulInstr& instr) = 0;
+    virtual void visit(std::ostream& o, DivInstr& instr) = 0;
+    virtual void visit(std::ostream& o, ModInstr& instr) = 0;
+    virtual void visit(std::ostream& o, BitNotInstr& instr) = 0;
+    virtual void visit(std::ostream& o, BitAndInstr& instr) = 0;
+    virtual void visit(std::ostream& o, BitOrInstr& instr) = 0;
+    virtual void visit(std::ostream& o, BitXorInstr& instr) = 0;
+    virtual void visit(std::ostream& o, ShlInstr& instr) = 0;
+    virtual void visit(std::ostream& o, ShrInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CmpEqInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CmpLtInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CmpLeInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CmpGtInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CmpGeInstr& instr) = 0;
     virtual void visit(std::ostream& o, LogicalAndInstr& instr) = 0;
-    virtual void visit(std::ostream& o, LogicalOrInstr&  instr) = 0;
-    virtual void visit(std::ostream& o, CallInstr&       instr) = 0;
-    virtual void visit(std::ostream& o, F64ToI32Instr&   instr) = 0;
-    virtual void visit(std::ostream& o, I32ToF64Instr&   instr) = 0;
-    virtual void visit(std::ostream& o, FToIInstr&       instr) = 0;
-    virtual void visit(std::ostream& o, I8ToI32Instr&    instr) = 0;
-    virtual void visit(std::ostream& o, I32ToI8Instr&    instr) = 0;
-    virtual void visit(std::ostream& o, RetInstr&        instr) = 0;
+    virtual void visit(std::ostream& o, LogicalOrInstr& instr) = 0;
+    virtual void visit(std::ostream& o, CallInstr& instr) = 0;
+    virtual void visit(std::ostream& o, F64ToI32Instr& instr) = 0;
+    virtual void visit(std::ostream& o, I32ToF64Instr& instr) = 0;
+    virtual void visit(std::ostream& o, FToIInstr& instr) = 0;
+    virtual void visit(std::ostream& o, I8ToI32Instr& instr) = 0;
+    virtual void visit(std::ostream& o, I32ToI8Instr& instr) = 0;
+    virtual void visit(std::ostream& o, RetInstr& instr) = 0;
 
     //---------------- Optional typed helper methods ----------------
 
@@ -126,7 +123,8 @@ public:
     virtual void LogicalOr(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {}
 
     virtual void CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {}
-    virtual void CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {}
+    virtual void CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
+    }
 
     virtual void FToI(std::ostream& o, const std::string& src, const std::string& dest) {}
     virtual void I32ToF64(std::ostream& o, const std::string& src, const std::string& dest) {}
@@ -149,7 +147,7 @@ public:
     virtual void gen_epilogue(std::ostream& o) = 0;
     virtual void gen_control_flow(std::ostream& o, BasicBlock* bb) = 0;
 
-protected:
+   protected:
     CFG* cfg;
     int labelCount;
     explicit AsmGenerator(CFG* cfg) : cfg(cfg), labelCount(0) {}

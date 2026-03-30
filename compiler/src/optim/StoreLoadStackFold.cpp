@@ -89,8 +89,7 @@ bool StoreLoadStackFoldPass::isSlotLoadedAfter(BasicBlock* bb, size_t startIdx, 
     return isSlotLoadedAfter(bb, startIdx, slot, visited);
 }
 
-bool StoreLoadStackFoldPass::isSlotLoadedAfter(BasicBlock* bb, size_t startIdx,
-                                               const std::string& slot,
+bool StoreLoadStackFoldPass::isSlotLoadedAfter(BasicBlock* bb, size_t startIdx, const std::string& slot,
                                                std::unordered_set<const BasicBlock*>& visited) {
     if (!bb) return false;
 
@@ -115,26 +114,23 @@ bool StoreLoadStackFoldPass::isSlotLoadedAfter(BasicBlock* bb, size_t startIdx,
 
     // Vérifier récursivement dans les BBs enfants (successeurs)
     // mais seulement s'ils sont dans la même fonction (même scope)
-     auto getFunc = [](BasicBlock* b) {
-         return b->functionName.empty() ? (b->cfg ? b->cfg->getCurrentFunction() : "") : b->functionName;
-     };
-     std::string currentFunc = getFunc(bb);
+    auto getFunc = [](BasicBlock* b) { return b->functionName.empty() ? (b->cfg ? b->cfg->getCurrentFunction() : "") : b->functionName; };
+    std::string currentFunc = getFunc(bb);
 
-     if (bb->exit_true) {
-         std::string childFunc = getFunc(bb->exit_true);
-         if (childFunc == currentFunc && isSlotLoadedAfter(bb->exit_true, 0, slot, visited)) {
-             return true;
-         }
-     }
-     if (bb->exit_false) {
-         std::string childFunc = getFunc(bb->exit_false);
-         if (childFunc == currentFunc && isSlotLoadedAfter(bb->exit_false, 0, slot, visited)) {
-             return true;
-         }
-     }
+    if (bb->exit_true) {
+        std::string childFunc = getFunc(bb->exit_true);
+        if (childFunc == currentFunc && isSlotLoadedAfter(bb->exit_true, 0, slot, visited)) {
+            return true;
+        }
+    }
+    if (bb->exit_false) {
+        std::string childFunc = getFunc(bb->exit_false);
+        if (childFunc == currentFunc && isSlotLoadedAfter(bb->exit_false, 0, slot, visited)) {
+            return true;
+        }
+    }
 
     return false;
 }
 
-} // namespace optim
-
+}  // namespace optim

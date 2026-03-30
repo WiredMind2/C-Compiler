@@ -1,4 +1,5 @@
 #include "ConstantPropagation.h"
+
 #include "../ir/IR.h"
 
 namespace optim {
@@ -6,8 +7,7 @@ namespace optim {
 namespace {
 
 bool isSupportedConstType(IRType t) {
-    return t == IRType::INT8 || t == IRType::INT32 || t == IRType::INT64
-        || t == IRType::FLOAT32 || t == IRType::FLOAT64;
+    return t == IRType::INT8 || t == IRType::INT32 || t == IRType::INT64 || t == IRType::FLOAT32 || t == IRType::FLOAT64;
 }
 
 LdConstInstr* makeLdConstFromValue(BasicBlock* bb, Reg dest, const ConstParam& cst) {
@@ -30,7 +30,7 @@ void assignConst(std::map<std::string, ConstParam>& m, const std::string& key, c
     m.emplace(key, value);
 }
 
-}
+}  // namespace
 
 bool ConstantPropagationPass::optimize(CFG* cfg) {
     if (!cfg) return false;
@@ -40,7 +40,9 @@ bool ConstantPropagationPass::optimize(CFG* cfg) {
     while (progress) {
         progress = false;
         for (auto* bb : cfg->getBBs())
-            if (optimizeBasicBlock(bb)) { progress = true; }
+            if (optimizeBasicBlock(bb)) {
+                progress = true;
+            }
         if (progress) modified = true;
     }
     return modified;
@@ -128,27 +130,90 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
             continue;
         }
 
-        if (auto* add = dynamic_cast<AddInstr*>(instr)) { regConstants.erase(add->dest.reg); continue; }
-        if (auto* sub = dynamic_cast<SubInstr*>(instr)) { regConstants.erase(sub->dest.reg); continue; }
-        if (auto* mul = dynamic_cast<MulInstr*>(instr)) { regConstants.erase(mul->dest.reg); continue; }
-        if (auto* div = dynamic_cast<DivInstr*>(instr)) { regConstants.erase(div->dest.reg); continue; }
-        if (auto* mod = dynamic_cast<ModInstr*>(instr)) { regConstants.erase(mod->dest.reg); continue; }
-        if (auto* bn  = dynamic_cast<BitNotInstr*>(instr)) { regConstants.erase(bn->dest.reg); continue; }
-        if (auto* ba  = dynamic_cast<BitAndInstr*>(instr)) { regConstants.erase(ba->dest.reg); continue; }
-        if (auto* bo  = dynamic_cast<BitOrInstr*>(instr)) { regConstants.erase(bo->dest.reg); continue; }
-        if (auto* bx  = dynamic_cast<BitXorInstr*>(instr)) { regConstants.erase(bx->dest.reg); continue; }
-        if (auto* ce  = dynamic_cast<CmpEqInstr*>(instr)) { regConstants.erase(ce->dest.reg); continue; }
-        if (auto* clt = dynamic_cast<CmpLtInstr*>(instr)) { regConstants.erase(clt->dest.reg); continue; }
-        if (auto* cle = dynamic_cast<CmpLeInstr*>(instr)) { regConstants.erase(cle->dest.reg); continue; }
-        if (auto* cgt = dynamic_cast<CmpGtInstr*>(instr)) { regConstants.erase(cgt->dest.reg); continue; }
-        if (auto* cge = dynamic_cast<CmpGeInstr*>(instr)) { regConstants.erase(cge->dest.reg); continue; }
-        if (auto* la  = dynamic_cast<LogicalAndInstr*>(instr)) { regConstants.erase(la->dest.reg); continue; }
-        if (auto* lo  = dynamic_cast<LogicalOrInstr*>(instr)) { regConstants.erase(lo->dest.reg); continue; }
-        if (auto* fti = dynamic_cast<F64ToI32Instr*>(instr)) { regConstants.erase(fti->dest.reg); continue; }
-        if (auto* itf = dynamic_cast<I32ToF64Instr*>(instr)) { regConstants.erase(itf->dest.reg); continue; }
-        if (auto* fi  = dynamic_cast<FToIInstr*>(instr)) { regConstants.erase(fi->dest.reg); continue; }
-        if (auto* i8i = dynamic_cast<I8ToI32Instr*>(instr)) { regConstants.erase(i8i->dest.reg); continue; }
-        if (auto* i32i8 = dynamic_cast<I32ToI8Instr*>(instr)) { regConstants.erase(i32i8->dest.reg); continue; }
+        if (auto* add = dynamic_cast<AddInstr*>(instr)) {
+            regConstants.erase(add->dest.reg);
+            continue;
+        }
+        if (auto* sub = dynamic_cast<SubInstr*>(instr)) {
+            regConstants.erase(sub->dest.reg);
+            continue;
+        }
+        if (auto* mul = dynamic_cast<MulInstr*>(instr)) {
+            regConstants.erase(mul->dest.reg);
+            continue;
+        }
+        if (auto* div = dynamic_cast<DivInstr*>(instr)) {
+            regConstants.erase(div->dest.reg);
+            continue;
+        }
+        if (auto* mod = dynamic_cast<ModInstr*>(instr)) {
+            regConstants.erase(mod->dest.reg);
+            continue;
+        }
+        if (auto* bn = dynamic_cast<BitNotInstr*>(instr)) {
+            regConstants.erase(bn->dest.reg);
+            continue;
+        }
+        if (auto* ba = dynamic_cast<BitAndInstr*>(instr)) {
+            regConstants.erase(ba->dest.reg);
+            continue;
+        }
+        if (auto* bo = dynamic_cast<BitOrInstr*>(instr)) {
+            regConstants.erase(bo->dest.reg);
+            continue;
+        }
+        if (auto* bx = dynamic_cast<BitXorInstr*>(instr)) {
+            regConstants.erase(bx->dest.reg);
+            continue;
+        }
+        if (auto* ce = dynamic_cast<CmpEqInstr*>(instr)) {
+            regConstants.erase(ce->dest.reg);
+            continue;
+        }
+        if (auto* clt = dynamic_cast<CmpLtInstr*>(instr)) {
+            regConstants.erase(clt->dest.reg);
+            continue;
+        }
+        if (auto* cle = dynamic_cast<CmpLeInstr*>(instr)) {
+            regConstants.erase(cle->dest.reg);
+            continue;
+        }
+        if (auto* cgt = dynamic_cast<CmpGtInstr*>(instr)) {
+            regConstants.erase(cgt->dest.reg);
+            continue;
+        }
+        if (auto* cge = dynamic_cast<CmpGeInstr*>(instr)) {
+            regConstants.erase(cge->dest.reg);
+            continue;
+        }
+        if (auto* la = dynamic_cast<LogicalAndInstr*>(instr)) {
+            regConstants.erase(la->dest.reg);
+            continue;
+        }
+        if (auto* lo = dynamic_cast<LogicalOrInstr*>(instr)) {
+            regConstants.erase(lo->dest.reg);
+            continue;
+        }
+        if (auto* fti = dynamic_cast<F64ToI32Instr*>(instr)) {
+            regConstants.erase(fti->dest.reg);
+            continue;
+        }
+        if (auto* itf = dynamic_cast<I32ToF64Instr*>(instr)) {
+            regConstants.erase(itf->dest.reg);
+            continue;
+        }
+        if (auto* fi = dynamic_cast<FToIInstr*>(instr)) {
+            regConstants.erase(fi->dest.reg);
+            continue;
+        }
+        if (auto* i8i = dynamic_cast<I8ToI32Instr*>(instr)) {
+            regConstants.erase(i8i->dest.reg);
+            continue;
+        }
+        if (auto* i32i8 = dynamic_cast<I32ToI8Instr*>(instr)) {
+            regConstants.erase(i32i8->dest.reg);
+            continue;
+        }
         if (auto* call = dynamic_cast<CallInstr*>(instr)) {
             constants.clear();
             regConstants.clear();
@@ -160,8 +225,7 @@ bool ConstantPropagationPass::optimizeBasicBlock(BasicBlock* bb) {
         regConstants.clear();
     }
 
-
     return modified;
 }
 
-} // namespace optim
+}  // namespace optim

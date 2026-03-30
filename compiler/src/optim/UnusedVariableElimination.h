@@ -5,7 +5,7 @@
 namespace optim {
 
 class UnusedVariableEliminationPass : public OptimizationPass {
-public:
+   public:
     UnusedVariableEliminationPass() = default;
     ~UnusedVariableEliminationPass() override = default;
 
@@ -16,4 +16,4 @@ public:
     bool optimize(CFG* cfg) override;
 };
 
-} // namespace optim
+}  // namespace optim

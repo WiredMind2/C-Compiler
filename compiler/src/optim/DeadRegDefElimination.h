@@ -1,7 +1,8 @@
 #pragma once
 
-#include "OptimizationPass.h"
 #include <string>
+
+#include "OptimizationPass.h"
 
 namespace optim {
 
@@ -12,27 +13,19 @@ namespace optim {
  * register is redefined before any later read in the same basic block.
  */
 class DeadRegDefEliminationPass : public OptimizationPass {
-public:
+   public:
     DeadRegDefEliminationPass() = default;
 
-    std::string getName() const override {
-        return "dead-reg-def-elim";
-    }
+    std::string getName() const override { return "dead-reg-def-elim"; }
 
-    std::string getDescription() const override {
-        return "Remove dead ldconst/copy_reg definitions overwritten before use";
-    }
+    std::string getDescription() const override { return "Remove dead ldconst/copy_reg definitions overwritten before use"; }
 
-    PassKind getKind() const override {
-        return PassKind::IR_OPT;
-    }
-
+    PassKind getKind() const override { return PassKind::IR_OPT; }
 
     bool optimize(CFG* cfg) override;
 
-private:
+   private:
     bool optimizeBasicBlock(BasicBlock* bb);
 };
 
-} // namespace optim
-
+}  // namespace optim

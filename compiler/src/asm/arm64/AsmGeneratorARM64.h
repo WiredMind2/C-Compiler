@@ -8,7 +8,7 @@
 // ----------------------------------------------------------------------------
 
 class AsmGeneratorARM64 : public AsmGenerator {
-public:
+   public:
     explicit AsmGeneratorARM64(CFG* cfg);
     ~AsmGeneratorARM64() override = default;
 
@@ -20,39 +20,39 @@ public:
     void gen_asm_instr(std::ostream& o, IRInstr* instr) override;
 
     //---------------- Visitor methods ----------------
-    void visit(std::ostream& o, LdStringInstr&   instr) override;
-    void visit(std::ostream& o, LdConstInstr&    instr) override;
-    void visit(std::ostream& o, CopyRegInstr&    instr) override;
+    void visit(std::ostream& o, LdStringInstr& instr) override;
+    void visit(std::ostream& o, LdConstInstr& instr) override;
+    void visit(std::ostream& o, CopyRegInstr& instr) override;
     void visit(std::ostream& o, StoreStackInstr& instr) override;
-    void visit(std::ostream& o, LoadStackInstr&  instr) override;
+    void visit(std::ostream& o, LoadStackInstr& instr) override;
     void visit(std::ostream& o, AddressOfSymbolInstr& instr) override;
     void visit(std::ostream& o, LoadPointerInstr& instr) override;
     void visit(std::ostream& o, StorePointerInstr& instr) override;
-    void visit(std::ostream& o, AddInstr&    instr) override;
-    void visit(std::ostream& o, SubInstr&    instr) override;
-    void visit(std::ostream& o, MulInstr&    instr) override;
-    void visit(std::ostream& o, DivInstr&    instr) override;
-    void visit(std::ostream& o, ModInstr&    instr) override;
+    void visit(std::ostream& o, AddInstr& instr) override;
+    void visit(std::ostream& o, SubInstr& instr) override;
+    void visit(std::ostream& o, MulInstr& instr) override;
+    void visit(std::ostream& o, DivInstr& instr) override;
+    void visit(std::ostream& o, ModInstr& instr) override;
     void visit(std::ostream& o, BitNotInstr& instr) override;
     void visit(std::ostream& o, BitAndInstr& instr) override;
-    void visit(std::ostream& o, BitOrInstr&  instr) override;
+    void visit(std::ostream& o, BitOrInstr& instr) override;
     void visit(std::ostream& o, BitXorInstr& instr) override;
     void visit(std::ostream& o, ShlInstr& instr) override;
     void visit(std::ostream& o, ShrInstr& instr) override;
-    void visit(std::ostream& o, CmpEqInstr&  instr) override;
-    void visit(std::ostream& o, CmpLtInstr&  instr) override;
-    void visit(std::ostream& o, CmpLeInstr&  instr) override;
-    void visit(std::ostream& o, CmpGtInstr&  instr) override;
-    void visit(std::ostream& o, CmpGeInstr&  instr) override;
-    void visit(std::ostream& o, LogicalAndInstr&  instr) override;
-    void visit(std::ostream& o, LogicalOrInstr&  instr) override;
-    void visit(std::ostream& o, CallInstr&   instr) override;
+    void visit(std::ostream& o, CmpEqInstr& instr) override;
+    void visit(std::ostream& o, CmpLtInstr& instr) override;
+    void visit(std::ostream& o, CmpLeInstr& instr) override;
+    void visit(std::ostream& o, CmpGtInstr& instr) override;
+    void visit(std::ostream& o, CmpGeInstr& instr) override;
+    void visit(std::ostream& o, LogicalAndInstr& instr) override;
+    void visit(std::ostream& o, LogicalOrInstr& instr) override;
+    void visit(std::ostream& o, CallInstr& instr) override;
     void visit(std::ostream& o, F64ToI32Instr& instr) override;
     void visit(std::ostream& o, I32ToF64Instr& instr) override;
-    void visit(std::ostream& o, FToIInstr&   instr) override;
+    void visit(std::ostream& o, FToIInstr& instr) override;
     void visit(std::ostream& o, I8ToI32Instr& instr) override;
     void visit(std::ostream& o, I32ToI8Instr& instr) override;
-    void visit(std::ostream& o, RetInstr&    instr) override;
+    void visit(std::ostream& o, RetInstr& instr) override;
 
     //---------------------------------------------------------------------------
     // Load Constants (typed helpers)
@@ -157,4 +157,4 @@ public:
     void gen_control_flow(std::ostream& o, BasicBlock* bb) override;
 };
 
-#endif // ASMGENERATORARM64_H
+#endif  // ASMGENERATORARM64_H

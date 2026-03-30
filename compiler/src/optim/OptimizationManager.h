@@ -1,10 +1,11 @@
 #pragma once
 
-#include "OptimizationPass.h"
-#include <vector>
 #include <memory>
-#include <string>
 #include <set>
+#include <string>
+#include <vector>
+
+#include "OptimizationPass.h"
 
 namespace optim {
 
@@ -17,7 +18,7 @@ namespace optim {
  * - Coordinating the optimization pipeline
  */
 class OptimizationManager {
-public:
+   public:
     OptimizationManager() = default;
     ~OptimizationManager() = default;
 
@@ -108,7 +109,7 @@ public:
      */
     std::vector<std::string> getEnabledPassNames() const;
 
-private:
+   private:
     // Get passes of a specific kind
     std::vector<OptimizationPass*> getPassesByKind(PassKind kind);
 
@@ -117,4 +118,4 @@ private:
     int optimizationLevel_ = 2;
 };
 
-} // namespace optim
+}  // namespace optim

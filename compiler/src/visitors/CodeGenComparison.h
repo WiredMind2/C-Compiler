@@ -1,7 +1,7 @@
 #pragma once
 
-#include "antlr4-runtime.h"
 #include "../generated/ifccBaseVisitor.h"
+#include "antlr4-runtime.h"
 #include "utils.h"
 
 /**
@@ -13,5 +13,5 @@
  */
 class CodeGenVisitor;
 
-antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext *ctx);
-antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext *ctx);
+antlrcpp::Any visitEquals(CodeGenVisitor* visitor, ifccParser::EqualsContext* ctx);
+antlrcpp::Any visitDifferent(CodeGenVisitor* visitor, ifccParser::DifferentContext* ctx);

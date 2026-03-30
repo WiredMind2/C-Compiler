@@ -76,7 +76,7 @@ bool instrDefinesReg(const IRInstr* instr, Reg reg) {
     return false;
 }
 
-} // namespace
+}  // namespace
 
 bool DeadRegDefEliminationPass::optimize(CFG* cfg) {
     if (!cfg) return false;
@@ -142,5 +142,4 @@ bool DeadRegDefEliminationPass::optimizeBasicBlock(BasicBlock* bb) {
     return modified;
 }
 
-} // namespace optim
-
+}  // namespace optim

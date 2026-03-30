@@ -1,8 +1,10 @@
 #include "CodeGenVisitor.h"
-#include "CodeGenArithmetic.h"
-#include "../ir/IRInstr.h"
-#include <limits>
+
 #include <cassert>
+#include <limits>
+
+#include "../ir/IRInstr.h"
+#include "CodeGenArithmetic.h"
 
 namespace {
 // Simple tokenizer and recursive-descent evaluator for case label expression text.
@@ -10,14 +12,14 @@ namespace {
 // Rejects identifiers, floating-point literals and function calls.
 
 struct Token {
-    enum Type {NUM, CHAR, PLUS, MINUS, MUL, DIV, MOD, LPAREN, RPAREN, END} type;
+    enum Type { NUM, CHAR, PLUS, MINUS, MUL, DIV, MOD, LPAREN, RPAREN, END } type;
     int64_t value;
 };
 
 static int64_t parse_char_literal_text(const std::string &s, size_t &i) {
     // s[i] should be '\''
     if (s[i] != '\'') throw std::runtime_error("invalid char literal");
-    i++; // skip '
+    i++;  // skip '
     if (i >= s.size()) throw std::runtime_error("unterminated char literal");
     int64_t v;
     if (s[i] == '\\') {
@@ -25,19 +27,32 @@ static int64_t parse_char_literal_text(const std::string &s, size_t &i) {
         if (i >= s.size()) throw std::runtime_error("unterminated escape in char literal");
         char esc = s[i++];
         switch (esc) {
-            case 'n': v = '\n'; break;
-            case 't': v = '\t'; break;
-            case 'r': v = '\r'; break;
-            case '\\': v = '\\'; break;
-            case '\'': v = '\''; break;
-            case '0': v = '\0'; break;
-            default: throw std::runtime_error("unsupported escape in char literal");
+            case 'n':
+                v = '\n';
+                break;
+            case 't':
+                v = '\t';
+                break;
+            case 'r':
+                v = '\r';
+                break;
+            case '\\':
+                v = '\\';
+                break;
+            case '\'':
+                v = '\'';
+                break;
+            case '0':
+                v = '\0';
+                break;
+            default:
+                throw std::runtime_error("unsupported escape in char literal");
         }
     } else {
         v = static_cast<unsigned char>(s[i++]);
     }
     if (i >= s.size() || s[i] != '\'') throw std::runtime_error("unterminated char literal");
-    i++; // closing '
+    i++;  // closing '
     return v;
 }
 
@@ -46,14 +61,45 @@ static std::vector<Token> tokenize_case_text(const std::string &s) {
     size_t i = 0, n = s.size();
     while (i < n) {
         char c = s[i];
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { i++; continue; }
-        if (c == '+') { out.push_back({Token::PLUS, 0}); i++; continue; }
-        if (c == '-') { out.push_back({Token::MINUS, 0}); i++; continue; }
-        if (c == '*') { out.push_back({Token::MUL, 0}); i++; continue; }
-        if (c == '/') { out.push_back({Token::DIV, 0}); i++; continue; }
-        if (c == '%') { out.push_back({Token::MOD, 0}); i++; continue; }
-        if (c == '(') { out.push_back({Token::LPAREN, 0}); i++; continue; }
-        if (c == ')') { out.push_back({Token::RPAREN, 0}); i++; continue; }
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+            i++;
+            continue;
+        }
+        if (c == '+') {
+            out.push_back({Token::PLUS, 0});
+            i++;
+            continue;
+        }
+        if (c == '-') {
+            out.push_back({Token::MINUS, 0});
+            i++;
+            continue;
+        }
+        if (c == '*') {
+            out.push_back({Token::MUL, 0});
+            i++;
+            continue;
+        }
+        if (c == '/') {
+            out.push_back({Token::DIV, 0});
+            i++;
+            continue;
+        }
+        if (c == '%') {
+            out.push_back({Token::MOD, 0});
+            i++;
+            continue;
+        }
+        if (c == '(') {
+            out.push_back({Token::LPAREN, 0});
+            i++;
+            continue;
+        }
+        if (c == ')') {
+            out.push_back({Token::RPAREN, 0});
+            i++;
+            continue;
+        }
         if (c == '\'') {
             int64_t val = parse_char_literal_text(s, i);
             out.push_back({Token::CHAR, val});
@@ -87,10 +133,17 @@ struct Parser {
 
     int64_t parsePrimary() {
         Token tk = peek();
-        if (tk.type == Token::NUM) { consume(); return tk.value; }
-        if (tk.type == Token::CHAR) { consume(); return tk.value; }
+        if (tk.type == Token::NUM) {
+            consume();
+            return tk.value;
+        }
+        if (tk.type == Token::CHAR) {
+            consume();
+            return tk.value;
+        }
         if (tk.type == Token::LPAREN) {
-            consume(); int64_t v = parseAdd();
+            consume();
+            int64_t v = parseAdd();
             if (peek().type != Token::RPAREN) throw std::runtime_error("missing closing parenthesis in case label");
             consume();
             return v;
@@ -100,8 +153,14 @@ struct Parser {
 
     int64_t parseUnary() {
         Token tk = peek();
-        if (tk.type == Token::PLUS) { consume(); return parseUnary(); }
-        if (tk.type == Token::MINUS) { consume(); return -parseUnary(); }
+        if (tk.type == Token::PLUS) {
+            consume();
+            return parseUnary();
+        }
+        if (tk.type == Token::MINUS) {
+            consume();
+            return -parseUnary();
+        }
         return parsePrimary();
     }
 
@@ -109,10 +168,22 @@ struct Parser {
         int64_t lhs = parseUnary();
         while (true) {
             Token tk = peek();
-            if (tk.type == Token::MUL) { consume(); int64_t rhs = parseUnary(); lhs *= rhs; }
-            else if (tk.type == Token::DIV) { consume(); int64_t rhs = parseUnary(); if (rhs == 0) throw std::runtime_error("division by zero in case label"); lhs /= rhs; }
-            else if (tk.type == Token::MOD) { consume(); int64_t rhs = parseUnary(); if (rhs == 0) throw std::runtime_error("modulo by zero in case label"); lhs %= rhs; }
-            else break;
+            if (tk.type == Token::MUL) {
+                consume();
+                int64_t rhs = parseUnary();
+                lhs *= rhs;
+            } else if (tk.type == Token::DIV) {
+                consume();
+                int64_t rhs = parseUnary();
+                if (rhs == 0) throw std::runtime_error("division by zero in case label");
+                lhs /= rhs;
+            } else if (tk.type == Token::MOD) {
+                consume();
+                int64_t rhs = parseUnary();
+                if (rhs == 0) throw std::runtime_error("modulo by zero in case label");
+                lhs %= rhs;
+            } else
+                break;
         }
         return lhs;
     }
@@ -121,9 +192,16 @@ struct Parser {
         int64_t lhs = parseMul();
         while (true) {
             Token tk = peek();
-            if (tk.type == Token::PLUS) { consume(); int64_t rhs = parseMul(); lhs += rhs; }
-            else if (tk.type == Token::MINUS) { consume(); int64_t rhs = parseMul(); lhs -= rhs; }
-            else break;
+            if (tk.type == Token::PLUS) {
+                consume();
+                int64_t rhs = parseMul();
+                lhs += rhs;
+            } else if (tk.type == Token::MINUS) {
+                consume();
+                int64_t rhs = parseMul();
+                lhs -= rhs;
+            } else
+                break;
         }
         return lhs;
     }
@@ -151,10 +229,9 @@ bool fits_switch_type(IRType t, int64_t value) {
             return false;
     }
 }
-} // namespace
+}  // namespace
 
-antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
-{
+antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx) {
     for (auto stmt : ctx->statement()) {
         this->visit(stmt);
     }
@@ -165,16 +242,15 @@ antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx)
     return "0";
 }
 
-antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx)
-{
-    auto* bb = cfg->current_bb;
+antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *ctx) {
+    auto *bb = cfg->current_bb;
 
     // when returning something, as opposed to "return ;"
     if (ctx->expr() != nullptr) {
         StackParam var = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
         const string current_function_name = cfg->getCurrentFunction();
-        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
+        CFG::FunctionSignature *current_function_signature = cfg->get_function(current_function_name);
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type == IRType::VOID) {
@@ -192,7 +268,7 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         }
     } else {
         const string current_function_name = cfg->getCurrentFunction();
-        CFG::FunctionSignature* current_function_signature = cfg->get_function(current_function_name);
+        CFG::FunctionSignature *current_function_signature = cfg->get_function(current_function_name);
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type != IRType::VOID) {
@@ -208,284 +284,130 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
     return nullptr;
 }
 
-antlrcpp::Any CodeGenVisitor::visitExpr(ifccParser::ExprContext *ctx)
-{
-    return visit(ctx->sequential());
-}
+antlrcpp::Any CodeGenVisitor::visitExpr(ifccParser::ExprContext *ctx) { return visit(ctx->sequential()); }
 
-antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *ctx)
-{
-    return this->visit(ctx->expr());
-}
+antlrcpp::Any CodeGenVisitor::visitParenthesis(ifccParser::ParenthesisContext *ctx) { return this->visit(ctx->expr()); }
 
-antlrcpp::Any CodeGenVisitor::visitDecimalConstant(ifccParser::DecimalConstantContext *ctx)
-{
-    return ::visitConstant(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitDecimalConstant(ifccParser::DecimalConstantContext *ctx) { return ::visitConstant(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitHexConstant(ifccParser::HexConstantContext *ctx)
-{
-    return ::visitConstant(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitHexConstant(ifccParser::HexConstantContext *ctx) { return ::visitConstant(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitDoubleConstant(ifccParser::DoubleConstantContext *ctx)
-{
-    return ::visitDoubleConstant(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitDoubleConstant(ifccParser::DoubleConstantContext *ctx) { return ::visitDoubleConstant(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitStringConstant(ifccParser::StringConstantContext *ctx)
-{
-    return ::visitStringConstant(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitStringConstant(ifccParser::StringConstantContext *ctx) { return ::visitStringConstant(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitCharConstant(ifccParser::CharConstantContext *ctx)
-{
-    return ::visitCharConstant(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitCharConstant(ifccParser::CharConstantContext *ctx) { return ::visitCharConstant(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx)
-{
-    return ::visitVariable(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitVariable(ifccParser::VariableContext *ctx) { return ::visitVariable(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitDeclaration_no_semi(ifccParser::Declaration_no_semiContext *ctx)
-{
-    return ::visitDeclaration_no_semi(this, ctx);
-}
-antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx)
-{
+antlrcpp::Any CodeGenVisitor::visitDeclaration_no_semi(ifccParser::Declaration_no_semiContext *ctx) { return ::visitDeclaration_no_semi(this, ctx); }
+antlrcpp::Any CodeGenVisitor::visitDeclaration(ifccParser::DeclarationContext *ctx) {
     // delegate to the no-semi handler for shared logic
     if (ctx->declaration_no_semi()) return ::visitDeclaration_no_semi(this, ctx->declaration_no_semi());
     return 0;
 }
-antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx)
-{
-    return ::visitAssignment(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitAssignment(ifccParser::AssignmentContext *ctx) { return ::visitAssignment(this, ctx); }
 
 // Arithmetic expression handlers
-antlrcpp::Any CodeGenVisitor::visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx)
-{
-    return this->visit(ctx->multiplicative());
-}
+antlrcpp::Any CodeGenVisitor::visitMultiplicativeExprRef(ifccParser::MultiplicativeExprRefContext *ctx) { return this->visit(ctx->multiplicative()); }
 
-antlrcpp::Any CodeGenVisitor::visitAddition(ifccParser::AdditionContext *ctx)
-{
-    return ::visitAddition(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitAddition(ifccParser::AdditionContext *ctx) { return ::visitAddition(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitSubstraction(ifccParser::SubstractionContext *ctx)
-{
-    return ::visitSubstraction(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitSubstraction(ifccParser::SubstractionContext *ctx) { return ::visitSubstraction(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitMultiplication(ifccParser::MultiplicationContext *ctx)
-{
-    return ::visitMultiplication(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitMultiplication(ifccParser::MultiplicationContext *ctx) { return ::visitMultiplication(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitDivision(ifccParser::DivisionContext *ctx)
-{
-    return ::visitDivision(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitDivision(ifccParser::DivisionContext *ctx) { return ::visitDivision(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitModulo(ifccParser::ModuloContext *ctx)
-{
-    return ::visitModulo(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitModulo(ifccParser::ModuloContext *ctx) { return ::visitModulo(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitUnaryMinus(ifccParser::UnaryMinusContext *ctx)
-{
-    return ::visitUnaryMinus(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitUnaryMinus(ifccParser::UnaryMinusContext *ctx) { return ::visitUnaryMinus(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx)
-{
-    return ::visitUnaryPlus(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitUnaryPlus(ifccParser::UnaryPlusContext *ctx) { return ::visitUnaryPlus(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx)
-{
-    return ::visitUnaryNot(this, ctx);
-}
-antlrcpp::Any CodeGenVisitor::visitUnaryBitNot(ifccParser::UnaryBitNotContext *ctx)
-{
-    return ::visitUnaryBitNot(this, ctx);
-}
-antlrcpp::Any CodeGenVisitor::visitDereference(ifccParser::DereferenceContext *ctx)
-{
-    return ::visitDereference(this, ctx);
-}
-antlrcpp::Any CodeGenVisitor::visitAddressOf(ifccParser::AddressOfContext *ctx)
-{
-    return ::visitAddressOf(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitUnaryNot(ifccParser::UnaryNotContext *ctx) { return ::visitUnaryNot(this, ctx); }
+antlrcpp::Any CodeGenVisitor::visitUnaryBitNot(ifccParser::UnaryBitNotContext *ctx) { return ::visitUnaryBitNot(this, ctx); }
+antlrcpp::Any CodeGenVisitor::visitDereference(ifccParser::DereferenceContext *ctx) { return ::visitDereference(this, ctx); }
+antlrcpp::Any CodeGenVisitor::visitAddressOf(ifccParser::AddressOfContext *ctx) { return ::visitAddressOf(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx)
-{
-    return this->visit(ctx->primitive());
-}
+antlrcpp::Any CodeGenVisitor::visitPrimitiveExprRef(ifccParser::PrimitiveExprRefContext *ctx) { return this->visit(ctx->primitive()); }
 
-antlrcpp::Any CodeGenVisitor::visitFunctionCall(ifccParser::FunctionCallContext *ctx)
-{
-    return this->visit(ctx->function_call());
-}
+antlrcpp::Any CodeGenVisitor::visitFunctionCall(ifccParser::FunctionCallContext *ctx) { return this->visit(ctx->function_call()); }
 
-
-antlrcpp::Any CodeGenVisitor::visitArray_subscript(ifccParser::Array_subscriptContext *ctx) {
-    return ::visitArray_subscript(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitArray_subscript(ifccParser::Array_subscriptContext *ctx) { return ::visitArray_subscript(this, ctx); }
 
 // Sequential / compound-assignment pass-throughs
-antlrcpp::Any CodeGenVisitor::visitSequentialExprRef(ifccParser::SequentialExprRefContext *ctx)
-{
-    return this->visit(ctx->compoundAssignment());
-}
+antlrcpp::Any CodeGenVisitor::visitSequentialExprRef(ifccParser::SequentialExprRefContext *ctx) { return this->visit(ctx->compoundAssignment()); }
 
-antlrcpp::Any CodeGenVisitor::visitSequentialRule(ifccParser::SequentialRuleContext *ctx)
-{
+antlrcpp::Any CodeGenVisitor::visitSequentialRule(ifccParser::SequentialRuleContext *ctx) {
     this->visit(ctx->compoundAssignment());
     return this->visit(ctx->sequential());
 }
 
-antlrcpp::Any CodeGenVisitor::visitCompoundAssignmentRef(ifccParser::CompoundAssignmentRefContext *ctx)
-{
-    return this->visit(ctx->logicalOR());
-}
+antlrcpp::Any CodeGenVisitor::visitCompoundAssignmentRef(ifccParser::CompoundAssignmentRefContext *ctx) { return this->visit(ctx->logicalOR()); }
 
 // Bitwise handlers
-antlrcpp::Any CodeGenVisitor::visitBitwiseORRef(ifccParser::BitwiseORRefContext *ctx)
-{
-    return this->visit(ctx->bitwiseXOR());
-}
+antlrcpp::Any CodeGenVisitor::visitBitwiseORRef(ifccParser::BitwiseORRefContext *ctx) { return this->visit(ctx->bitwiseXOR()); }
 
-antlrcpp::Any CodeGenVisitor::visitBitwiseORRule(ifccParser::BitwiseORRuleContext *ctx)
-{
-    return ::visitBitwiseORRule(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitBitwiseORRule(ifccParser::BitwiseORRuleContext *ctx) { return ::visitBitwiseORRule(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitBitwiseXORRef(ifccParser::BitwiseXORRefContext *ctx)
-{
-    return this->visit(ctx->bitwiseAND());
-}
+antlrcpp::Any CodeGenVisitor::visitBitwiseXORRef(ifccParser::BitwiseXORRefContext *ctx) { return this->visit(ctx->bitwiseAND()); }
 
-antlrcpp::Any CodeGenVisitor::visitBitwiseXORRule(ifccParser::BitwiseXORRuleContext *ctx)
-{
-    return ::visitBitwiseXORRule(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitBitwiseXORRule(ifccParser::BitwiseXORRuleContext *ctx) { return ::visitBitwiseXORRule(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitBitwiseANDRef(ifccParser::BitwiseANDRefContext *ctx)
-{
-    return this->visit(ctx->equality());
-}
+antlrcpp::Any CodeGenVisitor::visitBitwiseANDRef(ifccParser::BitwiseANDRefContext *ctx) { return this->visit(ctx->equality()); }
 
-antlrcpp::Any CodeGenVisitor::visitBitwiseANDRule(ifccParser::BitwiseANDRuleContext *ctx)
-{
-    return ::visitBitwiseANDRule(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitBitwiseANDRule(ifccParser::BitwiseANDRuleContext *ctx) { return ::visitBitwiseANDRule(this, ctx); }
 
 // Equality expression handlers
-antlrcpp::Any CodeGenVisitor::visitEqualityExprRef(ifccParser::EqualityExprRefContext *ctx)
-{
-    return this->visit(ctx->relational());
-}
+antlrcpp::Any CodeGenVisitor::visitEqualityExprRef(ifccParser::EqualityExprRefContext *ctx) { return this->visit(ctx->relational()); }
 
-antlrcpp::Any CodeGenVisitor::visitEquals(ifccParser::EqualsContext *ctx)
-{
-    return ::visitEquals(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitEquals(ifccParser::EqualsContext *ctx) { return ::visitEquals(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitDifferent(ifccParser::DifferentContext *ctx)
-{
-    return ::visitDifferent(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitDifferent(ifccParser::DifferentContext *ctx) { return ::visitDifferent(this, ctx); }
 
 // Relational expression handlers
-antlrcpp::Any CodeGenVisitor::visitRelationalExprRef(ifccParser::RelationalExprRefContext *ctx)
-{
-    return ::visitRelationalExprRef(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitRelationalExprRef(ifccParser::RelationalExprRefContext *ctx) { return ::visitRelationalExprRef(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitSmallerStrictThan(ifccParser::SmallerStrictThanContext *ctx)
-{
-    return ::visitSmallerStrictThan(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitSmallerStrictThan(ifccParser::SmallerStrictThanContext *ctx) { return ::visitSmallerStrictThan(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitGreaterStrictThan(ifccParser::GreaterStrictThanContext *ctx)
-{
-    return ::visitGreaterStrictThan(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitGreaterStrictThan(ifccParser::GreaterStrictThanContext *ctx) { return ::visitGreaterStrictThan(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitSmallerThan(ifccParser::SmallerThanContext *ctx)
-{
-    return ::visitSmallerThan(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitSmallerThan(ifccParser::SmallerThanContext *ctx) { return ::visitSmallerThan(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitGreaterThan(ifccParser::GreaterThanContext *ctx)
-{
-    return ::visitGreaterThan(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitGreaterThan(ifccParser::GreaterThanContext *ctx) { return ::visitGreaterThan(this, ctx); }
 
 // Shift handlers
-antlrcpp::Any CodeGenVisitor::visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx)
-{
-    return this->visit(ctx->additive());
-}
+antlrcpp::Any CodeGenVisitor::visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx) { return this->visit(ctx->additive()); }
 
-antlrcpp::Any CodeGenVisitor::visitShiftLeft(ifccParser::ShiftLeftContext *ctx)
-{
-    return ::visitShiftLeft(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitShiftLeft(ifccParser::ShiftLeftContext *ctx) { return ::visitShiftLeft(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitShiftRight(ifccParser::ShiftRightContext *ctx)
-{
-    return ::visitShiftRight(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitShiftRight(ifccParser::ShiftRightContext *ctx) { return ::visitShiftRight(this, ctx); }
 
 // Logical expression handlers
-antlrcpp::Any CodeGenVisitor::visitLogicalORRef(ifccParser::LogicalORRefContext *ctx)
-{
-    return ::visitLogicalORRef(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitLogicalORRef(ifccParser::LogicalORRefContext *ctx) { return ::visitLogicalORRef(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitLogicalORRule(ifccParser::LogicalORRuleContext *ctx)
-{
-    return ::visitLogicalORRule(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitLogicalORRule(ifccParser::LogicalORRuleContext *ctx) { return ::visitLogicalORRule(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitLogicalANDRef(ifccParser::LogicalANDRefContext *ctx)
-{
-    return ::visitLogicalANDRef(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitLogicalANDRef(ifccParser::LogicalANDRefContext *ctx) { return ::visitLogicalANDRef(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitLogicalANDRule(ifccParser::LogicalANDRuleContext *ctx)
-{
-    return ::visitLogicalANDRule(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitLogicalANDRule(ifccParser::LogicalANDRuleContext *ctx) { return ::visitLogicalANDRule(this, ctx); }
 
 // Function handlers
-antlrcpp::Any CodeGenVisitor::visitFunction_definition(ifccParser::Function_definitionContext *ctx)
-{
-    return ::visitFunction_definition(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitFunction_definition(ifccParser::Function_definitionContext *ctx) { return ::visitFunction_definition(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitFunction_declaration(ifccParser::Function_declarationContext *ctx)
-{
+antlrcpp::Any CodeGenVisitor::visitFunction_declaration(ifccParser::Function_declarationContext *ctx) {
     return ::visitFunction_declaration(this, ctx);
 }
 
-antlrcpp::Any CodeGenVisitor::visitFunction_call(ifccParser::Function_callContext *ctx)
-{
-    return ::visitFunctionCall(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitFunction_call(ifccParser::Function_callContext *ctx) { return ::visitFunctionCall(this, ctx); }
 
 // Scope handler - handles any { ... } block
-antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
-{
-    CFG* cfg = this->cfg;
-    BasicBlock* preBB = cfg->current_bb;
+antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx) {
+    CFG *cfg = this->cfg;
+    BasicBlock *preBB = cfg->current_bb;
 
-    BasicBlock* scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *scopeBB = new BasicBlock(cfg, cfg->new_BB_name());
     scopeBB->functionName = preBB->functionName;
     cfg->add_bb(scopeBB);
 
@@ -496,7 +418,7 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
 
     // If we are in a switch (decl_target_bb active), an explicit scope { }
     // creates its own independent scope: we suspend decl_target_bb during this block and restore it on exit.
-    BasicBlock* savedDeclTarget = cfg->decl_target_bb;
+    BasicBlock *savedDeclTarget = cfg->decl_target_bb;
     cfg->decl_target_bb = nullptr;
 
     for (auto stmt : ctx->statement()) {
@@ -506,15 +428,13 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
     cfg->decl_target_bb = savedDeclTarget;
     cfg->getStackBBs().pop_back();
 
-    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *afterBB = new BasicBlock(cfg, cfg->new_BB_name());
     afterBB->functionName = preBB->functionName;
     cfg->add_bb(afterBB);
 
-    BasicBlock* lastBB = cfg->current_bb;
+    BasicBlock *lastBB = cfg->current_bb;
     if (lastBB != nullptr) {
-        if (lastBB->exit_true == nullptr &&
-            (lastBB->instrs.empty() ||
-             dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
+        if (lastBB->exit_true == nullptr && (lastBB->instrs.empty() || dynamic_cast<RetInstr *>(lastBB->instrs.back()) == nullptr)) {
             lastBB->exit_true = afterBB;
         }
     }
@@ -523,16 +443,15 @@ antlrcpp::Any CodeGenVisitor::visitScope(ifccParser::ScopeContext *ctx)
     return 0;
 }
 
-antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
-{
-    auto* bb = cfg->current_bb;
+antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx) {
+    auto *bb = cfg->current_bb;
     if (bb == nullptr) {
-        return nullptr; // Unreachable code
+        return nullptr;  // Unreachable code
     }
 
     // Check if current block already has a return or an unconditional jump (break/continue)
     if (!bb->instrs.empty()) {
-        if (dynamic_cast<RetInstr*>(bb->instrs.back()) != nullptr) {
+        if (dynamic_cast<RetInstr *>(bb->instrs.back()) != nullptr) {
             // Already returned, skip this statement to avoid unreachable code
             return nullptr;
         }
@@ -546,15 +465,14 @@ antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
 }
 
 // Condition handler - handles if statements
-antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
-{
-    CFG* cfg = this->cfg;
-    BasicBlock* currentBB = cfg->current_bb;
+antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx) {
+    CFG *cfg = this->cfg;
+    BasicBlock *currentBB = cfg->current_bb;
 
     // Create blocks for then-branch, else-branch (optional), and merge point
-    BasicBlock* thenBB = new BasicBlock(cfg, cfg->new_BB_name());
-    BasicBlock* elseBB = nullptr;
-    BasicBlock* mergeBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *thenBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *elseBB = nullptr;
+    BasicBlock *mergeBB = new BasicBlock(cfg, cfg->new_BB_name());
 
     // If there's an else clause, create else block
     if (ctx->else_block()) {
@@ -594,10 +512,9 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         this->visit(ctx->statement());
     }
     // Get the last BB after visiting the then scope (may differ from thenBB if there are nested ifs)
-    BasicBlock* lastThenBB = cfg->current_bb;
+    BasicBlock *lastThenBB = cfg->current_bb;
     // Add jump to merge block ONLY if it doesn't already have a return or break/continue
-    if (lastThenBB->exit_true == nullptr &&
-        (lastThenBB->instrs.empty() || dynamic_cast<RetInstr*>(lastThenBB->instrs.back()) == nullptr)) {
+    if (lastThenBB->exit_true == nullptr && (lastThenBB->instrs.empty() || dynamic_cast<RetInstr *>(lastThenBB->instrs.back()) == nullptr)) {
         lastThenBB->exit_true = mergeBB;
     }
 
@@ -612,10 +529,9 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
             this->visit(elseBlock->condition());
         }
         // Get the last BB after visiting the else scope
-        BasicBlock* lastElseBB = cfg->current_bb;
+        BasicBlock *lastElseBB = cfg->current_bb;
         // Add jump to merge block ONLY if it doesn't already have a return or break/continue
-        if (lastElseBB->exit_true == nullptr &&
-            (lastElseBB->instrs.empty() || dynamic_cast<RetInstr*>(lastElseBB->instrs.back()) == nullptr)) {
+        if (lastElseBB->exit_true == nullptr && (lastElseBB->instrs.empty() || dynamic_cast<RetInstr *>(lastElseBB->instrs.back()) == nullptr)) {
             lastElseBB->exit_true = mergeBB;
         }
     }
@@ -626,44 +542,44 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
     return 0;
 }
 
-void CodeGenVisitor::generateLoopBody(ifccParser::ScopeContext* scopeCtx, BasicBlock* bodyBB, BasicBlock* continueTargetBB, BasicBlock* breakTargetBB) {
+void CodeGenVisitor::generateLoopBody(ifccParser::ScopeContext *scopeCtx, BasicBlock *bodyBB, BasicBlock *continueTargetBB,
+                                      BasicBlock *breakTargetBB) {
     // Store break/continue targets on bodyBB via dedicated fields
     bodyBB->loop_continue_target = continueTargetBB;
-    bodyBB->loop_break_target    = breakTargetBB;
+    bodyBB->loop_break_target = breakTargetBB;
 
     cfg->current_bb = bodyBB;
-    BasicBlock* oldBreak = cfg->current_break_bb;
-    BasicBlock* oldContinue = cfg->current_continue_bb;
+    BasicBlock *oldBreak = cfg->current_break_bb;
+    BasicBlock *oldContinue = cfg->current_continue_bb;
 
     cfg->current_break_bb = breakTargetBB;
     cfg->current_continue_bb = continueTargetBB;
 
-    cfg->getStackBBs().push_back(bodyBB); // Push loop body onto stack so break/continue can find it
+    cfg->getStackBBs().push_back(bodyBB);  // Push loop body onto stack so break/continue can find it
     if (scopeCtx) {
         this->visit(scopeCtx);
     }
-    cfg->getStackBBs().pop_back(); // Pop loop body after visiting
+    cfg->getStackBBs().pop_back();  // Pop loop body after visiting
 
     cfg->current_break_bb = oldBreak;
     cfg->current_continue_bb = oldContinue;
 
     // Automatically jump to condition/update block if not already jumping
     if (cfg->current_bb->exit_true == nullptr &&
-        (cfg->current_bb->instrs.empty() || dynamic_cast<RetInstr*>(cfg->current_bb->instrs.back()) == nullptr)) {
+        (cfg->current_bb->instrs.empty() || dynamic_cast<RetInstr *>(cfg->current_bb->instrs.back()) == nullptr)) {
         cfg->current_bb->exit_true = continueTargetBB;
     }
 }
 
 // While loop handler
-antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx)
-{
-    CFG* cfg = this->cfg;
-    BasicBlock* currentBB = cfg->current_bb;
+antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx) {
+    CFG *cfg = this->cfg;
+    BasicBlock *currentBB = cfg->current_bb;
 
     // Create blocks for condition check, loop body, and after loop
-    BasicBlock* condBB = new BasicBlock(cfg, cfg->new_BB_name());
-    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true); // Mark bodyBB as a loop block for break/continue handling
-    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *condBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true);  // Mark bodyBB as a loop block for break/continue handling
+    BasicBlock *afterBB = new BasicBlock(cfg, cfg->new_BB_name());
 
     // Add blocks to CFG
     cfg->add_bb(condBB);
@@ -694,18 +610,17 @@ antlrcpp::Any CodeGenVisitor::visitWhile_loop(ifccParser::While_loopContext *ctx
     return 0;
 }
 
-antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
-{
-    CFG* cfg = this->cfg;
+antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx) {
+    CFG *cfg = this->cfg;
 
-    ifccParser::ExprContext* initExpr = nullptr;
-    ifccParser::ExprContext* condExpr = nullptr;
-    ifccParser::ExprContext* updateExpr = nullptr;
+    ifccParser::ExprContext *initExpr = nullptr;
+    ifccParser::ExprContext *condExpr = nullptr;
+    ifccParser::ExprContext *updateExpr = nullptr;
 
     std::vector<int> semicolonTokenIndices;
     if (!ctx->children.empty()) {
-        for (auto* child : ctx->children) {
-            auto* terminal = dynamic_cast<antlr4::tree::TerminalNode*>(child);
+        for (auto *child : ctx->children) {
+            auto *terminal = dynamic_cast<antlr4::tree::TerminalNode *>(child);
             if (terminal != nullptr && terminal->getText() == ";") {
                 semicolonTokenIndices.push_back(terminal->getSymbol()->getTokenIndex());
             }
@@ -714,7 +629,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
 
     if (semicolonTokenIndices.size() == 2) {
         // if there are exactly 2 semicolons, we can determine the expressions based on their positions
-        for (auto* exprCtx : ctx->expr()) {
+        for (auto *exprCtx : ctx->expr()) {
             int exprStart = exprCtx->getStart()->getTokenIndex();
             if (exprStart < semicolonTokenIndices[1]) {
                 // This is the condition expression (between the first and second semicolon)
@@ -732,7 +647,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
 
     //  init: either a declaration like 'int i = 0' (now in for_init) or an expression
     if (ctx->for_init() && ctx->for_init()->declaration_no_semi()) {
-        BasicBlock* oldDeclTarget = cfg->decl_target_bb;
+        BasicBlock *oldDeclTarget = cfg->decl_target_bb;
         cfg->decl_target_bb = cfg->current_bb;
         this->visit(ctx->for_init()->declaration_no_semi());
         cfg->decl_target_bb = oldDeclTarget;
@@ -741,13 +656,13 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     }
 
     // If init created extra blocks (for example a short-circuit expr), continue from the actual current BB.
-    BasicBlock* initEndBB = cfg->current_bb;
+    BasicBlock *initEndBB = cfg->current_bb;
 
     // Then create CFG blocks: cond -> body -> update -> cond, and after for exit.
-    BasicBlock* condBB = new BasicBlock(cfg, cfg->new_BB_name());
-    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true);
-    BasicBlock* updateBB = new BasicBlock(cfg, cfg->new_BB_name());
-    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *condBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true);
+    BasicBlock *updateBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *afterBB = new BasicBlock(cfg, cfg->new_BB_name());
 
     cfg->add_bb(condBB);
     cfg->add_bb(bodyBB);
@@ -761,7 +676,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     if (condExpr != nullptr) {
         StackParam condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(condExpr));
         // Get the last block after visiting condition (may have changed due to short-circuit booleans)
-        BasicBlock* condEndBB = cfg->current_bb;
+        BasicBlock *condEndBB = cfg->current_bb;
         condEndBB->test_var_name = condResult.name;
         condEndBB->exit_true = bodyBB;
         condEndBB->exit_false = afterBB;
@@ -778,8 +693,7 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     if (updateExpr != nullptr) {
         this->visit(updateExpr);
     }
-    if (updateBB->exit_true == nullptr &&
-        (updateBB->instrs.empty() || dynamic_cast<RetInstr*>(updateBB->instrs.back()) == nullptr)) {
+    if (updateBB->exit_true == nullptr && (updateBB->instrs.empty() || dynamic_cast<RetInstr *>(updateBB->instrs.back()) == nullptr)) {
         updateBB->exit_true = condBB;
     }
 
@@ -789,41 +703,36 @@ antlrcpp::Any CodeGenVisitor::visitFor_loop(ifccParser::For_loopContext *ctx)
     return 0;
 }
 
-antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx) {
-    return ::visitBreak_stmt(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitBreak_stmt(ifccParser::Break_stmtContext *ctx) { return ::visitBreak_stmt(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) {
-    return ::visitContinue_stmt(this, ctx);
-}
+antlrcpp::Any CodeGenVisitor::visitContinue_stmt(ifccParser::Continue_stmtContext *ctx) { return ::visitContinue_stmt(this, ctx); }
 
-antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx)
-{
-    CFG* cfg = this->cfg;
-    BasicBlock* preBB = cfg->current_bb;
-    BasicBlock* endBB = new BasicBlock(cfg, cfg->new_BB_name());
+antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) {
+    CFG *cfg = this->cfg;
+    BasicBlock *preBB = cfg->current_bb;
+    BasicBlock *endBB = new BasicBlock(cfg, cfg->new_BB_name());
     cfg->add_bb(endBB);
 
     // Save old break context and update it
-    BasicBlock* oldBreak = cfg->current_break_bb;
+    BasicBlock *oldBreak = cfg->current_break_bb;
     cfg->current_break_bb = endBB;
 
     // Selector evaluation
     StackParam selector = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
     // Variable allocation management
-    BasicBlock* oldDeclTarget = cfg->decl_target_bb;
+    BasicBlock *oldDeclTarget = cfg->decl_target_bb;
     cfg->decl_target_bb = preBB;
 
     // Cases collection
     struct CaseInfo {
         int64_t val;
-        BasicBlock* bb;
-        ifccParser::Case_blockContext* ctx;
+        BasicBlock *bb;
+        ifccParser::Case_blockContext *ctx;
     };
     std::vector<CaseInfo> cases;
-    BasicBlock* defaultBB = nullptr;
-    ifccParser::Default_blockContext* defaultCtx = nullptr;
+    BasicBlock *defaultBB = nullptr;
+    ifccParser::Default_blockContext *defaultCtx = nullptr;
     std::set<int64_t> seen_cases;
 
     for (int i = 0; i < ctx->case_block().size(); ++i) {
@@ -834,7 +743,7 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
             exit(1);
         }
         seen_cases.insert(val);
-        BasicBlock* cbb = new BasicBlock(cfg, cfg->new_BB_name());
+        BasicBlock *cbb = new BasicBlock(cfg, cfg->new_BB_name());
         cfg->add_bb(cbb);
         cases.push_back({val, cbb, comp});
     }
@@ -845,9 +754,9 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
     }
 
     // Selection logic
-    BasicBlock* currentCheckBB = preBB;
+    BasicBlock *currentCheckBB = preBB;
     for (size_t i = 0; i < cases.size(); ++i) {
-        BasicBlock* targetBB = cases[i].bb;
+        BasicBlock *targetBB = cases[i].bb;
         int64_t val = cases[i].val;
 
         string tmpCompResult = currentCheckBB->create_new_tempvar(IRType::INT32);
@@ -860,7 +769,7 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
         currentCheckBB->exit_true = targetBB;
 
         if (i < cases.size() - 1 || defaultBB != nullptr) {
-            BasicBlock* nextCheck = new BasicBlock(cfg, cfg->new_BB_name());
+            BasicBlock *nextCheck = new BasicBlock(cfg, cfg->new_BB_name());
             cfg->add_bb(nextCheck);
             currentCheckBB->exit_false = nextCheck;
             currentCheckBB = nextCheck;
@@ -876,40 +785,47 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
     // Body generation
     // We need to visit all blocks in order they appear in the source to handle fallthrough
     for (auto child : ctx->children) {
-        auto* caseComp = dynamic_cast<ifccParser::Case_blockContext*>(child);
-        auto* defComp = dynamic_cast<ifccParser::Default_blockContext*>(child);
+        auto *caseComp = dynamic_cast<ifccParser::Case_blockContext *>(child);
+        auto *defComp = dynamic_cast<ifccParser::Default_blockContext *>(child);
 
-        BasicBlock* compBB = nullptr;
-        std::vector<ifccParser::StatementContext*> statements;
+        BasicBlock *compBB = nullptr;
+        std::vector<ifccParser::StatementContext *> statements;
 
         if (caseComp) {
             int64_t val = eval_case_from_text(caseComp->expr()->getText());
-            for (auto& ci : cases) if (ci.val == val) { compBB = ci.bb; break; }
+            for (auto &ci : cases)
+                if (ci.val == val) {
+                    compBB = ci.bb;
+                    break;
+                }
             statements = caseComp->statement();
         } else if (defComp) {
             compBB = defaultBB;
             statements = defComp->statement();
-        } else continue;
+        } else
+            continue;
 
         cfg->current_bb = compBB;
-        for (auto* stmt : statements) {
+        for (auto *stmt : statements) {
             this->visit(stmt);
         }
 
         if (cfg->current_bb != nullptr) {
-            BasicBlock* lastBB = cfg->current_bb;
-            if (lastBB->exit_true == nullptr &&
-                (lastBB->instrs.empty() || dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
-
-                BasicBlock* nextCompBB = endBB;
+            BasicBlock *lastBB = cfg->current_bb;
+            if (lastBB->exit_true == nullptr && (lastBB->instrs.empty() || dynamic_cast<RetInstr *>(lastBB->instrs.back()) == nullptr)) {
+                BasicBlock *nextCompBB = endBB;
                 bool foundCurrent = false;
-                for (auto* innerChild : ctx->children) {
+                for (auto *innerChild : ctx->children) {
                     if (foundCurrent) {
-                        auto* innerCase = dynamic_cast<ifccParser::Case_blockContext*>(innerChild);
-                        auto* innerDef = dynamic_cast<ifccParser::Default_blockContext*>(innerChild);
+                        auto *innerCase = dynamic_cast<ifccParser::Case_blockContext *>(innerChild);
+                        auto *innerDef = dynamic_cast<ifccParser::Default_blockContext *>(innerChild);
                         if (innerCase) {
                             int64_t val = eval_case_from_text(innerCase->expr()->getText());
-                            for (auto& ci : cases) if (ci.val == val) { nextCompBB = ci.bb; break; }
+                            for (auto &ci : cases)
+                                if (ci.val == val) {
+                                    nextCompBB = ci.bb;
+                                    break;
+                                }
                             break;
                         } else if (innerDef) {
                             nextCompBB = defaultBB;
@@ -936,15 +852,14 @@ antlrcpp::Any CodeGenVisitor::visitPreDecrement(ifccParser::PreDecrementContext 
 antlrcpp::Any CodeGenVisitor::visitPostIncrement(ifccParser::PostIncrementContext *ctx) { return ::visitPostIncrement(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitPostDecrement(ifccParser::PostDecrementContext *ctx) { return ::visitPostDecrement(this, ctx); }
 // Do while loop handler
-antlrcpp::Any CodeGenVisitor::visitDo_while_loop(ifccParser::Do_while_loopContext *ctx)
-{
-    CFG* cfg = this->cfg;
-    BasicBlock* currentBB = cfg->current_bb;
+antlrcpp::Any CodeGenVisitor::visitDo_while_loop(ifccParser::Do_while_loopContext *ctx) {
+    CFG *cfg = this->cfg;
+    BasicBlock *currentBB = cfg->current_bb;
 
     // Create blocks for loop body, condition check, and after loop
-    BasicBlock* bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true); // Mark bodyBB as a loop block for break/continue handling
-    BasicBlock* condBB = new BasicBlock(cfg, cfg->new_BB_name());
-    BasicBlock* afterBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *bodyBB = new BasicBlock(cfg, cfg->new_BB_name(), true);  // Mark bodyBB as a loop block for break/continue handling
+    BasicBlock *condBB = new BasicBlock(cfg, cfg->new_BB_name());
+    BasicBlock *afterBB = new BasicBlock(cfg, cfg->new_BB_name());
 
     // Add blocks to CFG
     cfg->add_bb(bodyBB);
@@ -962,8 +877,7 @@ antlrcpp::Any CodeGenVisitor::visitDo_while_loop(ifccParser::Do_while_loopContex
 
     // The do-while grammar guarantees expr() is always present; treat null as a hard error.
     assert(ctx->expr() && "do-while condition expression must not be null");
-    StackParam condResult =
-        any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
+    StackParam condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
 
     // Condition result determines whether to loop again or exit
     condBB->test_var_name = condResult.name;

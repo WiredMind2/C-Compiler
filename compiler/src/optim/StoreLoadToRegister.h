@@ -1,11 +1,12 @@
 #pragma once
 
-#include "OptimizationPass.h"
-#include "../ir/Reg.h"
-#include <string>
-#include <set>
-#include <unordered_map>
 #include <cstddef>
+#include <set>
+#include <string>
+#include <unordered_map>
+
+#include "../ir/Reg.h"
+#include "OptimizationPass.h"
 
 namespace optim {
 
@@ -26,25 +27,18 @@ namespace optim {
  * non-temporary slots are assigned from W3..W5.
  */
 class StoreLoadToRegisterPass : public OptimizationPass {
-public:
+   public:
     StoreLoadToRegisterPass() = default;
 
-    std::string getName() const override {
-        return "store-load-to-register";
-    }
+    std::string getName() const override { return "store-load-to-register"; }
 
-    std::string getDescription() const override {
-        return "Replace store/load stack patterns with register copies when possible";
-    }
+    std::string getDescription() const override { return "Replace store/load stack patterns with register copies when possible"; }
 
-    PassKind getKind() const override {
-        return PassKind::IR_OPT;
-    }
-
+    PassKind getKind() const override { return PassKind::IR_OPT; }
 
     bool optimize(CFG* cfg) override;
 
-private:
+   private:
     struct FunctionRegisterState {
         struct SlotCacheInfo {
             Reg reg;
@@ -59,8 +53,8 @@ private:
 
     bool optimizeBasicBlock(BasicBlock* bb);
     bool tryOptimizeStoreLoad(BasicBlock* bb, size_t storeIdx);
-    int  findLoadAfterStore(BasicBlock* bb, size_t storeIdx, const std::string& slot);
-    int  findLastLoadAfterStore(BasicBlock* bb, size_t storeIdx, const std::string& slot);
+    int findLoadAfterStore(BasicBlock* bb, size_t storeIdx, const std::string& slot);
+    int findLastLoadAfterStore(BasicBlock* bb, size_t storeIdx, const std::string& slot);
     bool hasCallBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx);
     bool hasPointerAliasRiskBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx, const std::string& slot);
     bool hasCallInBlock(BasicBlock* bb);
@@ -73,5 +67,4 @@ private:
     std::unordered_map<std::string, FunctionRegisterState> functionRegisterState_;
 };
 
-} // namespace optim
-
+}  // namespace optim

@@ -1,9 +1,11 @@
 #include "AsmGeneratorX86_64.h"
-#include "../../ir/IR.h"
-#include "../../ir/IRInstr.h"
+
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
-#include <algorithm>
+
+#include "../../ir/IR.h"
+#include "../../ir/IRInstr.h"
 
 using namespace std;
 
@@ -16,23 +18,37 @@ AsmGeneratorX86_64::AsmGeneratorX86_64(CFG* cfg) : AsmGenerator(cfg) {}
 string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
     if (p.type == IRType::FLOAT64) {
         switch (p.reg) {
-            case Reg::W0:  case Reg::RET:  return "%xmm0";
-            case Reg::W1:                  return "%xmm1";
-            case Reg::W2:                  return "%xmm2";
-            case Reg::W3:                  return "%xmm3";
-            case Reg::W4:                  return "%xmm6";
-            case Reg::W5:                  return "%xmm7";
-            case Reg::ARG0:                return "%xmm0";
-            case Reg::ARG1:                return "%xmm1";
-            case Reg::ARG2:                return "%xmm2";
-            case Reg::ARG3:                return "%xmm3";
-            case Reg::ARG4:                return "%xmm4";
-            case Reg::ARG5:                return "%xmm5";
+            case Reg::W0:
+            case Reg::RET:
+                return "%xmm0";
+            case Reg::W1:
+                return "%xmm1";
+            case Reg::W2:
+                return "%xmm2";
+            case Reg::W3:
+                return "%xmm3";
+            case Reg::W4:
+                return "%xmm6";
+            case Reg::W5:
+                return "%xmm7";
+            case Reg::ARG0:
+                return "%xmm0";
+            case Reg::ARG1:
+                return "%xmm1";
+            case Reg::ARG2:
+                return "%xmm2";
+            case Reg::ARG3:
+                return "%xmm3";
+            case Reg::ARG4:
+                return "%xmm4";
+            case Reg::ARG5:
+                return "%xmm5";
         }
     }
     bool is64 = (p.type == IRType::INT64 || p.type == IRType::POINTER);
     switch (p.reg) {
-        case Reg::W0:   case Reg::RET:
+        case Reg::W0:
+        case Reg::RET:
             return is64 ? "%rax" : "%eax";
         case Reg::W1:
             return is64 ? "%rcx" : "%ecx";
@@ -53,9 +69,9 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
         case Reg::ARG3:
             return is64 ? "%rcx" : "%ecx";
         case Reg::ARG4:
-            return is64 ? "%r8"  : "%r8d";
+            return is64 ? "%r8" : "%r8d";
         case Reg::ARG5:
-            return is64 ? "%r9"  : "%r9d";
+            return is64 ? "%r9" : "%r9d";
         case Reg::FRAME_PTR:
             return is64 ? "%rbp" : "%ebp";
     }
@@ -79,27 +95,27 @@ string AsmGeneratorX86_64::var_to_asm(const string& varName) {
 
 // Small helper: map 32-bit register name to its low byte name
 static string reg32_to_reg8(const string& reg32) {
-    if (reg32 == "%eax" || reg32 == "%rax")  return "%al";
-    if (reg32 == "%ecx" || reg32 == "%rcx")  return "%cl";
-    if (reg32 == "%edx" || reg32 == "%rdx")  return "%dl";
-    if (reg32 == "%ebx" || reg32 == "%rbx")  return "%bl";
-    if (reg32 == "%edi" || reg32 == "%rdi")  return "%dil";
-    if (reg32 == "%esi" || reg32 == "%rsi")  return "%sil";
-    if (reg32 == "%ebp" || reg32 == "%rbp")  return "%bpl";
-    if (reg32 == "%esp" || reg32 == "%rsp")  return "%spl";
-    if (reg32 == "%r8d"  || reg32 == "%r8")  return "%r8b";
-    if (reg32 == "%r9d"  || reg32 == "%r9")  return "%r9b";
+    if (reg32 == "%eax" || reg32 == "%rax") return "%al";
+    if (reg32 == "%ecx" || reg32 == "%rcx") return "%cl";
+    if (reg32 == "%edx" || reg32 == "%rdx") return "%dl";
+    if (reg32 == "%ebx" || reg32 == "%rbx") return "%bl";
+    if (reg32 == "%edi" || reg32 == "%rdi") return "%dil";
+    if (reg32 == "%esi" || reg32 == "%rsi") return "%sil";
+    if (reg32 == "%ebp" || reg32 == "%rbp") return "%bpl";
+    if (reg32 == "%esp" || reg32 == "%rsp") return "%spl";
+    if (reg32 == "%r8d" || reg32 == "%r8") return "%r8b";
+    if (reg32 == "%r9d" || reg32 == "%r9") return "%r9b";
     if (reg32 == "%r10d" || reg32 == "%r10") return "%r10b";
     if (reg32 == "%r11d" || reg32 == "%r11") return "%r11b";
     if (reg32 == "%r12d" || reg32 == "%r12") return "%r12b";
     if (reg32 == "%r13d" || reg32 == "%r13") return "%r13b";
     if (reg32 == "%r14d" || reg32 == "%r14") return "%r14b";
     if (reg32 == "%r15d" || reg32 == "%r15") return "%r15b";
-    
-    if (reg32 == "%al" || reg32 == "%cl" || reg32 == "%dl" || reg32 == "%bl" ||
-        reg32 == "%dil" || reg32 == "%sil" || reg32 == "%bpl" || reg32 == "%spl" ||
-        reg32 == "%r8b" || reg32 == "%r9b" || reg32 == "%r10b" || reg32 == "%r11b" ||
-        reg32 == "%r12b" || reg32 == "%r13b" || reg32 == "%r14b" || reg32 == "%r15b") return reg32;
+
+    if (reg32 == "%al" || reg32 == "%cl" || reg32 == "%dl" || reg32 == "%bl" || reg32 == "%dil" || reg32 == "%sil" || reg32 == "%bpl" ||
+        reg32 == "%spl" || reg32 == "%r8b" || reg32 == "%r9b" || reg32 == "%r10b" || reg32 == "%r11b" || reg32 == "%r12b" || reg32 == "%r13b" ||
+        reg32 == "%r14b" || reg32 == "%r15b")
+        return reg32;
 
     throw std::invalid_argument("reg32_to_reg8: unknown register " + reg32);
 }
@@ -121,10 +137,10 @@ void AsmGeneratorX86_64::gen_asm(std::ostream& o) {
     // Emit global data for simple constant-initialized globals.
     auto globals = cfg->get_global_symbols();
     auto arrayInits = cfg->get_global_array_initializers();
-    
+
     if (!globals.empty() || !arrayInits.empty()) {
         o << ".data\n";
-        for (const auto &name : globals) {
+        for (const auto& name : globals) {
             // Check if this is an array with initializers
             auto arrIt = arrayInits.find(name);
             if (arrIt != arrayInits.end()) {
@@ -205,9 +221,7 @@ void AsmGeneratorX86_64::gen_asm_bb(std::ostream& o, BasicBlock* bb, bool /*isFi
     if (!hasReturn) gen_control_flow(o, bb);
 }
 
-void AsmGeneratorX86_64::gen_asm_instr(std::ostream& o, IRInstr* instr) {
-    instr->accept(*this, o);
-}
+void AsmGeneratorX86_64::gen_asm_instr(std::ostream& o, IRInstr* instr) { instr->accept(*this, o); }
 
 // ---------------------------------------------------------------------------
 // Visitor wrappers: delegate to typed helpers
@@ -235,7 +249,7 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LdConstInstr& instr) {
 void AsmGeneratorX86_64::visit(std::ostream& o, CopyRegInstr& instr) {
     // Choose assembly register names according to the copy type
     if (instr.type == IRType::INT8) {
-        string src8  = reg32_to_reg8(reg_to_asm(instr.src));
+        string src8 = reg32_to_reg8(reg_to_asm(instr.src));
         string dest8 = reg32_to_reg8(reg_to_asm(instr.dest));
         CopyRegINT8(o, src8, dest8);
     } else if (instr.type == IRType::INT32) {
@@ -254,8 +268,7 @@ void AsmGeneratorX86_64::visit(std::ostream& o, CopyRegInstr& instr) {
         if (instr.src.type == IRType::INT32) {
             RegParam dest32(instr.dest.reg, IRType::INT32);
             string dest32asm = reg_to_asm(dest32);
-            if (reg_to_asm(instr.src) != dest32asm)
-                o << "    movl " << reg_to_asm(instr.src) << ", " << dest32asm << "\n";
+            if (reg_to_asm(instr.src) != dest32asm) o << "    movl " << reg_to_asm(instr.src) << ", " << dest32asm << "\n";
         } else if (src64 != dest64) {
             o << "    movq " << src64 << ", " << dest64 << "\n";
         }
@@ -264,8 +277,7 @@ void AsmGeneratorX86_64::visit(std::ostream& o, CopyRegInstr& instr) {
 
 void AsmGeneratorX86_64::visit(std::ostream& o, StoreStackInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
-        o << "    movsd " << reg_to_asm(instr.src)
-          << ", "        << var_to_asm(instr.dest.name) << "\n";
+        o << "    movsd " << reg_to_asm(instr.src) << ", " << var_to_asm(instr.dest.name) << "\n";
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         string src = reg_to_asm(instr.src);
         if (instr.src.type == IRType::INT32) {
@@ -277,32 +289,26 @@ void AsmGeneratorX86_64::visit(std::ostream& o, StoreStackInstr& instr) {
             o << "    movq " << src << ", " << var_to_asm(instr.dest.name) << "\n";
         }
     } else {
-        o << "    movl " << reg_to_asm(instr.src)
-          << ", "       << var_to_asm(instr.dest.name) << "\n";
+        o << "    movl " << reg_to_asm(instr.src) << ", " << var_to_asm(instr.dest.name) << "\n";
     }
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, LoadStackInstr& instr) {
     if (instr.type == IRType::FLOAT64) {
-        o << "    movsd " << var_to_asm(instr.src.name)
-          << ", "        << reg_to_asm(instr.dest) << "\n";
+        o << "    movsd " << var_to_asm(instr.src.name) << ", " << reg_to_asm(instr.dest) << "\n";
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         // Always load the full 64-bit value from stack into the register's 64-bit view
         RegParam dest64(instr.dest.reg, IRType::POINTER);
-        o << "    movq " << var_to_asm(instr.src.name)
-            << ", "       << reg_to_asm(dest64) << "\n";
+        o << "    movq " << var_to_asm(instr.src.name) << ", " << reg_to_asm(dest64) << "\n";
     } else if (instr.type == IRType::INT8) {
-        o << "    movsbl " << var_to_asm(instr.src.name)
-          << ", "       << reg_to_asm(instr.dest) << "\n";
+        o << "    movsbl " << var_to_asm(instr.src.name) << ", " << reg_to_asm(instr.dest) << "\n";
     } else {
-        o << "    movl " << var_to_asm(instr.src.name)
-          << ", "       << reg_to_asm(instr.dest) << "\n";
+        o << "    movl " << var_to_asm(instr.src.name) << ", " << reg_to_asm(instr.dest) << "\n";
     }
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, AddressOfSymbolInstr& instr) {
-    o << "    leaq " << var_to_asm(instr.src.name)
-      << ", " << reg_to_asm(instr.dest) << "\n";
+    o << "    leaq " << var_to_asm(instr.src.name) << ", " << reg_to_asm(instr.dest) << "\n";
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, LoadPointerInstr& instr) {
@@ -333,8 +339,8 @@ void AsmGeneratorX86_64::visit(std::ostream& o, StorePointerInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, AddInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
+    string lhs = reg_to_asm(instr.lhs);
+    string rhs = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT64) {
         if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
@@ -353,8 +359,8 @@ void AsmGeneratorX86_64::visit(std::ostream& o, AddInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, SubInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
+    string lhs = reg_to_asm(instr.lhs);
+    string rhs = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
         if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
@@ -370,8 +376,8 @@ void AsmGeneratorX86_64::visit(std::ostream& o, SubInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, MulInstr& instr) {
-    string lhs  = reg_to_asm(instr.lhs);
-    string rhs  = reg_to_asm(instr.rhs);
+    string lhs = reg_to_asm(instr.lhs);
+    string rhs = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT32) {
         if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
@@ -403,17 +409,13 @@ void AsmGeneratorX86_64::visit(std::ostream& o, ModInstr& instr) {
     ModINT32(o, lhs, rhs, dest);
 }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, BitNotInstr& instr) {
-    BitNot(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, BitNotInstr& instr) { BitNot(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, BitAndInstr& instr) {
     BitAnd(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
 }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, BitOrInstr& instr) {
-    BitOr(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, BitOrInstr& instr) { BitOr(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest)); }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, BitXorInstr& instr) {
     BitXor(o, reg_to_asm(instr.lhs), reg_to_asm(instr.rhs), reg_to_asm(instr.dest));
@@ -507,41 +509,29 @@ void AsmGeneratorX86_64::visit(std::ostream& o, LogicalOrInstr& instr) {
 }
 
 void AsmGeneratorX86_64::visit(std::ostream& o, CallInstr& instr) {
-    int numArgs = (int) instr.args.size();
+    int numArgs = (int)instr.args.size();
     std::vector<std::string> args;
     for (int i = 0; i < numArgs; ++i) {
         args.push_back(reg_to_asm(instr.args[i]));
     }
-    
+
     if (instr.dest.type == IRType::FLOAT64)
         CallWithFLOAT64Return(o, instr.funcLabel, args, reg_to_asm(instr.dest));
     else
         CallWithINT32Return(o, instr.funcLabel, args, reg_to_asm(instr.dest));
 }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, F64ToI32Instr& instr) {
-    FToI(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, F64ToI32Instr& instr) { FToI(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, I32ToF64Instr& instr) {
-    I32ToF64(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, I32ToF64Instr& instr) { I32ToF64(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, I8ToI32Instr& instr) {
-    I8ToI32(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, I8ToI32Instr& instr) { I8ToI32(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, I32ToI8Instr& instr) {
-    I32ToI8(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, I32ToI8Instr& instr) { I32ToI8(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, FToIInstr& instr) {
-    FToI(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, FToIInstr& instr) { FToI(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, RetInstr& instr) {
-    Ret(o);
-}
+void AsmGeneratorX86_64::visit(std::ostream& o, RetInstr& instr) { Ret(o); }
 
 // ---------------------------------------------------------------------------
 // Load constant helpers (typed API)
@@ -795,8 +785,9 @@ void AsmGeneratorX86_64::I32ToI8(std::ostream& o, const std::string& src, const 
     o << "    movsbl " << reg32_to_reg8(dest) << ", " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
-    static const std::string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+void AsmGeneratorX86_64::CallWithINT32Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args,
+                                             const std::string& dest) {
+    static const std::string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
     int intArgCount = 0;
     int floatArgCount = 0;
     for (size_t i = 0; i < args.size(); i++) {
@@ -813,7 +804,8 @@ void AsmGeneratorX86_64::CallWithINT32Return(std::ostream& o, const std::string&
                 // Determine if it's 64-bit or 32-bit register from the name
                 if (arg.size() >= 3 && arg[1] == 'r') {
                     o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
-                } else if (arg == "%rax" || arg == "%rbx" || arg == "%rcx" || arg == "%rdx" || arg == "%rsp" || arg == "%rbp" || arg == "%rsi" || arg == "%rdi") {
+                } else if (arg == "%rax" || arg == "%rbx" || arg == "%rcx" || arg == "%rdx" || arg == "%rsp" || arg == "%rbp" || arg == "%rsi" ||
+                           arg == "%rdi") {
                     o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
                 } else {
                     o << "    movslq " << arg << ", " << argRegs64[intArgCount] << "\n";
@@ -827,8 +819,9 @@ void AsmGeneratorX86_64::CallWithINT32Return(std::ostream& o, const std::string&
     if (dest != "%eax" && !dest.empty()) o << "    movl %eax, " << dest << "\n";
 }
 
-void AsmGeneratorX86_64::CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args, const std::string& dest) {
-    static const std::string argRegs64[] = {"%rdi","%rsi","%rdx","%rcx","%r8","%r9"};
+void AsmGeneratorX86_64::CallWithFLOAT64Return(std::ostream& o, const std::string& funcLabel, const std::vector<std::string>& args,
+                                               const std::string& dest) {
+    static const std::string argRegs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
     int intArgCount = 0;
     int floatArgCount = 0;
     for (size_t i = 0; i < args.size(); i++) {
@@ -845,7 +838,8 @@ void AsmGeneratorX86_64::CallWithFLOAT64Return(std::ostream& o, const std::strin
                 // Determine if it's 64-bit or 32-bit register from the name
                 if (arg.size() >= 3 && arg[1] == 'r') {
                     o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
-                } else if (arg == "%rax" || arg == "%rbx" || arg == "%rcx" || arg == "%rdx" || arg == "%rsp" || arg == "%rbp" || arg == "%rsi" || arg == "%rdi") {
+                } else if (arg == "%rax" || arg == "%rbx" || arg == "%rcx" || arg == "%rdx" || arg == "%rsp" || arg == "%rbp" || arg == "%rsi" ||
+                           arg == "%rdi") {
                     o << "    movq " << arg << ", " << argRegs64[intArgCount] << "\n";
                 } else {
                     o << "    movslq " << arg << ", " << argRegs64[intArgCount] << "\n";
@@ -873,7 +867,7 @@ void AsmGeneratorX86_64::gen_prologue(std::ostream& o) {
     o << "    movq %rsp, %rbp\n";
     o << "    subq $" << stackSpace << ", %rsp\n";
     if (funcName == "main") {
-        o << "    xorl %eax, %eax\n"; // Ensure 0 exit code if main doesn't return int!
+        o << "    xorl %eax, %eax\n";  // Ensure 0 exit code if main doesn't return int!
     }
 }
 
@@ -899,15 +893,14 @@ void AsmGeneratorX86_64::gen_control_flow(std::ostream& o, BasicBlock* bb) {
                 o << "    cmpl $0, %eax\n";
             }
         } else {
-            cerr << "Internal Error: Conditional branch in " << bb->label
-                 << " has no test_var_name." << endl;
+            cerr << "Internal Error: Conditional branch in " << bb->label << " has no test_var_name." << endl;
             exit(1);
         }
         if (bb->get_var_type(bb->test_var_name) == IRType::POINTER) {
-            o << "    je "  << bb->exit_false->label << "\n";
+            o << "    je " << bb->exit_false->label << "\n";
             o << "    jmp " << bb->exit_true->label << "\n";
         } else {
-            o << "    je "  << bb->exit_false->label << "\n";
+            o << "    je " << bb->exit_false->label << "\n";
             o << "    jmp " << bb->exit_true->label << "\n";
         }
     }

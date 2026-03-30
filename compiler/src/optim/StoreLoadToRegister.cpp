@@ -1,4 +1,5 @@
 #include "StoreLoadToRegister.h"
+
 #include "../ir/IR.h"
 #include "../ir/IRInstr.h"
 
@@ -144,8 +145,7 @@ bool StoreLoadToRegisterPass::hasCallBetween(BasicBlock* bb, size_t fromIdx, siz
     return false;
 }
 
-bool StoreLoadToRegisterPass::hasPointerAliasRiskBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx,
-                                                         const std::string& slot) {
+bool StoreLoadToRegisterPass::hasPointerAliasRiskBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx, const std::string& slot) {
     for (size_t i = fromIdx + 1; i < toIdx; ++i) {
         auto* addr = dynamic_cast<AddressOfSymbolInstr*>(bb->instrs[i]);
         if (addr && addr->src.name == slot) {
@@ -161,7 +161,6 @@ bool StoreLoadToRegisterPass::hasPointerAliasRiskBetween(BasicBlock* bb, size_t 
     return false;
 }
 
-
 bool StoreLoadToRegisterPass::isRegUsedBetween(BasicBlock* bb, size_t fromIdx, size_t toIdx, const std::string& slot, Reg r) {
     std::string search = reg_name(r) + ":";
     for (size_t i = fromIdx; i <= toIdx; ++i) {
@@ -175,7 +174,7 @@ bool StoreLoadToRegisterPass::isRegUsedBetween(BasicBlock* bb, size_t fromIdx, s
         if (instr->to_string().find(search) != std::string::npos) {
             return true;
         }
-        // idivl clobbers edx (W2) and eax (W0). We only cache in W2-W5. 
+        // idivl clobbers edx (W2) and eax (W0). We only cache in W2-W5.
         // Thus if the tested register is W2, any Div or Mod instruction clobbers it.
         if (r == Reg::W2 && (dynamic_cast<DivInstr*>(instr) || dynamic_cast<ModInstr*>(instr))) {
             return true;
@@ -236,7 +235,7 @@ void StoreLoadToRegisterPass::releaseExpiredCaches(BasicBlock* bb, size_t curren
 
     auto& state = stateIt->second;
 
-    for (auto it = state.slotCacheInfo.begin(); it != state.slotCacheInfo.end(); ) {
+    for (auto it = state.slotCacheInfo.begin(); it != state.slotCacheInfo.end();) {
         const auto& info = it->second;
 
         // Caches are local to one BB in current safety model.
@@ -253,12 +252,10 @@ void StoreLoadToRegisterPass::releaseExpiredCaches(BasicBlock* bb, size_t curren
     }
 }
 
-bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std::string& slot,
-                                                       size_t storeIdx, size_t lastLoadIdx, Reg& outReg) {
+bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std::string& slot, size_t storeIdx, size_t lastLoadIdx, Reg& outReg) {
     const std::string funcName = getFunctionName(bb);
     auto& state = functionRegisterState_[funcName];
     const bool isTemporarySlot = (!slot.empty() && slot[0] == '!');
-
 
     const auto cacheInfo = state.slotCacheInfo.find(slot);
     if (cacheInfo != state.slotCacheInfo.end() && cacheInfo->second.bb == bb) {
@@ -297,15 +294,10 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
 
     bool allocated = false;
     if (isTemporarySlot) {
-        allocated = tryTakeRegister(Reg::W2)
-                 || tryTakeRegister(Reg::W3)
-                 || tryTakeRegister(Reg::W4)
-                 || tryTakeRegister(Reg::W5);
+        allocated = tryTakeRegister(Reg::W2) || tryTakeRegister(Reg::W3) || tryTakeRegister(Reg::W4) || tryTakeRegister(Reg::W5);
     } else {
         // W2 is reserved for temp variables to make sure there is always one register for temps.
-        allocated = tryTakeRegister(Reg::W3)
-                 || tryTakeRegister(Reg::W4)
-                 || tryTakeRegister(Reg::W5);
+        allocated = tryTakeRegister(Reg::W3) || tryTakeRegister(Reg::W4) || tryTakeRegister(Reg::W5);
     }
 
     if (!allocated) {
@@ -317,5 +309,4 @@ bool StoreLoadToRegisterPass::getAvailableWorkRegister(BasicBlock* bb, const std
     return true;
 }
 
-} // namespace optim
-
+}  // namespace optim

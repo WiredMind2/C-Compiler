@@ -1,8 +1,9 @@
 #pragma once
 
-#include "../ir/IR.h"
-#include <string>
 #include <memory>
+#include <string>
+
+#include "../ir/IR.h"
 
 namespace optim {
 
@@ -10,9 +11,9 @@ namespace optim {
  * @brief Kind of optimization pass
  */
 enum class PassKind {
-    IR_OPT,       /**< Operates on IR (before assembly generation) */
-    ASM_OPT,      /**< Operates on assembly (after generation) */
-    ANALYSIS      /**< Analysis pass (gathers info, no modification) */
+    IR_OPT,  /**< Operates on IR (before assembly generation) */
+    ASM_OPT, /**< Operates on assembly (after generation) */
+    ANALYSIS /**< Analysis pass (gathers info, no modification) */
 };
 
 /**
@@ -23,7 +24,7 @@ enum class PassKind {
  * on each pass.
  */
 class OptimizationPass {
-public:
+   public:
     virtual ~OptimizationPass() = default;
 
     // ==================== Pass Identification ====================
@@ -45,7 +46,6 @@ public:
      * @return PassKind indicating IR, ASM, or ANALYSIS
      */
     virtual PassKind getKind() const = 0;
-
 
     // ==================== Main Execution ====================
 
@@ -76,7 +76,7 @@ public:
      */
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
-protected:
+   protected:
     /**
      * @brief Constructor (protected for derived classes)
      */
@@ -88,4 +88,4 @@ protected:
 // Smart pointer type for passes
 using PassPtr = std::unique_ptr<OptimizationPass>;
 
-} // namespace optim
+}  // namespace optim

@@ -1,8 +1,9 @@
 #pragma once
 
-#include "antlr4-runtime.h"
-#include "../generated/ifccBaseVisitor.h"
 #include <string>
+
+#include "../generated/ifccBaseVisitor.h"
+#include "antlr4-runtime.h"
 #include "utils.h"
 
 /**
@@ -19,10 +20,10 @@
  */
 class CodeGenVisitor;
 
-antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext *ctx);
-antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::SubstractionContext *ctx);
-antlrcpp::Any visitMultiplication(CodeGenVisitor* visitor, ifccParser::MultiplicationContext *ctx);
-antlrcpp::Any visitDivision(CodeGenVisitor* visitor, ifccParser::DivisionContext *ctx);
-antlrcpp::Any visitModulo(CodeGenVisitor* visitor, ifccParser::ModuloContext *ctx);
-antlrcpp::Any visitUnaryPlus(CodeGenVisitor* visitor, ifccParser::UnaryPlusContext *ctx);
-antlrcpp::Any visitUnaryMinus(CodeGenVisitor* visitor, ifccParser::UnaryMinusContext *ctx);
+antlrcpp::Any visitAddition(CodeGenVisitor* visitor, ifccParser::AdditionContext* ctx);
+antlrcpp::Any visitSubstraction(CodeGenVisitor* visitor, ifccParser::SubstractionContext* ctx);
+antlrcpp::Any visitMultiplication(CodeGenVisitor* visitor, ifccParser::MultiplicationContext* ctx);
+antlrcpp::Any visitDivision(CodeGenVisitor* visitor, ifccParser::DivisionContext* ctx);
+antlrcpp::Any visitModulo(CodeGenVisitor* visitor, ifccParser::ModuloContext* ctx);
+antlrcpp::Any visitUnaryPlus(CodeGenVisitor* visitor, ifccParser::UnaryPlusContext* ctx);
+antlrcpp::Any visitUnaryMinus(CodeGenVisitor* visitor, ifccParser::UnaryMinusContext* ctx);

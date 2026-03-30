@@ -1,7 +1,9 @@
 #include "OptimizationManager.h"
-#include "PassRegistry.h"
+
 #include <algorithm>
 #include <iostream>
+
+#include "PassRegistry.h"
 
 namespace optim {
 
@@ -21,30 +23,17 @@ bool OptimizationManager::addPassByName(const std::string& passName) {
 }
 
 void OptimizationManager::removePass(const std::string& passName) {
-    passes_.erase(
-        std::remove_if(passes_.begin(), passes_.end(),
-            [&passName](const PassPtr& pass) {
-                return pass->getName() == passName;
-            }),
-        passes_.end()
-    );
+    passes_.erase(std::remove_if(passes_.begin(), passes_.end(), [&passName](const PassPtr& pass) { return pass->getName() == passName; }),
+                  passes_.end());
 }
 
-void OptimizationManager::clearPasses() {
-    passes_.clear();
-}
+void OptimizationManager::clearPasses() { passes_.clear(); }
 
-void OptimizationManager::setOptimizationLevel(int level) {
-    optimizationLevel_ = std::max(0, std::min(3, level));
-}
+void OptimizationManager::setOptimizationLevel(int level) { optimizationLevel_ = std::max(0, std::min(3, level)); }
 
-void OptimizationManager::enablePass(const std::string& passName) {
-    disabledPasses_.erase(passName);
-}
+void OptimizationManager::enablePass(const std::string& passName) { disabledPasses_.erase(passName); }
 
-void OptimizationManager::disablePass(const std::string& passName) {
-    disabledPasses_.insert(passName);
-}
+void OptimizationManager::disablePass(const std::string& passName) { disabledPasses_.insert(passName); }
 
 bool OptimizationManager::runOptimizations(CFG* cfg) {
     if (!cfg) return false;
@@ -129,7 +118,6 @@ std::vector<std::string> OptimizationManager::getEnabledPassNames() const {
     return names;
 }
 
-
 std::vector<OptimizationPass*> OptimizationManager::getPassesByKind(PassKind kind) {
     std::vector<OptimizationPass*> result;
     for (auto& pass : passes_) {
@@ -140,4 +128,4 @@ std::vector<OptimizationPass*> OptimizationManager::getPassesByKind(PassKind kin
     return result;
 }
 
-} // namespace optim
+}  // namespace optim

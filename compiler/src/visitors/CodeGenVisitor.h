@@ -1,24 +1,25 @@
 #pragma once
 
-#include "antlr4-runtime.h"
+#include <map>
+#include <string>
+
 #include "../generated/ifccBaseVisitor.h"
 #include "../ir/IR.h"
-#include "utils.h"
 #include "CodeGenArithmetic.h"
 #include "CodeGenBitwise.h"
 #include "CodeGenComparison.h"
-#include "CodeGenMemory.h"
-#include "CodeGenFunction.h"
-#include "CodeGenRelational.h"
-#include "CodeGenLogical.h"
 #include "CodeGenControlFlow.h"
-#include <map>
-#include <string>
+#include "CodeGenFunction.h"
+#include "CodeGenLogical.h"
+#include "CodeGenMemory.h"
+#include "CodeGenRelational.h"
+#include "antlr4-runtime.h"
+#include "utils.h"
 
 // Other function are declared in the visitors/ folder
 
 class CodeGenVisitor : public ifccBaseVisitor {
-public:
+   public:
     CodeGenVisitor(TargetArch arch, bool include_stdio = false, bool include_stdlib = false) {
         cfg = new CFG(arch);
         this->include_stdio = include_stdio;
@@ -85,7 +86,7 @@ public:
     virtual antlrcpp::Any visitGreaterStrictThan(ifccParser::GreaterStrictThanContext *ctx) override;
     virtual antlrcpp::Any visitSmallerThan(ifccParser::SmallerThanContext *ctx) override;
     virtual antlrcpp::Any visitGreaterThan(ifccParser::GreaterThanContext *ctx) override;
-    
+
     // Shift expression handlers
     virtual antlrcpp::Any visitShiftExprRef(ifccParser::ShiftExprRefContext *ctx) override;
     virtual antlrcpp::Any visitShiftLeft(ifccParser::ShiftLeftContext *ctx) override;
@@ -120,14 +121,15 @@ public:
     virtual antlrcpp::Any visitSwitch_stmt(ifccParser::Switch_stmtContext *ctx) override;
     CFG *getCFG() { return cfg; }
 
-private:
-    void generateLoopBody(ifccParser::ScopeContext* scopeCtx, BasicBlock* bodyBB, BasicBlock* continueTargetBB, BasicBlock* breakTargetBB);
+   private:
+    void generateLoopBody(ifccParser::ScopeContext *scopeCtx, BasicBlock *bodyBB, BasicBlock *continueTargetBB, BasicBlock *breakTargetBB);
 
-private:
+   private:
     CFG *cfg;
     bool include_stdio = false;
     bool include_stdlib = false;
-public:
+
+   public:
     bool has_stdio() const { return include_stdio; }
     bool has_stdlib() const { return include_stdlib; }
 

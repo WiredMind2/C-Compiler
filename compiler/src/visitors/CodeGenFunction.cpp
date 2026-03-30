@@ -3,8 +3,10 @@
 //
 
 #include "CodeGenFunction.h"
-#include "CodeGenVisitor.h"
+
 #include <iostream>
+
+#include "CodeGenVisitor.h"
 
 // Helper for extracting type and pointer depth
 static std::pair<IRType, int> getParamTypeInfo(ifccParser::ParamContext* param) {
@@ -18,9 +20,7 @@ static std::pair<IRType, int> getParamTypeInfo(ifccParser::ParamContext* param) 
     return {pointDepth > 0 ? IRType::POINTER : baseType, pointDepth};
 }
 
-
-antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext *ctx)
-{
+antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Function_definitionContext* ctx) {
     IRType return_type = irtype_from_string(ctx->type_specifier()->getText());
     std::string func_name = ctx->VAR()->getText();
 
@@ -39,23 +39,18 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     // Save and restore the former BB around the function body
     BasicBlock* formerBB = visitor->getCFG()->current_bb;
 
-    BasicBlock* entryBB = visitor->getCFG()->create_function_entry(
-        func_name, return_type, paramTypes, paramNames);
+    BasicBlock* entryBB = visitor->getCFG()->create_function_entry(func_name, return_type, paramTypes, paramNames);
 
     // Push the entry BB onto the scope stack
     visitor->getCFG()->getStackBBs().push_back(entryBB);
 
     // Load function parameters from argument registers (ARG0-ARG5 / w1-w6) to stack
-    static const Reg argRegs[] = {
-        Reg::ARG0, Reg::ARG1, Reg::ARG2,
-        Reg::ARG3, Reg::ARG4, Reg::ARG5
-    };
+    static const Reg argRegs[] = {Reg::ARG0, Reg::ARG1, Reg::ARG2, Reg::ARG3, Reg::ARG4, Reg::ARG5};
     for (int i = 0; i < static_cast<int>(paramTypes.size()) && i < 6; i++) {
         entryBB->add_IRInstr(new StoreStackInstr(entryBB, paramNames[i], argRegs[i], paramTypes[i]));
     }
 
-    if (ctx->scope())
-        visitor->visit(ctx->scope());
+    if (ctx->scope()) visitor->visit(ctx->scope());
 
     visitor->getCFG()->getStackBBs().pop_back();
     visitor->getCFG()->current_bb = formerBB;
@@ -63,8 +58,7 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     return 0;
 }
 
-antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext *ctx)
-{
+antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Function_declarationContext* ctx) {
     IRType return_type = irtype_from_string(ctx->type_specifier()->getText());
     std::string func_name = ctx->VAR()->getText();
 
@@ -82,14 +76,14 @@ antlrcpp::Any visitFunction_declaration(CodeGenVisitor* visitor, ifccParser::Fun
 
     if (visitor->getCFG()->get_function(func_name) == nullptr) {
         visitor->getCFG()->add_function(func_name, return_type, paramTypes, paramNames);
-    }else {
+    } else {
         std::cerr << "Error: redefinition of function '" << func_name << "'." << std::endl;
         exit(1);
     }
     return 0;
 }
 
-antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext *ctx) {
+antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_callContext* ctx) {
     std::string func_name = ctx->VAR()->getText();
 
     auto function_signature = visitor->getCFG()->get_function(func_name);
@@ -97,11 +91,8 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     // Handle standard library functions when not previously declared.
     if (function_signature == nullptr) {
         if (isFunctionStandardLibrary(visitor, func_name, ctx)) {
-            visitor->getCFG()->add_function(
-                func_name,
-                IRType::INT32,
-                std::vector<IRType>(ctx->expr().size(), IRType::INT32),
-                std::vector<std::string>());
+            visitor->getCFG()->add_function(func_name, IRType::INT32, std::vector<IRType>(ctx->expr().size(), IRType::INT32),
+                                            std::vector<std::string>());
             function_signature = visitor->getCFG()->get_function(func_name);
         } else {
             std::cerr << "Error: call to undeclared function '" << func_name << "'." << std::endl;
@@ -113,16 +104,13 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     int expectedArgs = static_cast<int>(function_signature->paramTypes.size());
     int actualArgs = static_cast<int>(ctx->expr().size());
     if (actualArgs > expectedArgs) {
-        std::cerr << "Error: too many arguments in call to '" << func_name << "'. Expected " << expectedArgs << ", got " << actualArgs << "." << std::endl;
+        std::cerr << "Error: too many arguments in call to '" << func_name << "'. Expected " << expectedArgs << ", got " << actualArgs << "."
+                  << std::endl;
         exit(1);
     }
 
-    auto isIntegral = [](IRType t) {
-        return t == IRType::INT8 || t == IRType::INT32 || t == IRType::INT64;
-    };
-    auto isFloat = [](IRType t) {
-        return t == IRType::FLOAT32 || t == IRType::FLOAT64;
-    };
+    auto isIntegral = [](IRType t) { return t == IRType::INT8 || t == IRType::INT32 || t == IRType::INT64; };
+    auto isFloat = [](IRType t) { return t == IRType::FLOAT32 || t == IRType::FLOAT64; };
 
     std::vector<StackParam> evaluatedArgs;
     evaluatedArgs.reserve(actualArgs);
@@ -135,8 +123,8 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
         if (actual != expected) {
             // Allow implicit numeric conversions (integral promotions / float promotions)
             if (!(isIntegral(actual) && isIntegral(expected)) && !(isFloat(actual) && isFloat(expected))) {
-                std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected "
-                          << irtype_name(expected) << ", got " << irtype_name(actual) << "." << std::endl;
+                std::cerr << "Error: argument " << (i + 1) << " of '" << func_name << "' has incompatible type. Expected " << irtype_name(expected)
+                          << ", got " << irtype_name(actual) << "." << std::endl;
                 exit(1);
             }
             // otherwise compatible via implicit conversion
@@ -145,10 +133,7 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
 
     auto* bb = visitor->getCFG()->current_bb;
 
-    static const Reg argRegs[] = {
-        Reg::ARG0, Reg::ARG1, Reg::ARG2,
-        Reg::ARG3, Reg::ARG4, Reg::ARG5
-    };
+    static const Reg argRegs[] = {Reg::ARG0, Reg::ARG1, Reg::ARG2, Reg::ARG3, Reg::ARG4, Reg::ARG5};
 
     // Arguments are already evaluated in stack temporaries; now place them in ARGn.
     std::vector<Reg> usedArgRegs;
@@ -186,7 +171,6 @@ antlrcpp::Any visitFunctionCall(CodeGenVisitor* visitor, ifccParser::Function_ca
     return StackParam(resultTmp, function_signature->returnType);
 }
 
-
 StandardLibraryFunction getStandardLibraryFunction(const std::string& func_name) {
     if (func_name == "getchar") {
         return StandardLibraryFunction::GETCHAR;
@@ -199,8 +183,7 @@ StandardLibraryFunction getStandardLibraryFunction(const std::string& func_name)
     }
 }
 
-int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_name, ifccParser::Function_callContext *ctx)
-{
+int isFunctionStandardLibrary(CodeGenVisitor* visitor, const std::string& func_name, ifccParser::Function_callContext* ctx) {
     switch (getStandardLibraryFunction(func_name)) {
         case StandardLibraryFunction::GETCHAR:
             // Only consider getchar as standard if <stdio.h> was included

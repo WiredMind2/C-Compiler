@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
 #include <iostream>
+#include <string>
 
 enum class IRType {
     VOID,

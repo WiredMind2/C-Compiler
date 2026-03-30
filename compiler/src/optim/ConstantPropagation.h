@@ -1,10 +1,11 @@
 #pragma once
 
-#include "OptimizationPass.h"
-#include <string>
+#include <cstddef>
 #include <map>
 #include <set>
-#include <cstddef>
+#include <string>
+
+#include "OptimizationPass.h"
 
 namespace optim {
 
@@ -25,36 +26,28 @@ namespace optim {
  *   return 42;
  */
 class ConstantPropagationPass : public OptimizationPass {
-public:
+   public:
     ConstantPropagationPass() = default;
 
     // ==================== Pass Identification ====================
 
-    std::string getName() const override {
-        return "constant-propagation";
-    }
+    std::string getName() const override { return "constant-propagation"; }
 
-    std::string getDescription() const override {
-        return "Propagate constant values and eliminate dead stores";
-    }
+    std::string getDescription() const override { return "Propagate constant values and eliminate dead stores"; }
 
-    PassKind getKind() const override {
-        return PassKind::IR_OPT;
-    }
-
+    PassKind getKind() const override { return PassKind::IR_OPT; }
 
     // ==================== Optimization ====================
 
     bool optimize(CFG* cfg) override;
 
-private:
+   private:
     /**
      * @brief Optimize a single basic block
      * @param bb The basic block to optimize
      * @return true if any optimization was applied
      */
     bool optimizeBasicBlock(BasicBlock* bb);
-
 };
 
-} // namespace optim
+}  // namespace optim

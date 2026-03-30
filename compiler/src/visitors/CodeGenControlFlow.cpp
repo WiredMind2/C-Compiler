@@ -1,8 +1,9 @@
 #include "CodeGenControlFlow.h"
-#include "CodeGenVisitor.h"
-#include "../ir/IR.h"
 
-antlrcpp::Any visitCondition(CodeGenVisitor* visitor, ifccParser::ConditionContext *ctx) {
+#include "../ir/IR.h"
+#include "CodeGenVisitor.h"
+
+antlrcpp::Any visitCondition(CodeGenVisitor* visitor, ifccParser::ConditionContext* ctx) {
     CFG* cfg = visitor->getCFG();
     BasicBlock* before_if_bb = cfg->current_bb;
 
@@ -33,8 +34,7 @@ antlrcpp::Any visitCondition(CodeGenVisitor* visitor, ifccParser::ConditionConte
     // add a jump to the merge block.
     if (cfg->current_bb != nullptr) {
         BasicBlock* lastThen = cfg->current_bb;
-        if (lastThen->exit_true == nullptr &&
-            (lastThen->instrs.empty() || dynamic_cast<RetInstr*>(lastThen->instrs.back()) == nullptr)) {
+        if (lastThen->exit_true == nullptr && (lastThen->instrs.empty() || dynamic_cast<RetInstr*>(lastThen->instrs.back()) == nullptr)) {
             lastThen->exit_true = merge_bb;
         }
     }
@@ -45,8 +45,7 @@ antlrcpp::Any visitCondition(CodeGenVisitor* visitor, ifccParser::ConditionConte
         visitor->visit(ctx->else_block());
         if (cfg->current_bb != nullptr) {
             BasicBlock* lastElse = cfg->current_bb;
-            if (lastElse->exit_true == nullptr &&
-                (lastElse->instrs.empty() || dynamic_cast<RetInstr*>(lastElse->instrs.back()) == nullptr)) {
+            if (lastElse->exit_true == nullptr && (lastElse->instrs.empty() || dynamic_cast<RetInstr*>(lastElse->instrs.back()) == nullptr)) {
                 lastElse->exit_true = merge_bb;
             }
         }
@@ -56,7 +55,7 @@ antlrcpp::Any visitCondition(CodeGenVisitor* visitor, ifccParser::ConditionConte
     return nullptr;
 }
 
-antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopContext *ctx) {
+antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopContext* ctx) {
     CFG* cfg = visitor->getCFG();
     BasicBlock* before_while_bb = cfg->current_bb;
 
@@ -84,8 +83,8 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     cfg->add_bb(body_bb);
 
     // Set the test block's exits
-    test_bb->exit_true = body_bb;   // if true, go to body
-    test_bb->exit_false = end_bb;   // if false, go to end
+    test_bb->exit_true = body_bb;  // if true, go to body
+    test_bb->exit_false = end_bb;  // if false, go to end
 
     // Generate the body
     cfg->current_bb = body_bb;
@@ -99,8 +98,7 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     // set it to jump back to the test block.
     if (cfg->current_bb != nullptr) {
         BasicBlock* lastBody = cfg->current_bb;
-        if (lastBody->exit_true == nullptr &&
-            (lastBody->instrs.empty() || dynamic_cast<RetInstr*>(lastBody->instrs.back()) == nullptr)) {
+        if (lastBody->exit_true == nullptr && (lastBody->instrs.empty() || dynamic_cast<RetInstr*>(lastBody->instrs.back()) == nullptr)) {
             lastBody->exit_true = test_bb;
         }
     }
@@ -111,7 +109,7 @@ antlrcpp::Any visitWhile_loop(CodeGenVisitor* visitor, ifccParser::While_loopCon
     return nullptr;
 }
 
-antlrcpp::Any visitBreak_stmt(CodeGenVisitor* visitor, ifccParser::Break_stmtContext *ctx) {
+antlrcpp::Any visitBreak_stmt(CodeGenVisitor* visitor, ifccParser::Break_stmtContext* ctx) {
     CFG* cfg = visitor->getCFG();
     if (!cfg->current_break_bb) {
         std::cerr << "Error: 'break' statement not within a loop or switch." << std::endl;
@@ -122,7 +120,7 @@ antlrcpp::Any visitBreak_stmt(CodeGenVisitor* visitor, ifccParser::Break_stmtCon
     return nullptr;
 }
 
-antlrcpp::Any visitContinue_stmt(CodeGenVisitor* visitor, ifccParser::Continue_stmtContext *ctx) {
+antlrcpp::Any visitContinue_stmt(CodeGenVisitor* visitor, ifccParser::Continue_stmtContext* ctx) {
     CFG* cfg = visitor->getCFG();
     if (!cfg->current_continue_bb) {
         std::cerr << "Error: 'continue' statement not within a loop." << std::endl;

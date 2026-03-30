@@ -1,4 +1,5 @@
 #include "PassRegistry.h"
+
 #include <algorithm>
 
 namespace optim {
@@ -24,9 +25,7 @@ PassPtr PassRegistry::createPass(const std::string& name) const {
     return nullptr;
 }
 
-bool PassRegistry::isRegistered(const std::string& name) const {
-    return builders_.count(name) > 0;
-}
+bool PassRegistry::isRegistered(const std::string& name) const { return builders_.count(name) > 0; }
 
 std::vector<std::string> PassRegistry::getAvailablePasses() const {
     std::vector<std::string> names;
@@ -36,12 +35,8 @@ std::vector<std::string> PassRegistry::getAvailablePasses() const {
     return names;
 }
 
-void PassRegistry::unregisterPass(const std::string& name) {
-    builders_.erase(name);
-}
+void PassRegistry::unregisterPass(const std::string& name) { builders_.erase(name); }
 
-void PassRegistry::clear() {
-    builders_.clear();
-}
+void PassRegistry::clear() { builders_.clear(); }
 
-} // namespace optim
+}  // namespace optim
