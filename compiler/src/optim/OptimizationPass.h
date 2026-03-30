@@ -16,15 +16,6 @@ enum class PassKind {
 };
 
 /**
- * @brief When the pass runs during optimization
- */
-enum class PassTiming {
-    EARLY,        /**< Run before most optimizations */
-    NORMAL,      /**< Standard optimization */
-    LATE          /**< Run after most optimizations */
-};
-
-/**
  * @brief Base class for all optimization passes
  *
  * All optimizations should inherit from this class.
@@ -55,11 +46,6 @@ public:
      */
     virtual PassKind getKind() const = 0;
 
-    /**
-     * @brief Get the timing category for this pass
-     * @return PassTiming indicating when to run
-     */
-    virtual PassTiming getTiming() const = 0;
 
     // ==================== Main Execution ====================
 

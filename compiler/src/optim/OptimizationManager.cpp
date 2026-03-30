@@ -48,46 +48,41 @@ void OptimizationManager::disablePass(const std::string& passName) {
 
 bool OptimizationManager::runOptimizations(CFG* cfg) {
     if (!cfg) return false;
-    
+
     bool anyModified = false;
-    
-    // Sort passes by timing
-    sortPasses();
-    
+
     // Run each enabled pass
     for (auto& pass : passes_) {
         // Skip disabled passes
         if (disabledPasses_.count(pass->getName()) > 0) {
             continue;
         }
-        
+
         // Skip if pass is not enabled
         if (!pass->isEnabled()) {
             continue;
         }
-        
+
         // Run analysis passes first if needed
         if (pass->getKind() == PassKind::ANALYSIS) {
             pass->analyze(cfg);
             continue;
         }
-        
+
         // Run IR and ASM optimizations
         if (pass->getKind() == PassKind::IR_OPT || pass->getKind() == PassKind::ASM_OPT) {
             bool modified = pass->optimize(cfg);
             anyModified = anyModified || modified;
         }
     }
-    
+
     return anyModified;
 }
 
 bool OptimizationManager::runIRPasses(CFG* cfg) {
     if (!cfg) return false;
-    
+
     bool anyModified = false;
-    sortPasses();
-    
     for (auto& pass : passes_) {
         if (pass->getKind() == PassKind::IR_OPT && pass->isEnabled()) {
             if (disabledPasses_.count(pass->getName()) == 0) {
@@ -96,16 +91,14 @@ bool OptimizationManager::runIRPasses(CFG* cfg) {
             }
         }
     }
-    
+
     return anyModified;
 }
 
 bool OptimizationManager::runAsmPasses(CFG* cfg) {
     if (!cfg) return false;
-    
+
     bool anyModified = false;
-    sortPasses();
-    
     for (auto& pass : passes_) {
         if (pass->getKind() == PassKind::ASM_OPT && pass->isEnabled()) {
             if (disabledPasses_.count(pass->getName()) == 0) {
@@ -114,7 +107,7 @@ bool OptimizationManager::runAsmPasses(CFG* cfg) {
             }
         }
     }
-    
+
     return anyModified;
 }
 
@@ -136,18 +129,6 @@ std::vector<std::string> OptimizationManager::getEnabledPassNames() const {
     return names;
 }
 
-void OptimizationManager::sortPasses() {
-    std::sort(passes_.begin(), passes_.end(),
-        [](const PassPtr& a, const PassPtr& b) {
-            // Sort by timing: EARLY -> NORMAL -> LATE
-            if (a->getTiming() != b->getTiming()) {
-                return a->getTiming() < b->getTiming();
-            }
-            // Same timing: alphabetical by name
-            return a->getName() < b->getName();
-        }
-    );
-}
 
 std::vector<OptimizationPass*> OptimizationManager::getPassesByKind(PassKind kind) {
     std::vector<OptimizationPass*> result;

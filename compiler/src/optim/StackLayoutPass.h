@@ -9,8 +9,7 @@ public:
     std::string getName() const override { return "stack-layout"; }
     std::string getDescription() const override { return "Packs the stack by separating user variables from temporary compiler variables."; }
     PassKind getKind() const override { return PassKind::IR_OPT; }
-    PassTiming getTiming() const override { return PassTiming::LATE; } // Run after all other things
-    
+
     bool optimize(CFG* cfg) override;
 };
 

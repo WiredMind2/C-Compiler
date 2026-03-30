@@ -20,6 +20,8 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
             case Reg::W1:                  return "%xmm1";
             case Reg::W2:                  return "%xmm2";
             case Reg::W3:                  return "%xmm3";
+            case Reg::W4:                  return "%xmm6";
+            case Reg::W5:                  return "%xmm7";
             case Reg::ARG0:                return "%xmm0";
             case Reg::ARG1:                return "%xmm1";
             case Reg::ARG2:                return "%xmm2";
@@ -38,6 +40,10 @@ string AsmGeneratorX86_64::reg_to_asm(const RegParam& p) {
             return is64 ? "%rdx" : "%edx";
         case Reg::W3:
             return is64 ? "%rbx" : "%ebx";
+        case Reg::W4:
+            return is64 ? "%r10" : "%r10d";
+        case Reg::W5:
+            return is64 ? "%r11" : "%r11d";
         case Reg::ARG0:
             return is64 ? "%rdi" : "%edi";
         case Reg::ARG1:
@@ -368,13 +374,11 @@ void AsmGeneratorX86_64::visit(std::ostream& o, MulInstr& instr) {
     string rhs  = reg_to_asm(instr.rhs);
     string dest = reg_to_asm(instr.dest);
     if (instr.type == IRType::INT32) {
-        o << "    movl " << lhs << ", %eax\n";
-        o << "    imull " << rhs << ", %eax\n";
-        o << "    movl %eax, " << dest << "\n";
+        if (dest != lhs) o << "    movl " << lhs << ", " << dest << "\n";
+        o << "    imull " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::INT64 || instr.type == IRType::POINTER) {
-        o << "    movq " << lhs << ", %rax\n";
-        o << "    imulq " << rhs << ", %rax\n";
-        o << "    movq %rax, " << dest << "\n";
+        if (dest != lhs) o << "    movq " << lhs << ", " << dest << "\n";
+        o << "    imulq " << rhs << ", " << dest << "\n";
     } else if (instr.type == IRType::FLOAT64) {
         o << "    movsd " << lhs << ", %xmm0\n";
         o << "    mulsd " << rhs << ", %xmm0\n";
@@ -554,8 +558,10 @@ void AsmGeneratorX86_64::ldConstInstrINT64(std::ostream& o, ConstParam constant,
 }
 void AsmGeneratorX86_64::ldConstInstrFLOAT64(std::ostream& o, double constant, const std::string& dest) {
     uint64_t bits = std::bit_cast<uint64_t>(constant);
+    o << "    pushq %rax\n";
     o << "    movabsq $" << bits << ", %rax\n";
     o << "    movq %rax, " << dest << "\n";
+    o << "    popq %rax\n";
 }
 
 // ---------------------------------------------------------------------------

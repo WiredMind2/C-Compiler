@@ -7,8 +7,11 @@
 #include "generated/ifccLexer.h"
 #include "generated/ifccParser.h"
 #include "optim/OptimizationManager.h"
-#include "optim/LoadConstantToRegister.h"
 #include "optim/ConstantPropagation.h"
+#include "optim/StoreLoadStackFold.h"
+#include "optim/StoreLoadToRegister.h"
+#include "optim/DeadRegDefElimination.h"
+#include "optim/CopyRegChainPropagation.h"
 #include "optim/StackLayoutPass.h"
 #include "optim/UnusedVariableElimination.h"
 
@@ -28,6 +31,7 @@ int main(int argc, char** argv) {
     stringstream in;
     TargetArch arch = DEFAULT_ARCH;
     const char *filename = nullptr;
+    bool no_optim = false;
     bool dump_ir = false;
 
     for (int i = 1; i < argc; i++) {
@@ -41,6 +45,8 @@ int main(int argc, char** argv) {
             }
         } else if (arg == "--dump-ir") {
             dump_ir = true;
+        } else if (arg == "--nooptim") {
+            no_optim = true;
         } else if (!arg.empty() && arg[0] == '-') {
             cerr << "Unknown option: " << arg << endl;
             return 1;
@@ -49,7 +55,7 @@ int main(int argc, char** argv) {
         }
     }
     if (filename == nullptr) {
-        cerr << "usage: ifcc [--arch arm|x86] path/to/file.c" << endl;
+        cerr << "usage: ifcc [--arch arm|x86, --nooptim, --dump-ir] path/to/file.c" << endl;
         exit(1);
     }
 
@@ -88,10 +94,15 @@ int main(int argc, char** argv) {
 
     // Run optimizations
     optim::OptimizationManager optimizer;
-    optimizer.addPass(std::make_unique<optim::LoadConstantToRegisterPass>());
-    optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
-    optimizer.addPass(std::make_unique<optim::StackLayoutPass>());
-    optimizer.addPass(std::make_unique<optim::UnusedVariableEliminationPass>());
+    if (!no_optim) {
+        optimizer.addPass(std::make_unique<optim::StackLayoutPass>());
+        optimizer.addPass(std::make_unique<optim::StoreLoadStackFoldPass>());
+        optimizer.addPass(std::make_unique<optim::StoreLoadToRegisterPass>());
+        optimizer.addPass(std::make_unique<optim::ConstantPropagationPass>());
+        optimizer.addPass(std::make_unique<optim::DeadRegDefEliminationPass>());
+        optimizer.addPass(std::make_unique<optim::CopyRegChainPropagationPass>());
+        optimizer.addPass(std::make_unique<optim::UnusedVariableEliminationPass>());
+    }
     optimizer.runOptimizations(cfg);
     // If the user passed --dump-ir, enable IR-as-assembly comments and dump
     if (dump_ir) {

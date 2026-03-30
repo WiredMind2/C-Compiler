@@ -10,29 +10,32 @@ all: ifcc
 ##########################################
 # link together all pieces of our compiler
 OBJECTS=build/ifccBaseVisitor.o \
-        build/ifccLexer.o \
-        build/ifccVisitor.o \
-        build/ifccParser.o \
-        build/main.o \
-        build/CodeGenVisitor.o \
-        build/CodeGenArithmetic.o \
-        build/CodeGenBitwise.o \
-        build/CodeGenComparison.o \
-        build/CodeGenMemory.o \
-        build/CodeGenFunction.o \
-        build/CodeGenRelational.o \
-        build/CodeGenLogical.o \
-        build/CodeGenControlFlow.o \
-        build/IR.o \
-        build/IRInstr.o \
-        build/AsmGeneratorX86_64.o \
-        build/AsmGeneratorARM64.o \
-        build/OptimizationManager.o \
-        build/PassRegistry.o \
-        build/LoadConstantToRegister.o \
-        build/ConstantPropagation.o \
+	build/ifccLexer.o \
+	build/ifccVisitor.o \
+	build/ifccParser.o \
+	build/main.o \
+	build/CodeGenVisitor.o \
+	build/CodeGenArithmetic.o \
+	build/CodeGenBitwise.o \
+	build/CodeGenComparison.o \
+	build/CodeGenMemory.o \
+	build/CodeGenFunction.o \
+	build/CodeGenRelational.o \
+	build/CodeGenLogical.o \
+    build/CodeGenControlFlow.o \
+	build/IR.o \
+	build/IRInstr.o \
+	build/AsmGeneratorX86_64.o \
+	build/AsmGeneratorARM64.o \
+	build/OptimizationManager.o \
+	build/PassRegistry.o \
+	build/StoreLoadStackFold.o \
+	build/StoreLoadToRegister.o \
+	build/DeadRegDefElimination.o \
+	build/CopyRegChainPropagation.o \
+	build/ConstantPropagation.o \
 	build/UnusedVariableElimination.o \
-        build/StackLayoutPass.o
+	build/StackLayoutPass.o
 
 ifcc: $(OBJECTS)
 	@mkdir -p build

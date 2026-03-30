@@ -529,7 +529,7 @@ antlrcpp::Any CodeGenVisitor::visitStatement(ifccParser::StatementContext *ctx)
     if (bb == nullptr) {
         return nullptr; // Unreachable code
     }
-    
+
     // Check if current block already has a return or an unconditional jump (break/continue)
     if (!bb->instrs.empty()) {
         if (dynamic_cast<RetInstr*>(bb->instrs.back()) != nullptr) {
@@ -550,29 +550,29 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
 {
     CFG* cfg = this->cfg;
     BasicBlock* currentBB = cfg->current_bb;
-    
+
     // Create blocks for then-branch, else-branch (optional), and merge point
     BasicBlock* thenBB = new BasicBlock(cfg, cfg->new_BB_name());
     BasicBlock* elseBB = nullptr;
     BasicBlock* mergeBB = new BasicBlock(cfg, cfg->new_BB_name());
-    
+
     // If there's an else clause, create else block
     if (ctx->else_block()) {
         elseBB = new BasicBlock(cfg, cfg->new_BB_name());
     }
-    
+
     // Add the new blocks to CFG
     cfg->add_bb(thenBB);
     if (elseBB) cfg->add_bb(elseBB);
     cfg->add_bb(mergeBB);
-    
+
     // Generate code for the condition expression
     // Visit the expression which should leave result in a register
     StackParam condResult("!tmp0", IRType::INT32);
     if (ctx->expr()) {
         condResult = any_cast_to_stack_param_or_throw_on_nullptr(this->visit(ctx->expr()));
     }
-    
+
     // Set up the control flow from current block
     // The condition result determines which branch to take
     currentBB->test_var_name = condResult.name;
@@ -586,7 +586,7 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         currentBB->exit_true = thenBB;
         currentBB->exit_false = mergeBB;
     }
-    
+
     // Now generate code for the then-branch
     cfg->current_bb = thenBB;
     if (ctx->statement()) {
@@ -600,7 +600,7 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
         (lastThenBB->instrs.empty() || dynamic_cast<RetInstr*>(lastThenBB->instrs.back()) == nullptr)) {
         lastThenBB->exit_true = mergeBB;
     }
-    
+
     // If there's an else clause
     if (elseBB && ctx->else_block()) {
         cfg->current_bb = elseBB;
@@ -619,10 +619,10 @@ antlrcpp::Any CodeGenVisitor::visitCondition(ifccParser::ConditionContext *ctx)
             lastElseBB->exit_true = mergeBB;
         }
     }
-    
+
     // Continue from merge block - this is where code continues after the if-else
     cfg->current_bb = mergeBB;
-    
+
     return 0;
 }
 
@@ -634,16 +634,16 @@ void CodeGenVisitor::generateLoopBody(ifccParser::ScopeContext* scopeCtx, BasicB
     cfg->current_bb = bodyBB;
     BasicBlock* oldBreak = cfg->current_break_bb;
     BasicBlock* oldContinue = cfg->current_continue_bb;
-    
+
     cfg->current_break_bb = breakTargetBB;
     cfg->current_continue_bb = continueTargetBB;
-    
+
     cfg->getStackBBs().push_back(bodyBB); // Push loop body onto stack so break/continue can find it
     if (scopeCtx) {
         this->visit(scopeCtx);
     }
     cfg->getStackBBs().pop_back(); // Pop loop body after visiting
-    
+
     cfg->current_break_bb = oldBreak;
     cfg->current_continue_bb = oldContinue;
 
@@ -878,7 +878,7 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
     for (auto child : ctx->children) {
         auto* caseComp = dynamic_cast<ifccParser::Case_blockContext*>(child);
         auto* defComp = dynamic_cast<ifccParser::Default_blockContext*>(child);
-        
+
         BasicBlock* compBB = nullptr;
         std::vector<ifccParser::StatementContext*> statements;
 
@@ -900,7 +900,7 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
             BasicBlock* lastBB = cfg->current_bb;
             if (lastBB->exit_true == nullptr &&
                 (lastBB->instrs.empty() || dynamic_cast<RetInstr*>(lastBB->instrs.back()) == nullptr)) {
-                
+
                 BasicBlock* nextCompBB = endBB;
                 bool foundCurrent = false;
                 for (auto* innerChild : ctx->children) {
