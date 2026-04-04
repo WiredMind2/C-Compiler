@@ -63,8 +63,7 @@ gcc -o program output.s
 | Comparison | `==` `!=` `<` `>` `<=` `>=` |
 | Logical | `&&` `\|\|` |
 | Bitwise | `&` `\|` `^` `~` `<<` `>>` |
-| Compound assignment | `+=` `-=` `*=` `/=` |
-| Cast | `(int)` `(char)` `(double)` |
+| Compound assignment | `+=` `-=` |
 
 ### Control Flow
 
@@ -78,11 +77,20 @@ gcc -o program output.s
 - Function definitions and forward declarations (prototypes)
 - Recursive functions
 - Multiple parameters with typed arguments
+- `putchar` / `getchar` support (with `#include <stdio.h>`)
 - Block scoping and variable shadowing
+- Global variables
 - Void and typed return values
+
+### Semantic Checks
+
+- Undeclared variable usage detection
+- Double declaration detection
+- Undeclared function call detection
 
 ### Other
 
+- Implicit type conversions (`int` / `char` / `double`)
 - String literals (stored in data section)
 - Multi-line strings (`"hello" " world"`)
 - `#include <stdio.h>` / `<stdlib.h>` (enables implicit stdlib declarations)
@@ -146,9 +154,9 @@ cd compiler && make
 make        # from root directory
 
 # Useful make targets (inside compiler/)
-make        # build ifcc binary
-make clean  # remove build artifacts
-make gui FILE=test.c   # visualize AST in browser (requires ANTLR grun)
+make        # build 
+make clean  # remove build 
+make gui FILE=test.c   # visualize AST
 ```
 
 For detailed build options and troubleshooting, see [docs/build.md](docs/build.md).
@@ -163,42 +171,43 @@ The test suite uses `ifcc-test.py`, which compiles each test file with both `ifc
 # Run all tests
 python3 ifcc-test.py testfiles/
 
-# Run a specific category
+# Run a specific part
 python3 ifcc-test.py testfiles/09_conditionals/
 
 # Run a single test
 python3 ifcc-test.py testfiles/00_base/00_return42.c
 
 # Options
-python3 ifcc-test.py -v testfiles/   # verbose
+python3 ifcc-test.py -v testfiles/ # verbose  
+
 python3 ifcc-test.py -a arm testfiles/  # test against ARM64 backend
 ```
 
 ### Test Categories
 
-| Category | Tests | Coverage |
-|----------|-------|----------|
-| `00_base` | 9 | Return values, basic constants |
-| `01_variables` | 9 | Declarations, initialization |
-| `02_preprocessor` | 4 | Comments, directives |
-| `03_arithmetic_mul_div_add_sub` | 34 | Arithmetic, precedence, associativity |
-| `04_function_calls` | 23 | Calls, parameters, nesting |
-| `05_operators` | 7 | Modulo, relational, logical, bitwise, shifts |
-| `06_double` | 11 | Double constants, operations, conversions |
-| `07_char` | 25 | Char constants and arithmetic |
-| `08_type_conversions` | 10 | Implicit/explicit type conversions |
-| `09_conditionals` | 9 | if/else, nested conditions |
-| `10_loops` | 15 | while, do-while, for, nested loops |
-| `11_break_continue` | 4 | break/continue in loops |
-| `12_compound_ops` | 8 | `+=`, `-=`, `*=`, `++`, `--` |
-| `13_function_return_types` | 18 | Functions with various return types |
-| `14_switch_case` | 18 | switch/case/default/break |
-| `15_scopes` | 20 | Nested scopes, variable shadowing |
-| `16_pointers` | 9 | Pointer ops, dereferencing, arithmetic |
-| `17_arrays` | 12 | Arrays, indexing, pointer interaction |
-| `18_strings` | 35 | String literals, indexing, escapes |
-| `98_invalid_tests` | 11 | Error cases (should be rejected) |
-| `99_full_tests` | 15 | Integration: fibonacci, sorting, GCD, Floyd-Warshall… |
+| Category | Coverage |
+|----------|----------|
+| `00_base` | Return values, basic constants |
+| `01_variables` | Declarations, initialization |
+| `02_preprocessor` | Comments, directives |
+| `03_arithmetic_mul_div_add_sub` | Arithmetic, precedence, associativity |
+| `04_function_calls` | Calls, parameters, nesting |
+| `05_operators` | Modulo, relational, logical, bitwise, shifts |
+| `06_double` | Double constants, operations, conversions |
+| `07_char` | Char constants and arithmetic |
+| `08_type_conversions` | Implicit/explicit type conversions |
+| `09_conditionals` | if/else, nested conditions |
+| `10_loops` | while, do-while, for, nested loops |
+| `11_break_continue` | break/continue in loops |
+| `12_compound_ops` | `+=`, `-=`, `++`, `--` |
+| `13_function_return_types` | Functions with various return types |
+| `14_switch_case` | switch/case/default/break |
+| `15_scopes` | Nested scopes, variable shadowing |
+| `16_pointers` | Pointer ops, dereferencing, arithmetic |
+| `17_arrays` | Arrays, indexing, pointer interaction |
+| `18_strings` | String literals, indexing, escapes |
+| `98_invalid_tests` | Error cases (should be rejected) |
+| `99_full_tests` | Integration: fibonacci, sorting, GCD, Floyd-Warshall… |
 
 For more details on the test framework, see [docs/testing.md](docs/testing.md).
 
