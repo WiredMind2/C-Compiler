@@ -1,5 +1,7 @@
 # ifcc — Simplified C Compiler
 
+A compiler for a subset of C, targeting x86-64 and ARM64 assembly, developed as part of the PLD-Comp project at INSA Lyon (4IF).
+
 ## Contributors
 
 - Elise BACHET
@@ -9,56 +11,205 @@
 - Léo MARNAS
 - William MICHAUD
 
-Compiler built with **ANTLR4** and **C++20**.
+Built with **ANTLR4** and **C++20**.
 
 ## Supported Platforms
 
-- **x86-64**: Linux, WSL (Windows Subsystem for Linux)
-- **ARM64**: macOS with Apple Silicon
+| Platform | Architecture | Status |
+|----------|-------------|--------|
+| Linux / WSL | x86-64 | Fully supported |
+| macOS (Apple Silicon) | ARM64 | Fully supported |
 
-## Installation
+---
 
-For ANTLR installation and setup, see [ANTLR installation](docs/antlr4-installation.md).
-Once you have ANTLR installed and `compiler/config.mk` configured, you can build ifcc.
-
-## Build
-
-Quick start:
+## Quick Start
 
 ```bash
-cd compiler && make   # generate the binary compiler/ifcc
-```
+# 1. Install ANTLR4 (see docs/antlr4-installation.md)
+# 2. Configure compiler/config.mk
 
-If you want to compile and run all the tests at once, just run:
+# Build the compiler
+cd compiler && make
 
-```bash
-make    # from root directory!
-```
-
-For more in-depth on the building process/targets/options, see [build documentation](docs/build.md).
-
-## Usage
-
-```bash
-# Compile a C file to assembly
+# Compile a C source file to assembly
 ./compiler/ifcc input.c > output.s
 
-# Assemble and link
+# Assemble, link and run
 gcc -o program output.s
-
-# Run and check return code
 ./program; echo $?
 ```
 
+---
+
+## Supported Language Features
+
+### Types
+
+| Type | Size | Notes |
+|------|------|-------|
+| `int` | 32-bit | Signed integer |
+| `char` | 8-bit | Signed character |
+| `double` | 64-bit | IEEE 754 double precision |
+| `void` | — | For function return types |
+| Pointers | 64-bit | e.g. `int*`, `char*` |
+| Arrays | fixed size | e.g. `int arr[10]` |
+
+### Operators
+
+| Category | Operators |
+|----------|-----------|
+| Arithmetic | `+` `-` `*` `/` `%` |
+| Unary | `-` `+` `!` `~` `&` `*` `++` `--` (pre/post) |
+| Comparison | `==` `!=` `<` `>` `<=` `>=` |
+| Logical | `&&` `\|\|` |
+| Bitwise | `&` `\|` `^` `~` `<<` `>>` |
+| Compound assignment | `+=` `-=` `*=` `/=` |
+| Cast | `(int)` `(char)` `(double)` |
+
+### Control Flow
+
+- `if` / `else if` / `else`
+- `while`, `do-while`, `for`
+- `switch` / `case` / `default`
+- `break`, `continue`, `return`
+
+### Functions & Scope
+
+- Function definitions and forward declarations (prototypes)
+- Recursive functions
+- Multiple parameters with typed arguments
+- Block scoping and variable shadowing
+- Void and typed return values
+
+### Other
+
+- String literals (stored in data section)
+- Multi-line strings (`"hello" " world"`)
+- `#include <stdio.h>` / `<stdlib.h>` (enables implicit stdlib declarations)
+- Single-line (`//`) and multi-line (`/* */`) comments
+
+---
+
+## Architecture
+
+```
+Source (.c)
+    │
+    ▼
+[ANTLR4 Parser]   ← ifcc.g4 grammar
+    │  Parse Tree
+    ▼
+[CodeGenVisitor]  ← AST → 3-address IR
+    │  CFG + BasicBlocks
+    ▼
+[Optimizer]       ← 7 IR-level passes
+    │  Optimized IR
+    ▼
+[AsmGenerator]    ← x86-64 or ARM64
+    │
+    ▼
+Assembly (.s)
+```
+
+### Key Components
+
+| Component | Location | Role |
+|-----------|----------|------|
+| Grammar | `compiler/ifcc.g4` | ANTLR4 grammar for the C subset |
+| IR | `compiler/src/ir/` | 3-address intermediate representation (CFG, BasicBlocks, 33+ instructions) |
+| Code generation | `compiler/src/visitors/` | AST → IR, split across 9 visitor modules |
+| Optimizer | `compiler/src/optim/` | 7 IR optimization passes |
+| x86-64 backend | `compiler/src/asm/x86_64/` | AT&T-syntax assembly for Linux/WSL |
+| ARM64 backend | `compiler/src/asm/arm64/` | AArch64 assembly for macOS |
+
+### Optimization Passes
+
+The compiler runs 7 IR-level passes before assembly generation:
+
+1. **StackLayoutPass** — allocates stack space and computes variable offsets
+2. **StoreLoadStackFoldPass** — eliminates redundant store/load pairs on the stack
+3. **StoreLoadToRegisterPass** — promotes frequently used stack slots to registers
+4. **ConstantPropagationPass** — constant folding, copy propagation, dead store elimination
+5. **DeadRegDefEliminationPass** — removes register definitions that are never read
+6. **CopyRegChainPropagationPass** — collapses copy chains (`a = b; c = a` → `c = b`)
+7. **UnusedVariableEliminationPass** — removes variables never read from the symbol table
+
+---
+
+## Build
+
+```bash
+# Build compiler only
+cd compiler && make
+
+# Build and run all tests
+make        # from root directory
+
+# Useful make targets (inside compiler/)
+make        # build ifcc binary
+make clean  # remove build artifacts
+make gui FILE=test.c   # visualize AST in browser (requires ANTLR grun)
+```
+
+For detailed build options and troubleshooting, see [docs/build.md](docs/build.md).
+
+---
+
+## Testing
+
+The test suite uses `ifcc-test.py`, which compiles each test file with both `ifcc` and `gcc`, then compares their exit codes.
+
+```bash
+# Run all tests
+python3 ifcc-test.py testfiles/
+
+# Run a specific category
+python3 ifcc-test.py testfiles/09_conditionals/
+
+# Run a single test
+python3 ifcc-test.py testfiles/00_base/00_return42.c
+
+# Options
+python3 ifcc-test.py -v testfiles/   # verbose
+python3 ifcc-test.py -a arm testfiles/  # test against ARM64 backend
+```
+
+### Test Categories
+
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| `00_base` | 9 | Return values, basic constants |
+| `01_variables` | 9 | Declarations, initialization |
+| `02_preprocessor` | 4 | Comments, directives |
+| `03_arithmetic_mul_div_add_sub` | 34 | Arithmetic, precedence, associativity |
+| `04_function_calls` | 23 | Calls, parameters, nesting |
+| `05_operators` | 7 | Modulo, relational, logical, bitwise, shifts |
+| `06_double` | 11 | Double constants, operations, conversions |
+| `07_char` | 25 | Char constants and arithmetic |
+| `08_type_conversions` | 10 | Implicit/explicit type conversions |
+| `09_conditionals` | 9 | if/else, nested conditions |
+| `10_loops` | 15 | while, do-while, for, nested loops |
+| `11_break_continue` | 4 | break/continue in loops |
+| `12_compound_ops` | 8 | `+=`, `-=`, `*=`, `++`, `--` |
+| `13_function_return_types` | 18 | Functions with various return types |
+| `14_switch_case` | 18 | switch/case/default/break |
+| `15_scopes` | 20 | Nested scopes, variable shadowing |
+| `16_pointers` | 9 | Pointer ops, dereferencing, arithmetic |
+| `17_arrays` | 12 | Arrays, indexing, pointer interaction |
+| `18_strings` | 35 | String literals, indexing, escapes |
+| `98_invalid_tests` | 11 | Error cases (should be rejected) |
+| `99_full_tests` | 15 | Integration: fibonacci, sorting, GCD, Floyd-Warshall… |
+
+For more details on the test framework, see [docs/testing.md](docs/testing.md).
+
+---
+
 ## Documentation
 
-You will find in the `docs/` folder the following files:
-
-| Document                                          | Description |
-|---------------------------------------------------|-------------|
-| [Installation Guide](docs/antlr4-installation.md) | How to install ANTLR4 on Ubuntu/WSL |
-| [Build Instructions](docs/build.md)                    | Detailed build configuration and troubleshooting |
-| [Language Reference](docs/language.md)                 | Supported C language features and syntax |
-| [Architecture](docs/architecture.md)                   | Compiler design and internal components |
-| [Testing](docs/testing.md)                             | Test framework and running tests |
-
+| Document | Description |
+|----------|-------------|
+| [docs/antlr4-installation.md](docs/antlr4-installation.md) | How to install ANTLR4 on Ubuntu/WSL |
+| [docs/build.md](docs/build.md) | Build configuration, targets, troubleshooting |
+| [docs/language.md](docs/language.md) | Supported C language features and syntax |
+| [docs/architecture.md](docs/architecture.md) | Compiler design and internal components |
+| [docs/testing.md](docs/testing.md) | Test framework usage and conventions |
