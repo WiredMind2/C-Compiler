@@ -82,6 +82,10 @@ The test runner expects:
 
 Add a new C file in the appropriate test directory.
 
+## Unsupported Tests
+
+If a test file contains `//@unsupported` at the beginning, it indicates that the feature tested is not supported by the compiler. The test runner will expect the compilation or execution to fail, and will mark it with a special icon (△) instead of treating it as an error.
+
 
 ## Manual Testing
 
