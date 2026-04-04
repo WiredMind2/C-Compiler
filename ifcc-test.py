@@ -304,6 +304,9 @@ class C:
     def info(s):  return C.CYAN + s + C.RESET
 
     @staticmethod
+    def unsupported(s): return C.YELLOW + s + C.RESET
+
+    @staticmethod
     def bold(s):  return C.BOLD + s + C.RESET
 
     @staticmethod
@@ -336,7 +339,8 @@ def suite_of(jobname):
 all_ok = True
 
 # Group jobs by test suite
-suite_results = {}  # suite_name -> list of (jobname, status_str, ok:bool)
+suite_results = {}  # suite_name -> list of (jobname, status_str, result_type)
+# result_type: 0 = OK, 1 = FAIL, 2 = UNSUPPORTED
 current_suite = None
 
 
@@ -366,9 +370,12 @@ for jobname in jobs:
         # Print previous suite summary if any
         if current_suite is not None and current_suite in suite_results:
             results = suite_results[current_suite]
-            n_ok = sum(1 for _, _, ok in results if ok)
-            n_fail = len(results) - n_ok
-            summary = C.ok(f'{n_ok} passed') + '  ' + (C.fail(f'{n_fail} failed') if n_fail else C.dim('0 failed'))
+            n_ok = sum(1 for _, _, res in results if res == 0)
+            n_fail = sum(1 for _, _, res in results if res == 1)
+            n_unsup = sum(1 for _, _, res in results if res == 2)
+            summary = C.ok(f'{n_ok} passed') + '  ' + \
+                      (C.fail(f'{n_fail} failed') if n_fail else C.dim('0 failed')) + '  ' + \
+                      (C.unsupported(f'{n_unsup} unsupported') if n_unsup else C.dim('0 unsupported'))
             print(C.dim('─' * (shutil.get_terminal_size().columns - 2)))
             print(f'  Suite result: {summary}')
         current_suite = suite
@@ -380,6 +387,12 @@ for jobname in jobs:
     display_name = '-'.join(short[2:]) if len(short) > 2 else jobname
 
     os.chdir(jobname)
+
+    is_unsupported = False
+    with open("input.c", "r") as f:
+        content = f.read()
+        if "//@unsupported" in content:
+            is_unsupported = True
 
     ## Reference compiler = GCC
     gccstatus = run_command("gcc -S -o asm-gcc.s input.c", "gcc-compile.txt")
@@ -396,10 +409,17 @@ for jobname in jobs:
 
     def record(ok, msg):
         global all_ok
+        if not ok and is_unsupported:
+            icon = C.unsupported('△')
+            label = C.unsupported(msg + " [UNSUPPORTED]")
+            print(f'    {icon}  {display_name:<40}  {label}')
+            suite_results[suite].append((jobname, msg, 2))
+            return
+
         icon = C.ok('✔') if ok else C.fail('✘')
         label = C.ok(msg) if ok else C.fail(msg)
         print(f'    {icon}  {display_name:<40}  {label}')
-        suite_results[suite].append((jobname, msg, ok))
+        suite_results[suite].append((jobname, msg, 0 if ok else 1))
         if not ok:
             all_ok = False
 
@@ -449,18 +469,22 @@ for jobname in jobs:
 ## Print last suite summary
 if current_suite is not None and current_suite in suite_results:
     results = suite_results[current_suite]
-    n_ok = sum(1 for _, _, ok in results if ok)
-    n_fail = len(results) - n_ok
-    summary = C.ok(f'{n_ok} passed') + '  ' + (C.fail(f'{n_fail} failed') if n_fail else C.dim('0 failed'))
+    n_ok = sum(1 for _, _, res in results if res == 0)
+    n_fail = sum(1 for _, _, res in results if res == 1)
+    n_unsup = sum(1 for _, _, res in results if res == 2)
+    summary = C.ok(f'{n_ok} passed') + '  ' + \
+                (C.fail(f'{n_fail} failed') if n_fail else C.dim('0 failed')) + '  ' + \
+                (C.unsupported(f'{n_unsup} unsupported') if n_unsup else C.dim('0 unsupported'))
     print(C.dim('─' * (shutil.get_terminal_size().columns - 2)))
     print(f'  Suite result: {summary}')
 
 ######################################################################################
 ## GLOBAL SUMMARY
 
-total_ok = sum(ok for res in suite_results.values() for _, _, ok in res)
-total_fail = sum(not ok for res in suite_results.values() for _, _, ok in res)
-total = total_ok + total_fail
+total_ok = sum(1 for res in suite_results.values() for _, _, r in res if r == 0)
+total_fail = sum(1 for res in suite_results.values() for _, _, r in res if r == 1)
+total_unsup = sum(1 for res in suite_results.values() for _, _, r in res if r == 2)
+total = total_ok + total_fail + total_unsup
 
 bar = '═' * (shutil.get_terminal_size().columns - 2)
 print()
@@ -468,12 +492,13 @@ print(C.bold(bar))
 print(C.bold('  GLOBAL SUMMARY'))
 print(C.bold(bar))
 for suite, results in suite_results.items():
-    n_ok = sum(1 for _, _, ok in results if ok)
-    n_fail = len(results) - n_ok
+    n_ok = sum(1 for _, _, res in results if res == 0)
+    n_fail = sum(1 for _, _, res in results if res == 1)
+    n_unsup = sum(1 for _, _, res in results if res == 2)
     icon = C.ok('✔') if n_fail == 0 else C.fail('✘')
-    print(f'  {icon}  {suite:<35}  {C.ok(str(n_ok) + "✔"):>6}  {(C.fail(str(n_fail) + "✘") if n_fail else C.dim("0✘")):>6}  / {len(results)}')
+    print(f'  {icon}  {suite:<35}  {C.ok(str(n_ok) + "✔"):>6}  {(C.fail(str(n_fail) + "✘") if n_fail else C.dim("0✘")):>6}  {(C.unsupported(str(n_unsup) + "△") if n_unsup else C.dim("0△")):>6}  / {len(results)}')
 print(C.bold(bar))
-overall = C.ok(f'ALL {total} TESTS PASSED') if all_ok else C.fail(f'{total_fail}/{total} TESTS FAILED')
+overall = C.ok(f'ALL {total - total_unsup} TESTS PASSED ({total_unsup} skipped/unsupported)') if total_fail == 0 else C.fail(f'{total_fail}/{total} TESTS FAILED')
 print(f'  {overall}')
 print(C.bold(bar))
 print()
