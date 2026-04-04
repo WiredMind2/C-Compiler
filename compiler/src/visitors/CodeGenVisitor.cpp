@@ -254,8 +254,8 @@ antlrcpp::Any CodeGenVisitor::visitReturn_stmt(ifccParser::Return_stmtContext *c
         const IRType current_function_return_type = current_function_signature->returnType;
 
         if (current_function_return_type == IRType::VOID) {
-            std::cerr << "Warning: 'return' with a value, in function returning void" << std::endl;
-            bb->add_IRInstr(new RetInstr(bb, IRType::VOID));
+            std::cerr << "Error: 'return' with a value, in function returning void" << std::endl;
+            exit(1);
         } else {
             if (var.type != current_function_return_type) {
                 bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, var.name, var.type));

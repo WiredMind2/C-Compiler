@@ -1734,9 +1734,20 @@ antlrcpp::Any visitPostDecrement(CodeGenVisitor* visitor, ifccParser::PostDecrem
 }
 
 antlrcpp::Any visitStringConstant(CodeGenVisitor* visitor, ifccParser::StringConstantContext* ctx) {
-    string text = ctx->STRING_CONST()->getText();
+    string combined_text = "";
+    for (auto* string_const : ctx->STRING_CONST()) {
+        string text = string_const->getText();
+        // Remove surrounding quotes and handle concatenating
+        if (combined_text.empty()) {
+            combined_text = text;
+        } else {
+            // Remove ending quote of combined and starting quote of new string
+            combined_text = combined_text.substr(0, combined_text.size() - 1) + text.substr(1);
+        }
+    }
+
     auto* bb = visitor->getCFG()->current_bb;
-    int idx = visitor->getCFG()->registerStringLiteral(text);
+    int idx = visitor->getCFG()->registerStringLiteral(combined_text);
     string tmp = bb->create_new_tempvar(IRType::POINTER);
     visitor->getCFG()->set_array_element_type(tmp, IRType::INT8);
     bb->add_IRInstr(new LdStringInstr(bb, Reg::W0, idx));

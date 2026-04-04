@@ -130,7 +130,7 @@ constant
     | HEX_CONST        # hexConstant
     | DOUBLE_CONST     # doubleConstant
     | CHAR_CONST       # charConstant
-    | STRING_CONST     # stringConstant
+    | STRING_CONST+    # stringConstant
     ;
 
 
@@ -143,7 +143,8 @@ HEX_CONST : '0' [xX] [0-9a-fA-F]+ ;
 DEC_CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
-STRING_CONST : '"' (~['"\\] | '\\' .)* '"' ;
+// Support multiline strings with line-continuation backslashes
+STRING_CONST : '"' (~['"\\\r\n] | '\\' . | '\\' '\r'? '\n')* '"' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;

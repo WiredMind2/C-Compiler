@@ -202,8 +202,19 @@ class CFG {
 
     std::vector<std::string> stringLiterals;
     int registerStringLiteral(const std::string& str) {
+        std::string processed = str;
+        // Remove line-continuation backslashes
+        size_t pos = 0;
+        while ((pos = processed.find("\\\n", pos)) != std::string::npos) {
+            processed.erase(pos, 2);
+        }
+        pos = 0;
+        while ((pos = processed.find("\\\r\n", pos)) != std::string::npos) {
+            processed.erase(pos, 3);
+        }
+
         int idx = stringLiterals.size();
-        stringLiterals.push_back(str);
+        stringLiterals.push_back(processed);
         return idx;
     }
 
