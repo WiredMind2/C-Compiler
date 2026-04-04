@@ -437,7 +437,7 @@ struct I8ToI32Instr : IRInstr {
     RegParam dest;  // INT32
     RegParam src;   // INT8
 
-    I8ToI32Instr(BasicBlock *bb, const Reg d, const Reg s) : IRInstr(bb, IRType::INT32), dest(d, IRType::INT32), src(s, IRType::INT8) {}
+    I8ToI32Instr(BasicBlock *bb, const Reg d, const Reg s, IRType srcType = IRType::INT8) : IRInstr(bb, IRType::INT32), dest(d, IRType::INT32), src(s, srcType) {}
 
     void accept(AsmGenerator &g, ostream &o) override;
 

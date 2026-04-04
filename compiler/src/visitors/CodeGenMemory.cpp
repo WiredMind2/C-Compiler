@@ -539,11 +539,26 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
 
     // address = base + index * size
     string tmp1 = bb->create_new_tempvar(IRType::POINTER);
-    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W1, index.name, IRType::INT32));
+    
+    // Determine the element size
     int elemSize = irtype_size(IRType::INT32);
     if (bb->cfg->has_array_element_type(base.name)) elemSize = irtype_size(bb->cfg->get_array_element_type(base.name));
-    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT32, (int64_t)elemSize));
-    bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT32));
+
+    // Load and sign-extend index to 64-bit POINTER/INT64 for address calculation
+    bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, index.name, index.type));
+    if (index.type == IRType::INT8) {
+        bb->add_IRInstr(new I8ToI32Instr(bb, Reg::W0, Reg::W0, IRType::INT8));
+        // W0 is now INT32, now promote to INT64/POINTER
+        bb->add_IRInstr(new I8ToI32Instr(bb, Reg::W0, Reg::W0, IRType::INT32));
+    } else if (index.type == IRType::INT32) {
+        // Promote INT32 to INT64/POINTER
+        bb->add_IRInstr(new I8ToI32Instr(bb, Reg::W0, Reg::W0, IRType::INT32));
+    }
+    // Now W0 contains the 64-bit index. Use W1 for multiplication.
+    bb->add_IRInstr(new CopyRegInstr(bb, Reg::W1, Reg::W0, IRType::POINTER));
+
+    bb->add_IRInstr(new LdConstInstr(bb, Reg::W2, IRType::INT64, (int64_t)elemSize));
+    bb->add_IRInstr(new MulInstr(bb, Reg::W1, Reg::W1, Reg::W2, IRType::INT64));
 
     // Add to base
     bb->add_IRInstr(new LoadStackInstr(bb, Reg::W0, base.name, IRType::POINTER));

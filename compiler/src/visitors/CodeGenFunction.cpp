@@ -48,6 +48,14 @@ antlrcpp::Any visitFunction_definition(CodeGenVisitor* visitor, ifccParser::Func
     static const Reg argRegs[] = {Reg::ARG0, Reg::ARG1, Reg::ARG2, Reg::ARG3, Reg::ARG4, Reg::ARG5};
     for (int i = 0; i < static_cast<int>(paramTypes.size()) && i < 6; i++) {
         entryBB->add_IRInstr(new StoreStackInstr(entryBB, paramNames[i], argRegs[i], paramTypes[i]));
+        if (paramTypes[i] == IRType::POINTER) {
+            // Assume it's a pointer to the baseType (which we can't easily get here without refactoring)
+            // But we know for char* it should be INT8. 
+            // Let's try to find the base type.
+            auto* param_node = ctx->param_list()->param(i);
+            IRType base_type = irtype_from_string(param_node->type_specifier()->getText());
+            visitor->getCFG()->set_array_element_type(paramNames[i], base_type);
+        }
     }
 
     if (ctx->scope()) visitor->visit(ctx->scope());

@@ -525,7 +525,14 @@ void AsmGeneratorX86_64::visit(std::ostream& o, F64ToI32Instr& instr) { FToI(o, 
 
 void AsmGeneratorX86_64::visit(std::ostream& o, I32ToF64Instr& instr) { I32ToF64(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 
-void AsmGeneratorX86_64::visit(std::ostream& o, I8ToI32Instr& instr) { I8ToI32(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
+void AsmGeneratorX86_64::visit(std::ostream& o, I8ToI32Instr& instr) {
+    if (instr.src.type == IRType::INT32) {
+        // Sign extend 32 -> 64
+        o << "    cltq\n"; // Sign-extends %eax to %rax
+    } else {
+        I8ToI32(o, reg_to_asm(instr.src), reg_to_asm(instr.dest));
+    }
+}
 
 void AsmGeneratorX86_64::visit(std::ostream& o, I32ToI8Instr& instr) { I32ToI8(o, reg_to_asm(instr.src), reg_to_asm(instr.dest)); }
 

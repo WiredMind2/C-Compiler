@@ -88,6 +88,11 @@ void BasicBlock::generate_conversion_instruction(Reg initial_register, IRType in
         auto* instr = new CopyRegInstr(this, dest_register, initial_register, IRType::INT32);
         instr->dest.type = IRType::POINTER;  // ensure destination register is treated as 64-bit
         add_IRInstr(instr);
+    } else if (initial_type == IRType::POINTER && dest_type == IRType::INT8) {
+        // Truncate pointer to char
+        add_IRInstr(new I32ToI8Instr(this, dest_register, initial_register));
+    } else if (initial_type == IRType::POINTER && dest_type == IRType::POINTER) {
+        add_IRInstr(new CopyRegInstr(this, dest_register, initial_register, IRType::POINTER));
     } else {
         throw runtime_error("No conversion found");
     }
