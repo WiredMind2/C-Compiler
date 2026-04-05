@@ -847,6 +847,8 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
 
 antlrcpp::Any CodeGenVisitor::visitAddAssignment(ifccParser::AddAssignmentContext *ctx) { return ::visitAddAssignment(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitSubAssignment(ifccParser::SubAssignmentContext *ctx) { return ::visitSubAssignment(this, ctx); }
+antlrcpp::Any CodeGenVisitor::visitMulAssignment(ifccParser::MulAssignmentContext *ctx) { return ::visitMulAssignment(this, ctx); }
+antlrcpp::Any CodeGenVisitor::visitDivAssignment(ifccParser::DivAssignmentContext *ctx) { return ::visitDivAssignment(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitPreIncrement(ifccParser::PreIncrementContext *ctx) { return ::visitPreIncrement(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitPreDecrement(ifccParser::PreDecrementContext *ctx) { return ::visitPreDecrement(this, ctx); }
 antlrcpp::Any CodeGenVisitor::visitPostIncrement(ifccParser::PostIncrementContext *ctx) { return ::visitPostIncrement(this, ctx); }

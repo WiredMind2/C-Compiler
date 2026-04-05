@@ -35,6 +35,8 @@ antlrcpp::Any visitArray_subscript(CodeGenVisitor* visitor, ifccParser::Array_su
 
 antlrcpp::Any visitAddAssignment(CodeGenVisitor* visitor, ifccParser::AddAssignmentContext* ctx);
 antlrcpp::Any visitSubAssignment(CodeGenVisitor* visitor, ifccParser::SubAssignmentContext* ctx);
+antlrcpp::Any visitMulAssignment(CodeGenVisitor* visitor, ifccParser::MulAssignmentContext* ctx);
+antlrcpp::Any visitDivAssignment(CodeGenVisitor* visitor, ifccParser::DivAssignmentContext* ctx);
 antlrcpp::Any visitPreIncrement(CodeGenVisitor* visitor, ifccParser::PreIncrementContext* ctx);
 antlrcpp::Any visitPreDecrement(CodeGenVisitor* visitor, ifccParser::PreDecrementContext* ctx);
 antlrcpp::Any visitPostIncrement(CodeGenVisitor* visitor, ifccParser::PostIncrementContext* ctx);

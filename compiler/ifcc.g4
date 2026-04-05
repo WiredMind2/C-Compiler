@@ -50,6 +50,8 @@ compoundAssignment : logicalOR # compoundAssignmentRef
     | lvalue '=' compoundAssignment # Assignment
     | lvalue '+=' compoundAssignment # AddAssignment
     | lvalue '-=' compoundAssignment # SubAssignment
+    | lvalue '*=' compoundAssignment # MulAssignment
+    | lvalue '/=' compoundAssignment # DivAssignment
     ;
 
 logicalOR : logicalAND # logicalORRef

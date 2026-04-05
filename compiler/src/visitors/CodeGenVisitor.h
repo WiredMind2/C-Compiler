@@ -135,6 +135,8 @@ class CodeGenVisitor : public ifccBaseVisitor {
 
     virtual antlrcpp::Any visitAddAssignment(ifccParser::AddAssignmentContext *ctx) override;
     virtual antlrcpp::Any visitSubAssignment(ifccParser::SubAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitMulAssignment(ifccParser::MulAssignmentContext *ctx) override;
+    virtual antlrcpp::Any visitDivAssignment(ifccParser::DivAssignmentContext *ctx) override;
     virtual antlrcpp::Any visitPreIncrement(ifccParser::PreIncrementContext *ctx) override;
     virtual antlrcpp::Any visitPreDecrement(ifccParser::PreDecrementContext *ctx) override;
     virtual antlrcpp::Any visitPostIncrement(ifccParser::PostIncrementContext *ctx) override;

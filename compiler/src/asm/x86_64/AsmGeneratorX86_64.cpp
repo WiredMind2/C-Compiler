@@ -625,9 +625,15 @@ void AsmGeneratorX86_64::MulFLOAT64(std::ostream& o, const std::string& lhs, con
 }
 
 void AsmGeneratorX86_64::DivINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    std::string actual_rhs = rhs;
+    // idivl clobbers %edx; ensure the divisor is not in %edx by moving it if necessary
+    if (rhs == "%edx") {
+        o << "    movl %edx, %r10d\n";
+        actual_rhs = "%r10d";
+    }
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
     o << "    cltd\n";
-    o << "    idivl " << rhs << "\n";
+    o << "    idivl " << actual_rhs << "\n";
     if (dest != "%eax") o << "    movl %eax, " << dest << "\n";
 }
 void AsmGeneratorX86_64::DivFLOAT64(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
@@ -637,9 +643,14 @@ void AsmGeneratorX86_64::DivFLOAT64(std::ostream& o, const std::string& lhs, con
 }
 
 void AsmGeneratorX86_64::ModINT32(std::ostream& o, const std::string& lhs, const std::string& rhs, const std::string& dest) {
+    std::string actual_rhs = rhs;
+    if (rhs == "%edx") {
+        o << "    movl %edx, %r10d\n";
+        actual_rhs = "%r10d";
+    }
     if (lhs != "%eax") o << "    movl " << lhs << ", %eax\n";
     o << "    cltd\n";
-    o << "    idivl " << rhs << "\n";
+    o << "    idivl " << actual_rhs << "\n";
     if (dest != "%edx") o << "    movl %edx, " << dest << "\n";
 }
 
