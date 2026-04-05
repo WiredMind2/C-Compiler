@@ -2,234 +2,67 @@
 
 #include <cassert>
 #include <limits>
+#include <string>
+#include <vector>
+#include <functional>
+#include <set>
+#include <stdexcept>
+#include <cctype>
+#include <optional>
+#include <cstdint>
+
+static int64_t parse_char_literal_text_from_text(const std::string &text) {
+    // text expected like '\'a\'' or '\'\\n\''
+    if (text.size() < 2 || text.front() != '\'' || text.back() != '\'') throw std::runtime_error("invalid char literal");
+    if (text[1] == '\\') {
+        if (text.size() < 4) throw std::runtime_error("unterminated escape in char literal");
+        char esc = text[2];
+        switch (esc) {
+            case 'n': return '\n';
+            case 't': return '\t';
+            case 'r': return '\r';
+            case '\\': return '\\';
+            case '\'': return '\'';
+            case '0': return '\0';
+            default: return esc;
+        }
+    } else {
+        return static_cast<unsigned char>(text[1]);
+    }
+}
+
+// Parse a `case_constant` parse node produced by the grammar. Returns nullopt on error.
+static std::optional<int64_t> parse_case_constant(ifccParser::Case_constantContext *cc) {
+    if (!cc) return std::nullopt;
+    std::string s = cc->getText();
+    if (s.empty()) return std::nullopt;
+
+    // Char literal (possibly signed): e.g. 'a' or -'a'
+    if (s[0] == '\'' || (s.size() > 1 && (s[0] == '+' || s[0] == '-') && s[1] == '\'')) {
+        try {
+            if (s[0] == '+' || s[0] == '-') {
+                int sign = (s[0] == '-') ? -1 : 1;
+                std::string inner = s.substr(1);
+                int64_t v = parse_char_literal_text_from_text(inner);
+                return sign * v;
+            } else {
+                return parse_char_literal_text_from_text(s);
+            }
+        } catch (...) { return std::nullopt; }
+    }
+
+    // Numeric constants: stoll with base 0 supports hex and decimal
+    try {
+        long long v = std::stoll(s, nullptr, 0);
+        return static_cast<int64_t>(v);
+    } catch (...) {
+        return std::nullopt;
+    }
+}
 
 #include "../ir/IRInstr.h"
 #include "CodeGenArithmetic.h"
 
-namespace {
-// Simple tokenizer and recursive-descent evaluator for case label expression text.
-// Accepts integers, character literals, parentheses, and operators + - * / %.
-// Rejects identifiers, floating-point literals and function calls.
-
-struct Token {
-    enum Type { NUM, CHAR, PLUS, MINUS, MUL, DIV, MOD, LPAREN, RPAREN, END } type;
-    int64_t value;
-};
-
-static int64_t parse_char_literal_text(const std::string &s, size_t &i) {
-    // s[i] should be '\''
-    if (s[i] != '\'') throw std::runtime_error("invalid char literal");
-    i++;  // skip '
-    if (i >= s.size()) throw std::runtime_error("unterminated char literal");
-    int64_t v;
-    if (s[i] == '\\') {
-        i++;
-        if (i >= s.size()) throw std::runtime_error("unterminated escape in char literal");
-        char esc = s[i++];
-        switch (esc) {
-            case 'n':
-                v = '\n';
-                break;
-            case 't':
-                v = '\t';
-                break;
-            case 'r':
-                v = '\r';
-                break;
-            case '\\':
-                v = '\\';
-                break;
-            case '\'':
-                v = '\'';
-                break;
-            case '0':
-                v = '\0';
-                break;
-            default:
-                throw std::runtime_error("unsupported escape in char literal");
-        }
-    } else {
-        v = static_cast<unsigned char>(s[i++]);
-    }
-    if (i >= s.size() || s[i] != '\'') throw std::runtime_error("unterminated char literal");
-    i++;  // closing '
-    return v;
-}
-
-static std::vector<Token> tokenize_case_text(const std::string &s) {
-    std::vector<Token> out;
-    size_t i = 0, n = s.size();
-    while (i < n) {
-        char c = s[i];
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-            i++;
-            continue;
-        }
-        if (c == '+') {
-            out.push_back({Token::PLUS, 0});
-            i++;
-            continue;
-        }
-        if (c == '-') {
-            out.push_back({Token::MINUS, 0});
-            i++;
-            continue;
-        }
-        if (c == '*') {
-            out.push_back({Token::MUL, 0});
-            i++;
-            continue;
-        }
-        if (c == '/') {
-            out.push_back({Token::DIV, 0});
-            i++;
-            continue;
-        }
-        if (c == '%') {
-            out.push_back({Token::MOD, 0});
-            i++;
-            continue;
-        }
-        if (c == '(') {
-            out.push_back({Token::LPAREN, 0});
-            i++;
-            continue;
-        }
-        if (c == ')') {
-            out.push_back({Token::RPAREN, 0});
-            i++;
-            continue;
-        }
-        if (c == '\'') {
-            int64_t val = parse_char_literal_text(s, i);
-            out.push_back({Token::CHAR, val});
-            continue;
-        }
-        if ((c >= '0' && c <= '9')) {
-            size_t j = i;
-            while (j < n && isdigit((unsigned char)s[j])) j++;
-            std::string num = s.substr(i, j - i);
-            // reject floating point literals
-            if (j < n && s[j] == '.') throw std::runtime_error("floating constant not allowed in case label");
-            int64_t v = std::stoll(num, nullptr, 0);
-            out.push_back({Token::NUM, v});
-            i = j;
-            continue;
-        }
-        // identifiers or other characters (like letters) are not allowed in constant case labels
-        throw std::runtime_error("non-constant expression in case label");
-    }
-    out.push_back({Token::END, 0});
-    return out;
-}
-
-struct Parser {
-    const std::vector<Token> &toks;
-    size_t pos;
-    Parser(const std::vector<Token> &v) : toks(v), pos(0) {}
-
-    Token peek() const { return toks[pos]; }
-    Token consume() { return toks[pos++]; }
-
-    int64_t parsePrimary() {
-        Token tk = peek();
-        if (tk.type == Token::NUM) {
-            consume();
-            return tk.value;
-        }
-        if (tk.type == Token::CHAR) {
-            consume();
-            return tk.value;
-        }
-        if (tk.type == Token::LPAREN) {
-            consume();
-            int64_t v = parseAdd();
-            if (peek().type != Token::RPAREN) throw std::runtime_error("missing closing parenthesis in case label");
-            consume();
-            return v;
-        }
-        throw std::runtime_error("invalid primary in case label");
-    }
-
-    int64_t parseUnary() {
-        Token tk = peek();
-        if (tk.type == Token::PLUS) {
-            consume();
-            return parseUnary();
-        }
-        if (tk.type == Token::MINUS) {
-            consume();
-            return -parseUnary();
-        }
-        return parsePrimary();
-    }
-
-    int64_t parseMul() {
-        int64_t lhs = parseUnary();
-        while (true) {
-            Token tk = peek();
-            if (tk.type == Token::MUL) {
-                consume();
-                int64_t rhs = parseUnary();
-                lhs *= rhs;
-            } else if (tk.type == Token::DIV) {
-                consume();
-                int64_t rhs = parseUnary();
-                if (rhs == 0) throw std::runtime_error("division by zero in case label");
-                lhs /= rhs;
-            } else if (tk.type == Token::MOD) {
-                consume();
-                int64_t rhs = parseUnary();
-                if (rhs == 0) throw std::runtime_error("modulo by zero in case label");
-                lhs %= rhs;
-            } else
-                break;
-        }
-        return lhs;
-    }
-
-    int64_t parseAdd() {
-        int64_t lhs = parseMul();
-        while (true) {
-            Token tk = peek();
-            if (tk.type == Token::PLUS) {
-                consume();
-                int64_t rhs = parseMul();
-                lhs += rhs;
-            } else if (tk.type == Token::MINUS) {
-                consume();
-                int64_t rhs = parseMul();
-                lhs -= rhs;
-            } else
-                break;
-        }
-        return lhs;
-    }
-};
-
-static int64_t eval_case_from_text(const std::string &text) {
-    auto toks = tokenize_case_text(text);
-    Parser p(toks);
-    int64_t v = p.parseAdd();
-    if (p.peek().type != Token::END) throw std::runtime_error("trailing tokens in case label");
-    return v;
-}
-
-bool fits_switch_type(IRType t, int64_t value) {
-    switch (t) {
-        case IRType::INT8:
-            return value >= std::numeric_limits<int8_t>::min() && value <= std::numeric_limits<int8_t>::max();
-        case IRType::INT32:
-            return value >= std::numeric_limits<int32_t>::min() && value <= std::numeric_limits<int32_t>::max();
-        case IRType::INT64:
-            return true;
-        case IRType::POINTER:
-            return true;
-        default:
-            return false;
-    }
-}
-}  // namespace
 
 antlrcpp::Any CodeGenVisitor::visitProg(ifccParser::ProgContext *ctx) {
     for (auto stmt : ctx->statement()) {
@@ -726,18 +559,54 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
 
     // Cases collection
     struct CaseInfo {
-        int64_t val;
+        int64_t val; // compile-time evaluated value when available
         BasicBlock *bb;
         ifccParser::Case_blockContext *ctx;
     };
     std::vector<CaseInfo> cases;
     BasicBlock *defaultBB = nullptr;
     ifccParser::Default_blockContext *defaultCtx = nullptr;
-    std::set<int64_t> seen_cases;
 
+    // Helper: parse a case_constant parse node. Grammar guarantees format is
+    // optional '+'/'-' followed by DEC_CONST, HEX_CONST or CHAR_CONST (no spaces/paren).
+    auto parse_case_constant = [&](ifccParser::Case_constantContext *cc) -> std::optional<int64_t> {
+        if (!cc) return std::nullopt;
+        std::string s = cc->getText();
+        if (s.empty()) return std::nullopt;
+
+        // Char literal (possibly with leading sign)
+        if (s[0] == '\'' || (s.size() > 1 && (s[0] == '+' || s[0] == '-') && s[1] == '\'')) {
+            try {
+                // If signed char like -'a', strip sign and apply it afterwards
+                if (s[0] == '+' || s[0] == '-') {
+                    int sign = (s[0] == '-') ? -1 : 1;
+                    std::string inner = s.substr(1);
+                    int64_t v = parse_char_literal_text_from_text(inner);
+                    return sign * v;
+                } else {
+                    return parse_char_literal_text_from_text(s);
+                }
+            } catch (...) { return std::nullopt; }
+        }
+
+        // For numeric constants (decimal or hex), std::stoll with base 0 handles 0x prefix
+        try {
+            long long v = std::stoll(s, nullptr, 0);
+            return static_cast<int64_t>(v);
+        } catch (...) {
+            return std::nullopt;
+        }
+    };
+
+    std::set<int64_t> seen_cases;
     for (int i = 0; i < ctx->case_block().size(); ++i) {
         auto comp = ctx->case_block(i);
-        int64_t val = eval_case_from_text(comp->expr()->getText());
+        auto maybe = parse_case_constant(comp->case_constant());
+        if (!maybe.has_value()) {
+            std::cerr << "Error: invalid case label constant: '" << comp->case_constant()->getText() << "'" << std::endl;
+            exit(1);
+        }
+        int64_t val = *maybe;
         if (seen_cases.count(val)) {
             std::cerr << "Error: duplicate case value '" << val << "' in switch statement." << std::endl;
             exit(1);
@@ -757,24 +626,29 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
     BasicBlock *currentCheckBB = preBB;
     for (size_t i = 0; i < cases.size(); ++i) {
         BasicBlock *targetBB = cases[i].bb;
-        int64_t val = cases[i].val;
+        auto *caseCtx = cases[i].ctx;
 
-        string tmpCompResult = currentCheckBB->create_new_tempvar(IRType::INT32);
-        currentCheckBB->add_IRInstr(new LoadStackInstr(currentCheckBB, Reg::W0, selector.name, selector.type));
-        currentCheckBB->add_IRInstr(new LdConstInstr(currentCheckBB, Reg::W1, selector.type, val));
-        currentCheckBB->add_IRInstr(new CmpEqInstr(currentCheckBB, Reg::W2, Reg::W0, Reg::W1, selector.type));
-        currentCheckBB->add_IRInstr(new StoreStackInstr(currentCheckBB, tmpCompResult, Reg::W2, IRType::INT32));
+        // Evaluate the case label expression starting from the current check block.
+        cfg->current_bb = currentCheckBB;
+        BasicBlock *afterEvalBB = cfg->current_bb;
 
-        currentCheckBB->test_var_name = tmpCompResult;
-        currentCheckBB->exit_true = targetBB;
+        string tmpCompResult = afterEvalBB->create_new_tempvar(IRType::INT32);
+        afterEvalBB->add_IRInstr(new LoadStackInstr(afterEvalBB, Reg::W0, selector.name, selector.type));
+        // Load literal constant for the case value (no runtime evaluation allowed)
+        afterEvalBB->add_IRInstr(new LdConstInstr(afterEvalBB, Reg::W1, IRType::INT32, cases[i].val));
+        afterEvalBB->add_IRInstr(new CmpEqInstr(afterEvalBB, Reg::W2, Reg::W0, Reg::W1, selector.type));
+        afterEvalBB->add_IRInstr(new StoreStackInstr(afterEvalBB, tmpCompResult, Reg::W2, IRType::INT32));
+
+        afterEvalBB->test_var_name = tmpCompResult;
+        afterEvalBB->exit_true = targetBB;
 
         if (i < cases.size() - 1 || defaultBB != nullptr) {
             BasicBlock *nextCheck = new BasicBlock(cfg, cfg->new_BB_name());
             cfg->add_bb(nextCheck);
-            currentCheckBB->exit_false = nextCheck;
+            afterEvalBB->exit_false = nextCheck;
             currentCheckBB = nextCheck;
         } else {
-            currentCheckBB->exit_false = endBB;
+            afterEvalBB->exit_false = endBB;
         }
     }
 
@@ -792,9 +666,8 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
         std::vector<ifccParser::StatementContext *> statements;
 
         if (caseComp) {
-            int64_t val = eval_case_from_text(caseComp->expr()->getText());
             for (auto &ci : cases)
-                if (ci.val == val) {
+                if (ci.ctx == caseComp) {
                     compBB = ci.bb;
                     break;
                 }
@@ -820,9 +693,8 @@ antlrcpp::Any CodeGenVisitor::visitSwitch_stmt(ifccParser::Switch_stmtContext *c
                         auto *innerCase = dynamic_cast<ifccParser::Case_blockContext *>(innerChild);
                         auto *innerDef = dynamic_cast<ifccParser::Default_blockContext *>(innerChild);
                         if (innerCase) {
-                            int64_t val = eval_case_from_text(innerCase->expr()->getText());
                             for (auto &ci : cases)
-                                if (ci.val == val) {
+                                if (ci.ctx == innerCase) {
                                     nextCompBB = ci.bb;
                                     break;
                                 }

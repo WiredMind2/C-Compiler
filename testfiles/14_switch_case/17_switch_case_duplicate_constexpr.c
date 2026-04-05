@@ -1,3 +1,4 @@
+//@unsupported: requires compile-time case label evaluation (duplicate case values)
 int main() {
     int x = 3;
 

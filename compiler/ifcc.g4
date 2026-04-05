@@ -31,7 +31,7 @@ for_init : declaration_no_semi
          ;
 for_loop: 'for' '(' for_init ';' expr? ';' expr? ')' scope ;
 switch_stmt : 'switch' '(' expr ')' '{' case_block* default_block? '}' ;
-case_block : 'case' expr ':' (statement* | scope) ;
+case_block : 'case' case_constant ':' (statement* | scope) ;
 default_block : 'default' ':' (statement* | scope) ;
 break_stmt : 'break' ';' ;
 continue_stmt : 'continue' ';' ;
@@ -135,6 +135,10 @@ constant
     | STRING_CONST+    # stringConstant
     ;
 
+case_constant
+    : ('+' | '-')? (DEC_CONST | HEX_CONST | CHAR_CONST)
+    ;
+
 
 function_call : VAR '(' (expr (',' expr)*)? ')' ;
 initializer
@@ -145,7 +149,6 @@ HEX_CONST : '0' [xX] [0-9a-fA-F]+ ;
 DEC_CONST : [0-9]+ ;
 DOUBLE_CONST : [0-9]+ '.' [0-9]* | [0-9]* '.' [0-9]+ ;
 CHAR_CONST : '\'' (~['\\] | '\\' .) '\'' ;
-// Support multiline strings with line-continuation backslashes
 STRING_CONST : '"' (~['"\\\r\n] | '\\' . | '\\' '\r'? '\n')* '"' ;
 VAR : [a-zA-Z_][a-zA-Z0-9_]* ;
 COMMENT : '/*' .*? '*/' -> skip ;
