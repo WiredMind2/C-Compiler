@@ -11,6 +11,10 @@ A compiler for a subset of C, targeting x86-64 and ARM64 assembly, developed as 
 - Léo MARNAS
 - William MICHAUD
 
+## Repository
+
+This project is tracked on GitHub: https://github.com/WiredMind2/C-Compiler (branch: `main`)
+
 Built with **ANTLR4** and **C++20**.
 
 ## Supported Platforms

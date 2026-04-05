@@ -1,3 +1,13 @@
+.PHONY: all build test test-all clean renumber dist optim-compares-% test-%
+
+# Default target: build the compiler
+all: build
+
+# Build compiler binary (delegates to compiler/Makefile)
+build:
+	@echo "Building compiler..."
+	@$(MAKE) -C compiler ifcc
+
 test-all:
 	python3 ifcc-test.py testfiles
 
@@ -8,7 +18,10 @@ test-x86-%:
 	python3 ifcc-test.py --arch x86 testfiles/$*_*
 
 # Usage:
+#   make test -> run full test suite
 #   make test-09 -> run all tests matching testfiles/09_*
+test: test-all
+
 test-%:
 	@if [ -d testfiles/$* ]; then \
 		python3 ifcc-test.py testfiles/$*; \
@@ -19,7 +32,7 @@ test-%:
 
 # Compiles the tests in the directory testfiles/%* both with and without optimizations, and compares the assembly
 optim-compares-%:
-	make -C compiler ifcc
+	$(MAKE) -C compiler ifcc
 	@set -e; \
 	if [ -d testfiles/$* ]; then \
 		test_dirs="testfiles/$*"; \
@@ -90,3 +103,14 @@ renumber:
 clean:
 	rm -rf compiler/build generated
 	rm -f compiler/ifcc
+
+
+dist: all
+	@echo "Creating release ZIP..."
+	@rm -f release.zip
+	@mkdir -p release_tmp
+	@cp -r README.md Makefile compiler src docs testfiles release_tmp 2>/dev/null || true
+	@if [ -f presentation.pdf ]; then cp presentation.pdf release_tmp || true; fi
+	@zip -r release.zip release_tmp >/dev/null
+	@rm -rf release_tmp
+	@echo "release.zip created"

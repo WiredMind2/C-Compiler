@@ -12,7 +12,6 @@ compiler/.clangd
 
 # IDE
 .vscode/
-.github/
 
 # Prerequisites
 *.d
